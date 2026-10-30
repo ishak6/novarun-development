@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -61,6 +62,7 @@ fun NovaRunApp() {
         "Workspace",
         "Preview",
         "Runtimes",
+        "Console",
         "Settings"
     )
 
@@ -69,6 +71,7 @@ fun NovaRunApp() {
         Icons.Default.Folder,
         Icons.Default.Visibility,
         Icons.Default.Language,
+        Icons.Default.Terminal,
         Icons.Default.Settings
     )
 
@@ -128,6 +131,8 @@ fun NovaRunApp() {
                 )
 
                 3 -> RuntimeStatusRoute()
+
+                4 -> RuntimeConsoleScreen()
 
                 else -> SimpleScreen(
                     title = "Settings",
