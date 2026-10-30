@@ -3,12 +3,16 @@ package com.mangalocalrunnerplus
 
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.ServerSocket
-import java.net.Socket
+import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -19,13 +23,16 @@ class LocalWebServer(
 
     private val running = AtomicBoolean(false)
 
+    @Volatile
     private var serverSocket: ServerSocket? = null
 
-    private val executor = Executors.newCachedThreadPool()
+    @Volatile
+    private var executor: ExecutorService? = null
 
     val isRunning: Boolean
         get() = running.get()
 
+    @Synchronized
     fun start(): Boolean {
 
         if (running.get()) {
@@ -34,7 +41,7 @@ class LocalWebServer(
 
         val root = try {
             projectDirectory.canonicalFile
-        } catch (exception: IOException) {
+        } catch (exception: Exception) {
             return false
         }
 
@@ -44,20 +51,36 @@ class LocalWebServer(
 
         return try {
 
-            val socket = ServerSocket(port)
+            // Bind only to localhost.
+            val socket = ServerSocket().apply {
+                reuseAddress = true
+                bind(
+                    InetSocketAddress(
+                        InetAddress.getLoopbackAddress(),
+                        port
+                    )
+                )
+            }
+
+            val pool = Executors.newCachedThreadPool()
 
             serverSocket = socket
+            executor = pool
             running.set(true)
 
-            executor.execute {
+            pool.execute {
 
                 while (running.get()) {
 
                     try {
                         val client = socket.accept()
 
-                        executor.execute {
-                            handleClient(client, root)
+                        runCatching {
+                            pool.execute {
+                                handleClient(client, root)
+                            }
+                        }.onFailure {
+                            runCatching { client.close() }
                         }
 
                     } catch (exception: IOException) {
@@ -71,15 +94,27 @@ class LocalWebServer(
 
             true
 
-        } catch (exception: IOException) {
+        } catch (exception: Exception) {
 
             running.set(false)
+
+            runCatching {
+                serverSocket?.close()
+            }
+
+            runCatching {
+                executor?.shutdownNow()
+            }
+
+            serverSocket = null
+            executor = null
+
             false
         }
     }
 
     private fun handleClient(
-        socket: Socket,
+        socket: java.net.Socket,
         root: File
     ) {
 
@@ -95,30 +130,88 @@ class LocalWebServer(
                 client.getOutputStream()
             )
 
+            var method = ""
+
             try {
 
-                val requestLine = input.bufferedReader(
-                    StandardCharsets.UTF_8
-                ).readLine() ?: return
+                val requestLine = readBoundedLine(
+                    input,
+                    8192
+                ) ?: return
 
                 val parts = requestLine.split(" ")
 
-                if (parts.size < 2) {
+                if (parts.size != 3) {
                     sendError(output, 400, "Bad Request")
                     return
                 }
 
-                val method = parts[0]
-                val rawPath = parts[1]
+                method = parts[0]
+
+                val requestTarget = parts[1]
+                val httpVersion = parts[2]
+
+                if (httpVersion != "HTTP/1.1" &&
+                    httpVersion != "HTTP/1.0"
+                ) {
+                    sendError(output, 400, "Bad Request")
+                    return
+                }
 
                 if (method != "GET" && method != "HEAD") {
                     sendError(output, 405, "Method Not Allowed")
                     return
                 }
 
+                // Read headers with size and count limits.
+                var headerCount = 0
+                var totalHeaderBytes = 0
+
+                while (true) {
+
+                    val header = readBoundedLine(
+                        input,
+                        8192
+                    ) ?: run {
+                        sendError(output, 400, "Bad Request")
+                        return
+                    }
+
+                    totalHeaderBytes += header.length
+
+                    if (totalHeaderBytes > 16384) {
+                        sendError(output, 431, "Request Header Too Large")
+                        return
+                    }
+
+                    if (header.isEmpty()) {
+                        break
+                    }
+
+                    headerCount++
+
+                    if (headerCount > 32) {
+                        sendError(output, 431, "Request Header Too Large")
+                        return
+                    }
+
+                    if (!header.contains(":")) {
+                        sendError(output, 400, "Bad Request")
+                        return
+                    }
+                }
+
+                val rawPath = try {
+                    URI(requestTarget).rawPath
+                        ?: throw IllegalArgumentException()
+                } catch (exception: Exception) {
+                    sendError(output, 400, "Bad Request")
+                    return
+                }
+
                 val path = try {
                     URLDecoder.decode(
-                        rawPath.substringBefore("?"),
+                        rawPath.replace("+", "%2B"),
                         StandardCharsets.UTF_8.name()
                     )
                 } catch (exception: Exception) {
@@ -134,44 +227,43 @@ class LocalWebServer(
                     return
                 }
 
-                val requestedPath = path.removePrefix("/")
+                val requestedPath = path
+                    .removePrefix("/")
                     .ifEmpty { "index.html" }
 
-                val file = try {
+                val requestedFile = try {
                     File(root, requestedPath).canonicalFile
-                } catch (exception: IOException) {
+                } catch (exception: Exception) {
                     sendError(output, 403, "Forbidden")
                     return
                 }
 
-                val insideRoot =
-                    file.path.startsWith(
-                        root.path + File.separator
-                    ) || file == root
-
-                if (!insideRoot) {
+                if (!isInsideRoot(requestedFile, root)) {
                     sendError(output, 403, "Forbidden")
                     return
                 }
 
-                val target = if (file.isDirectory) {
-                    File(file, "index.html").canonicalFile
-                } else {
-                    file
+                val target = try {
+                    if (requestedFile.isDirectory) {
+                        File(requestedFile, "index.html").canonicalFile
+                    } else {
+                        requestedFile
+                    }
+                } catch (exception: Exception) {
+                    sendError(output, 403, "Forbidden")
+                    return
                 }
 
-                val targetInsideRoot =
-                    target.path.startsWith(
-                        root.path + File.separator
-                    )
-
-                if (!targetInsideRoot || !target.isFile || !target.canRead()) {
+                if (
+                    !isInsideRoot(target, root) ||
+                    !target.isFile ||
+                    !target.canRead()
+                ) {
                     sendError(output, 404, "Not Found")
                     return
                 }
 
                 val mimeType = getMimeType(target.extension)
-
                 val fileLength = target.length()
 
                 output.write(
@@ -196,16 +288,68 @@ class LocalWebServer(
             } catch (exception: Exception) {
 
                 runCatching {
-                    sendError(output, 500, "Internal Server Error")
+                    sendError(
+                        output,
+                        500,
+                        "Internal Server Error",
+                        method == "HEAD"
+                    )
                 }
             }
         }
     }
 
+    private fun readBoundedLine(
+        input: BufferedInputStream,
+        maxLength: Int
+    ): String? {
+
+        val bytes = ByteArrayOutputStream()
+
+        while (true) {
+
+            val value = input.read()
+
+            if (value == -1) {
+                if (bytes.size() == 0) {
+                    return null
+                }
+                break
+            }
+
+            if (value == '\n'.code) {
+                break
+            }
+
+            if (value != '\r'.code) {
+
+                if (bytes.size() >= maxLength) {
+                    throw IOException("Request line too large")
+                }
+
+                bytes.write(value)
+            }
+        }
+
+        return bytes.toString(
+            StandardCharsets.ISO_8859_1.name()
+        )
+    }
+
+    private fun isInsideRoot(
+        file: File,
+        root: File
+    ): Boolean {
+
+        return file == root ||
+            file.path.startsWith(root.path + File.separator)
+    }
+
     private fun sendError(
         output: BufferedOutputStream,
         status: Int,
-        message: String
+        message: String,
+        headOnly: Boolean = false
     ) {
 
         val body = message.toByteArray(
@@ -223,7 +367,10 @@ class LocalWebServer(
             response.toByteArray(StandardCharsets.UTF_8)
         )
 
-        output.write(body)
+        if (!headOnly) {
+            output.write(body)
+        }
+
         output.flush()
     }
 
@@ -252,6 +399,7 @@ class LocalWebServer(
         }
     }
 
+    @Synchronized
     fun stop() {
 
         running.set(false)
@@ -260,6 +408,11 @@ class LocalWebServer(
             serverSocket?.close()
         }
 
+        runCatching {
+            executor?.shutdownNow()
+        }
+
         serverSocket = null
+        executor = null
     }
 }
