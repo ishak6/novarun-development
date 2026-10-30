@@ -36,21 +36,44 @@ private val Green = Color(0xFF30D158)
 
 @Composable
 fun NovaRunApp() {
+
     var selectedTab by remember { mutableIntStateOf(0) }
-    var importMessage by remember { mutableStateOf<String?>(null) }
-    var importSucceeded by remember { mutableStateOf(false) }
-    var selectedProject by remember { mutableStateOf<File?>(null) }
+
+    var importMessage by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var importSucceeded by remember {
+        mutableStateOf(false)
+    }
+
+    var selectedProject by remember {
+        mutableStateOf<File?>(null)
+    }
+
+    var showProjectDialog by remember {
+        mutableStateOf(false)
+    }
 
     val launchZipImport = rememberZipImportLauncher { result ->
+
         result.fold(
             onSuccess = { project ->
+
                 importSucceeded = true
+
+                selectedProject = project
+
                 importMessage =
                     "Project imported successfully:\n${project.name}"
+
                 selectedTab = 1
             },
+
             onFailure = { error ->
+
                 importSucceeded = false
+
                 importMessage =
                     error.message ?: "Could not import ZIP project."
             }
@@ -77,21 +100,33 @@ fun NovaRunApp() {
 
     Scaffold(
         containerColor = Background,
+
         bottomBar = {
+
             NavigationBar(
                 containerColor = Color(0xFF11151D)
             ) {
+
                 tabs.forEachIndexed { index, title ->
+
                     NavigationBarItem(
                         selected = selectedTab == index,
-                        onClick = { selectedTab = index },
+
+                        onClick = {
+                            selectedTab = index
+                        },
+
                         icon = {
                             Icon(
                                 icons[index],
                                 contentDescription = title
                             )
                         },
-                        label = { Text(title) },
+
+                        label = {
+                            Text(title)
+                        },
+
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Blue,
                             selectedTextColor = Blue,
@@ -103,6 +138,7 @@ fun NovaRunApp() {
                 }
             }
         }
+
     ) { padding ->
 
         Box(
@@ -110,25 +146,50 @@ fun NovaRunApp() {
                 .fillMaxSize()
                 .padding(padding)
         ) {
+
             when (selectedTab) {
+
                 0 -> HomeScreen(
                     onImport = launchZipImport,
-                    onWorkspace = { selectedTab = 1 },
-                    onPreview = { selectedTab = 2 }
+                    onWorkspace = {
+                        selectedTab = 1
+                    },
+                    onPreview = {
+                        selectedTab = 2
+                    }
                 )
 
                 1 -> ProjectWorkspaceScreen(
                     onProjectSelected = { project ->
+
                         selectedProject = project
+                        showProjectDialog = true
                     }
                 )
 
-                2 -> SimpleScreen(
-                    title = "Preview",
-                    description =
-                        "Your local website preview will appear here.",
-                    icon = Icons.Default.Visibility
-                )
+                2 -> {
+
+                    val project = selectedProject
+
+                    if (project != null) {
+
+                        WebPreviewScreen(
+                            projectDirectory = project,
+                            onBack = {
+                                selectedTab = 1
+                            }
+                        )
+
+                    } else {
+
+                        SimpleScreen(
+                            title = "No Project Selected",
+                            description =
+                                "Open Workspace and select a project before starting Preview.",
+                            icon = Icons.Default.Visibility
+                        )
+                    }
+                }
 
                 3 -> RuntimeStatusRoute()
 
@@ -144,33 +205,74 @@ fun NovaRunApp() {
         }
     }
 
-    if (selectedProject != null) {
+    if (showProjectDialog && selectedProject != null) {
+
         AlertDialog(
-            onDismissRequest = { selectedProject = null },
-            containerColor = CardColor,
-            title = {
-                Text("Selected Project", color = Color.White)
+
+            onDismissRequest = {
+                showProjectDialog = false
             },
+
+            containerColor = CardColor,
+
+            title = {
+                Text(
+                    "Selected Project",
+                    color = Color.White
+                )
+            },
+
             text = {
                 Text(
                     selectedProject?.name ?: "",
                     color = Muted
                 )
             },
+
             confirmButton = {
-                TextButton(
-                    onClick = { selectedProject = null }
+
+                Row(
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Text("OK", color = Blue)
+
+                    TextButton(
+                        onClick = {
+
+                            showProjectDialog = false
+                            selectedTab = 2
+                        }
+                    ) {
+                        Text(
+                            "Preview",
+                            color = Blue
+                        )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            showProjectDialog = false
+                        }
+                    ) {
+                        Text(
+                            "OK",
+                            color = Blue
+                        )
+                    }
                 }
             }
         )
     }
 
     if (importMessage != null) {
+
         AlertDialog(
-            onDismissRequest = { importMessage = null },
+
+            onDismissRequest = {
+                importMessage = null
+            },
+
             containerColor = CardColor,
+
             title = {
                 Text(
                     if (importSucceeded) {
@@ -181,14 +283,25 @@ fun NovaRunApp() {
                     color = Color.White
                 )
             },
+
             text = {
-                Text(importMessage ?: "", color = Muted)
+                Text(
+                    importMessage ?: "",
+                    color = Muted
+                )
             },
+
             confirmButton = {
+
                 TextButton(
-                    onClick = { importMessage = null }
+                    onClick = {
+                        importMessage = null
+                    }
                 ) {
-                    Text("OK", color = Blue)
+                    Text(
+                        "OK",
+                        color = Blue
+                    )
                 }
             }
         )
@@ -201,22 +314,32 @@ private fun HomeScreen(
     onWorkspace: () -> Unit,
     onPreview: () -> Unit
 ) {
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(Background)
             .padding(horizontal = 20.dp),
+
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
+
         item {
+
             Spacer(Modifier.height(14.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
+
                 Column {
+
                     Text(
                         "NOVARUN",
                         color = Color.White,
@@ -237,8 +360,10 @@ private fun HomeScreen(
                     modifier = Modifier
                         .size(44.dp)
                         .background(CardColor, CircleShape),
+
                     contentAlignment = Alignment.Center
                 ) {
+
                     Icon(
                         Icons.Default.Code,
                         contentDescription = "NovaRun",
@@ -249,7 +374,9 @@ private fun HomeScreen(
         }
 
         item {
+
             Column {
+
                 Text(
                     "Build something",
                     color = Color.White,
@@ -266,17 +393,26 @@ private fun HomeScreen(
         }
 
         item {
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
+
                 shape = RoundedCornerShape(24.dp),
+
                 colors = CardDefaults.cardColors(
                     containerColor = CardColor
                 )
             ) {
-                Column(Modifier.padding(20.dp)) {
+
+                Column(
+                    Modifier.padding(20.dp)
+                ) {
+
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment =
+                            Alignment.CenterVertically
                     ) {
+
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
@@ -284,8 +420,10 @@ private fun HomeScreen(
                                     Color(0xFF203D36),
                                     RoundedCornerShape(12.dp)
                                 ),
+
                             contentAlignment = Alignment.Center
                         ) {
+
                             Icon(
                                 Icons.Default.Language,
                                 contentDescription = null,
@@ -296,6 +434,7 @@ private fun HomeScreen(
                         Spacer(Modifier.width(12.dp))
 
                         Column {
+
                             Text(
                                 "LOCAL ENVIRONMENT",
                                 color = Muted,
@@ -315,9 +454,11 @@ private fun HomeScreen(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
+
                         horizontalArrangement =
                             Arrangement.SpaceBetween
                     ) {
+
                         StatusItem("PROJECTS", "Local")
                         StatusItem("SERVERS", "0")
                         StatusItem("RUNTIME", "Setup")
@@ -327,6 +468,7 @@ private fun HomeScreen(
         }
 
         item {
+
             Text(
                 "QUICK ACTIONS",
                 color = Muted,
@@ -337,10 +479,14 @@ private fun HomeScreen(
         }
 
         item {
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+
+                horizontalArrangement =
+                    Arrangement.spacedBy(12.dp)
             ) {
+
                 ActionCard(
                     title = "Import ZIP",
                     subtitle = "Add an existing project",
@@ -362,19 +508,28 @@ private fun HomeScreen(
         }
 
         item {
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onPreview() },
+                    .clickable {
+                        onPreview()
+                    },
+
                 shape = RoundedCornerShape(20.dp),
+
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFF111C2B)
                 )
             ) {
+
                 Row(
                     modifier = Modifier.padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically
+
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
+
                     Icon(
                         Icons.Default.Visibility,
                         contentDescription = null,
@@ -384,7 +539,10 @@ private fun HomeScreen(
 
                     Spacer(Modifier.width(14.dp))
 
-                    Column(Modifier.weight(1f)) {
+                    Column(
+                        Modifier.weight(1f)
+                    ) {
+
                         Text(
                             "Live Preview",
                             color = Color.White,
@@ -409,6 +567,7 @@ private fun HomeScreen(
         }
 
         item {
+
             Text(
                 "PROJECT WORKSPACE",
                 color = Muted,
@@ -419,19 +578,28 @@ private fun HomeScreen(
         }
 
         item {
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onWorkspace() },
+                    .clickable {
+                        onWorkspace()
+                    },
+
                 shape = RoundedCornerShape(18.dp),
+
                 colors = CardDefaults.cardColors(
                     containerColor = CardColor
                 )
             ) {
+
                 Row(
                     modifier = Modifier.padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
+
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
+
                     Icon(
                         Icons.Default.Folder,
                         contentDescription = null,
@@ -441,7 +609,10 @@ private fun HomeScreen(
 
                     Spacer(Modifier.width(12.dp))
 
-                    Column(Modifier.weight(1f)) {
+                    Column(
+                        Modifier.weight(1f)
+                    ) {
+
                         Text(
                             "Open Workspace",
                             color = Color.White,
@@ -473,7 +644,9 @@ private fun StatusItem(
     label: String,
     value: String
 ) {
+
     Column {
+
         Text(
             label,
             color = Muted,
@@ -501,14 +674,23 @@ private fun ActionCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+
     Card(
-        modifier = modifier.clickable { onClick() },
+        modifier = modifier.clickable {
+            onClick()
+        },
+
         shape = RoundedCornerShape(20.dp),
+
         colors = CardDefaults.cardColors(
             containerColor = CardColor
         )
     ) {
-        Column(Modifier.padding(16.dp)) {
+
+        Column(
+            Modifier.padding(16.dp)
+        ) {
+
             Icon(
                 icon,
                 contentDescription = null,
@@ -542,14 +724,20 @@ private fun SimpleScreen(
     description: String,
     icon: ImageVector
 ) {
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Background)
             .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+
+        verticalArrangement =
+            Arrangement.Center,
+
+        horizontalAlignment =
+            Alignment.CenterHorizontally
     ) {
+
         Icon(
             icon,
             contentDescription = null,
