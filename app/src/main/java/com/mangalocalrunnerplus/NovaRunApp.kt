@@ -1,3 +1,4 @@
+
 package com.mangalocalrunnerplus
 
 import androidx.compose.foundation.background
@@ -6,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Folder
@@ -27,12 +29,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.File
 
-private val Background = Color(0xFF090B10)
-private val CardColor = Color(0xFF171D28)
-private val Muted = Color(0xFF9AA6B5)
-private val Blue = Color(0xFF0A84FF)
-private val Purple = Color(0xFF8B7CFF)
-private val Green = Color(0xFF30D158)
+private val Background = NovaRunPalette.Background
+private val CardColor = NovaRunPalette.Surface
+private val Muted = NovaRunPalette.TextSecondary
+private val Blue = NovaRunPalette.Cyan
+private val Purple = NovaRunPalette.Purple
+private val Green = NovaRunPalette.Lime
 
 @Composable
 fun NovaRunApp() {
@@ -81,7 +83,7 @@ fun NovaRunApp() {
         containerColor = Background,
         bottomBar = {
             NavigationBar(
-                containerColor = Color(0xFF11151D)
+                containerColor = NovaRunPalette.Surface
             ) {
                 tabs.forEachIndexed { index, title ->
                     NavigationBarItem(
@@ -99,7 +101,7 @@ fun NovaRunApp() {
                             selectedTextColor = Blue,
                             unselectedIconColor = Muted,
                             unselectedTextColor = Muted,
-                            indicatorColor = Color(0xFF202938)
+                            indicatorColor = NovaRunPalette.SurfaceElevated
                         )
                     )
                 }
@@ -278,35 +280,18 @@ private fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        "NOVARUN",
-                        color = Color.White,
-                        fontSize = 23.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 2.sp
-                    )
+                NovaRunBrandLogo(
+                    markSize = 46.dp,
+                    showTagline = true
+                )
 
-                    Text(
-                        "LOCAL PROJECT RUNNER",
-                        color = Muted,
-                        fontSize = 10.sp,
-                        letterSpacing = 2.sp
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(CardColor, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Code,
-                        contentDescription = "NovaRun",
-                        tint = Blue
-                    )
-                }
+                Text(
+                    "BUILD • RUN • MANAGE",
+                    color = NovaRunPalette.Lime,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
             }
         }
 
@@ -330,7 +315,7 @@ private fun HomeScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
+                shape = RectangleShape,
                 colors = CardDefaults.cardColors(
                     containerColor = CardColor
                 )
@@ -344,7 +329,7 @@ private fun HomeScreen(
                             modifier = Modifier
                                 .size(38.dp)
                                 .background(
-                                    Color(0xFF203D36),
+                                    NovaRunPalette.SurfaceElevated,
                                     RoundedCornerShape(12.dp)
                                 ),
                             contentAlignment = Alignment.Center
@@ -428,9 +413,9 @@ private fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onLocalhost() },
-                shape = RoundedCornerShape(20.dp),
+                shape = RectangleShape,
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF14271F)
+                    containerColor = NovaRunPalette.SurfaceElevated
                 )
             ) {
                 Row(
@@ -475,9 +460,9 @@ private fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onPreview() },
-                shape = RoundedCornerShape(20.dp),
+                shape = RectangleShape,
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF111C2B)
+                    containerColor = NovaRunPalette.SurfaceElevated
                 )
             ) {
                 Row(
@@ -532,7 +517,7 @@ private fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onWorkspace() },
-                shape = RoundedCornerShape(18.dp),
+                shape = RectangleShape,
                 colors = CardDefaults.cardColors(
                     containerColor = CardColor
                 )
@@ -645,7 +630,7 @@ private fun MoreAction(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(18.dp),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(
             containerColor = CardColor
         )
@@ -721,7 +706,7 @@ private fun ActionCard(
 ) {
     Card(
         modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(20.dp),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(
             containerColor = CardColor
         )
