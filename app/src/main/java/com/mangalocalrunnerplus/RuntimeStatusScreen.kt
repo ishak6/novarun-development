@@ -28,6 +28,10 @@ fun RuntimeStatusScreen(
     results: List<RuntimeCheckResult>,
     modifier: Modifier = Modifier
 ) {
+    val overview = remember(results) {
+        RuntimeOverviewManager.create(results)
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -43,29 +47,108 @@ fun RuntimeStatusScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Check which language runtimes are available on this device.",
+            text = "Language runtime availability on this device.",
             color = Color(0xFF9AA6B5),
             fontSize = 14.sp
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        if (results.isEmpty()) {
-            Text(
-                text = "No runtime information available.",
-                color = Color(0xFF9AA6B5)
-            )
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(
-                    items = results,
-                    key = { it.language }
-                ) { result ->
-                    RuntimeStatusCard(result)
-                }
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                SummaryCard(
+                    title = "Total Languages",
+                    value = overview.totalLanguages.toString(),
+                    color = Color(0xFF0A84FF)
+                )
             }
+
+            item {
+                SummaryCard(
+                    title = "Preview Available",
+                    value = overview.previewAvailable.toString(),
+                    color = Color(0xFF30D158)
+                )
+            }
+
+            item {
+                SummaryCard(
+                    title = "Adapter Planned",
+                    value = overview.adapterPlanned.toString(),
+                    color = Color(0xFF0A84FF)
+                )
+            }
+
+            item {
+                SummaryCard(
+                    title = "Not Configured",
+                    value = overview.notConfigured.toString(),
+                    color = Color(0xFFFF9F0A)
+                )
+            }
+
+            item {
+                SummaryCard(
+                    title = "Not Supported",
+                    value = overview.notSupported.toString(),
+                    color = Color(0xFFFF453A)
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "LANGUAGE DETAILS",
+                    color = Color(0xFF9AA6B5),
+                    fontSize = 12.sp
+                )
+            }
+
+            items(
+                items = results,
+                key = { it.language }
+            ) { result ->
+                RuntimeStatusCard(result)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryCard(
+    title: String,
+    value: String,
+    color: Color
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF171D28)
+        ),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                title,
+                color = Color(0xFFF5F7FA),
+                fontSize = 14.sp
+            )
+
+            Text(
+                value,
+                color = color,
+                fontSize = 22.sp,
+                style = MaterialTheme.typography.titleLarge
+            )
         }
     }
 }
