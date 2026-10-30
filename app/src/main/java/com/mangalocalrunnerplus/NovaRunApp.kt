@@ -1,5 +1,7 @@
+
 package com.mangalocalrunnerplus
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -42,6 +44,42 @@ fun NovaRunApp() {
     var selectedProject by remember { mutableStateOf<File?>(null) }
     var selectedFile by remember { mutableStateOf<File?>(null) }
     var showProjectDialog by remember { mutableStateOf(false) }
+
+    BackHandler(
+        enabled = selectedTab != 0 ||
+            showProjectDialog ||
+            importMessage != null
+    ) {
+        when {
+            importMessage != null -> {
+                importMessage = null
+            }
+
+            showProjectDialog -> {
+                showProjectDialog = false
+            }
+
+            selectedTab == 10 -> {
+                selectedTab = 9
+            }
+
+            selectedTab == 9 -> {
+                selectedTab = 1
+            }
+
+            selectedTab == 2 || selectedTab == 3 -> {
+                selectedTab = 1
+            }
+
+            selectedTab in 5..8 -> {
+                selectedTab = 4
+            }
+
+            else -> {
+                selectedTab = 0
+            }
+        }
+    }
 
     val launchZipImport = rememberZipImportLauncher { result ->
         result.fold(
@@ -147,7 +185,6 @@ fun NovaRunApp() {
 
                 9 -> {
                     val project = selectedProject
-
                     if (project != null) {
                         ProjectFileExplorer(
                             projectRoot = project,
@@ -167,7 +204,6 @@ fun NovaRunApp() {
 
                 10 -> {
                     val file = selectedFile
-
                     if (file != null && file.exists() && file.isFile) {
                         CodeEditorScreen(
                             file = file,
@@ -287,7 +323,6 @@ private fun HomeScreen(
     ) {
         item {
             Spacer(Modifier.height(14.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -297,7 +332,6 @@ private fun HomeScreen(
                     markSize = 46.dp,
                     showTagline = true
                 )
-
                 Text(
                     "BUILD • RUN • MANAGE",
                     color = NovaRunPalette.Lime,
@@ -316,7 +350,6 @@ private fun HomeScreen(
                     fontSize = 29.sp,
                     fontWeight = FontWeight.Bold
                 )
-
                 Text(
                     "Run your projects locally.",
                     color = Muted,
@@ -329,14 +362,10 @@ private fun HomeScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RectangleShape,
-                colors = CardDefaults.cardColors(
-                    containerColor = CardColor
-                )
+                colors = CardDefaults.cardColors(containerColor = CardColor)
             ) {
                 Column(Modifier.padding(20.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
@@ -352,9 +381,7 @@ private fun HomeScreen(
                                 tint = Green
                             )
                         }
-
                         Spacer(Modifier.width(12.dp))
-
                         Column {
                             Text(
                                 "LOCAL ENVIRONMENT",
@@ -362,7 +389,6 @@ private fun HomeScreen(
                                 fontSize = 10.sp,
                                 letterSpacing = 1.5.sp
                             )
-
                             Text(
                                 "Ready to set up",
                                 color = NovaRunPalette.TextPrimary,
@@ -372,7 +398,6 @@ private fun HomeScreen(
                     }
 
                     Spacer(Modifier.height(22.dp))
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -408,7 +433,6 @@ private fun HomeScreen(
                     modifier = Modifier.weight(1f),
                     onClick = onImport
                 )
-
                 ActionCard(
                     title = "Workspace",
                     subtitle = "Browse project files",
@@ -440,23 +464,19 @@ private fun HomeScreen(
                         tint = Green,
                         modifier = Modifier.size(28.dp)
                     )
-
                     Spacer(Modifier.width(14.dp))
-
                     Column(Modifier.weight(1f)) {
                         Text(
                             "Localhost Control",
                             color = NovaRunPalette.TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
-
                         Text(
                             "Start and manage your local server",
                             color = Muted,
                             fontSize = 12.sp
                         )
                     }
-
                     Text(
                         "OPEN →",
                         color = Green,
@@ -487,23 +507,19 @@ private fun HomeScreen(
                         tint = Blue,
                         modifier = Modifier.size(28.dp)
                     )
-
                     Spacer(Modifier.width(14.dp))
-
                     Column(Modifier.weight(1f)) {
                         Text(
                             "Live Preview",
                             color = NovaRunPalette.TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
-
                         Text(
                             "Preview your local website",
                             color = Muted,
                             fontSize = 12.sp
                         )
                     }
-
                     Text(
                         "OPEN →",
                         color = Blue,
@@ -530,9 +546,7 @@ private fun HomeScreen(
                     .fillMaxWidth()
                     .clickable { onWorkspace() },
                 shape = RectangleShape,
-                colors = CardDefaults.cardColors(
-                    containerColor = CardColor
-                )
+                colors = CardDefaults.cardColors(containerColor = CardColor)
             ) {
                 Row(
                     modifier = Modifier.padding(20.dp),
@@ -544,31 +558,22 @@ private fun HomeScreen(
                         tint = Blue,
                         modifier = Modifier.size(30.dp)
                     )
-
                     Spacer(Modifier.width(12.dp))
-
                     Column(Modifier.weight(1f)) {
                         Text(
                             "Open Workspace",
                             color = NovaRunPalette.TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
-
                         Text(
                             "View your imported projects",
                             color = Muted,
                             fontSize = 12.sp
                         )
                     }
-
-                    Text(
-                        "→",
-                        color = Blue,
-                        fontSize = 22.sp
-                    )
+                    Text("→", color = Blue, fontSize = 22.sp)
                 }
             }
-
             Spacer(Modifier.height(12.dp))
         }
     }
@@ -594,34 +599,29 @@ private fun MoreScreen(
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )
-
         Text(
             "Additional NovaRun features",
             color = Muted,
             fontSize = 13.sp
         )
-
         MoreAction(
             title = "Runtimes",
             subtitle = "Runtime availability and status",
             icon = Icons.Default.Language,
             onClick = onRuntimes
         )
-
         MoreAction(
             title = "Console",
             subtitle = "View runtime console",
             icon = Icons.Default.Terminal,
             onClick = onConsole
         )
-
         MoreAction(
             title = "Developer Tools",
             subtitle = "JavaScript, SQLite and API Tester",
             icon = Icons.Default.Code,
             onClick = onTools
         )
-
         MoreAction(
             title = "Settings",
             subtitle = "Configure NovaRun preferences",
@@ -643,9 +643,7 @@ private fun MoreAction(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RectangleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = CardColor
-        )
+        colors = CardDefaults.cardColors(containerColor = CardColor)
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
@@ -657,28 +655,20 @@ private fun MoreAction(
                 tint = Blue,
                 modifier = Modifier.size(28.dp)
             )
-
             Spacer(Modifier.width(14.dp))
-
             Column(Modifier.weight(1f)) {
                 Text(
                     title,
                     color = NovaRunPalette.TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
-
                 Text(
                     subtitle,
                     color = Muted,
                     fontSize = 12.sp
                 )
             }
-
-            Text(
-                "→",
-                color = Blue,
-                fontSize = 22.sp
-            )
+            Text("→", color = Blue, fontSize = 22.sp)
         }
     }
 }
@@ -695,9 +685,7 @@ private fun StatusItem(
             fontSize = 9.sp,
             letterSpacing = 1.sp
         )
-
         Spacer(Modifier.height(5.dp))
-
         Text(
             value,
             color = NovaRunPalette.TextPrimary,
@@ -719,9 +707,7 @@ private fun ActionCard(
     Card(
         modifier = modifier.clickable { onClick() },
         shape = RectangleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = CardColor
-        )
+        colors = CardDefaults.cardColors(containerColor = CardColor)
     ) {
         Column(Modifier.padding(16.dp)) {
             Icon(
@@ -730,18 +716,14 @@ private fun ActionCard(
                 tint = accent,
                 modifier = Modifier.size(27.dp)
             )
-
             Spacer(Modifier.height(18.dp))
-
             Text(
                 title,
                 color = NovaRunPalette.TextPrimary,
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp
             )
-
             Spacer(Modifier.height(4.dp))
-
             Text(
                 subtitle,
                 color = Muted,
@@ -771,18 +753,14 @@ private fun SimpleScreen(
             tint = Blue,
             modifier = Modifier.size(48.dp)
         )
-
         Spacer(Modifier.height(16.dp))
-
         Text(
             title,
             color = NovaRunPalette.TextPrimary,
             fontSize = 25.sp,
             fontWeight = FontWeight.Bold
         )
-
         Spacer(Modifier.height(8.dp))
-
         Text(
             description,
             color = Muted,
