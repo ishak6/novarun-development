@@ -6,7 +6,7 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,10 +18,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.File
 
-private val ControlBackground = Color(0xFF090B10)
-private val ControlCard = Color(0xFF171D28)
-private val ControlBlue = Color(0xFF0A84FF)
-private val ControlMuted = Color(0xFF9AA6B5)
+private val ControlBackground = NovaRunPalette.Background
+private val ControlCard = NovaRunPalette.Surface
+private val ControlBlue = NovaRunPalette.Cyan
+private val ControlMuted = NovaRunPalette.TextSecondary
 
 @Composable
 fun NovaRunSettingsScreen() {
@@ -57,7 +57,18 @@ fun NovaRunSettingsScreen() {
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Settings", color = Color.White, fontSize = 28.sp)
+        NovaRunBrandLogo(
+            markSize = 42.dp,
+            showTagline = false
+        )
+
+        Text(
+            "SETTINGS",
+            color = Color.White,
+            fontSize = 28.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
+        )
+
         Text(
             "Customize NovaRun on this device",
             color = ControlMuted,
@@ -65,14 +76,17 @@ fun NovaRunSettingsScreen() {
         )
 
         SettingsSectionTitle("APPEARANCE")
+
         SettingsCard {
             Text("App theme", color = Color.White)
             Text(
-                "Theme preference is saved; applying a live theme globally is a separate UI task.",
+                "Choose your saved theme preference.",
                 color = ControlMuted,
                 fontSize = 11.sp
             )
+
             Spacer(Modifier.height(8.dp))
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Dark", "Light", "System").forEach { option ->
                     FilterChip(
@@ -81,15 +95,21 @@ fun NovaRunSettingsScreen() {
                             theme = option
                             prefs.edit().putString("theme", option).apply()
                         },
-                        label = { Text(option) }
+                        label = { Text(option) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NovaRunPalette.Cyan,
+                            selectedLabelColor = NovaRunPalette.Background
+                        )
                     )
                 }
             }
         }
 
         SettingsSectionTitle("LOCAL SERVER")
+
         SettingsCard {
             Text("Default server port", color = Color.White)
+
             OutlinedTextField(
                 value = port.toString(),
                 onValueChange = { value ->
@@ -108,6 +128,7 @@ fun NovaRunSettingsScreen() {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+
             Text(
                 "The Localhost Control screen uses this port as its default.",
                 color = ControlMuted,
@@ -125,6 +146,7 @@ fun NovaRunSettingsScreen() {
         }
 
         SettingsSectionTitle("CODE EDITOR PREFERENCES")
+
         SettingsSwitch(
             "Auto Save preference",
             "Saved preference. The editor must read this setting to change its behavior.",
@@ -133,6 +155,7 @@ fun NovaRunSettingsScreen() {
             autoSave = it
             prefs.edit().putBoolean("auto_save", it).apply()
         }
+
         SettingsSwitch(
             "Word Wrap preference",
             "Saved preference. The editor must read this setting to apply line wrapping.",
@@ -144,6 +167,7 @@ fun NovaRunSettingsScreen() {
 
         SettingsCard {
             Text("Editor font size: ${fontSize}sp", color = Color.White)
+
             Slider(
                 value = fontSize.toFloat(),
                 onValueChange = {
@@ -151,11 +175,16 @@ fun NovaRunSettingsScreen() {
                     prefs.edit().putInt("font_size", fontSize).apply()
                 },
                 valueRange = 10f..24f,
-                steps = 13
+                steps = 13,
+                colors = SliderDefaults.colors(
+                    thumbColor = NovaRunPalette.Lime,
+                    activeTrackColor = NovaRunPalette.Cyan
+                )
             )
         }
 
         SettingsSectionTitle("PROJECTS & STORAGE")
+
         SettingsCard {
             Text("Project storage", color = Color.White)
             Text(
@@ -166,12 +195,24 @@ fun NovaRunSettingsScreen() {
         }
 
         SettingsSectionTitle("ABOUT")
+
         SettingsCard {
-            Text("NOVARUN", color = Color.White, fontSize = 18.sp)
-            Text("Local Project Runner", color = ControlBlue)
-            Text("Version 1.0 · Debug build", color = ControlMuted)
             Text(
-                "Some settings above are saved preferences and need their related editor or theme implementation before they affect every screen.",
+                "NOVARUN",
+                color = NovaRunPalette.Cyan,
+                fontSize = 20.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
+            )
+            Text(
+                "Local Project Runner",
+                color = NovaRunPalette.Lime
+            )
+            Text(
+                "Version 1.0 · Debug build",
+                color = ControlMuted
+            )
+            Text(
+                "Some saved preferences need their related editor or theme implementation before they affect every screen.",
                 color = ControlMuted,
                 fontSize = 11.sp
             )
@@ -181,15 +222,29 @@ fun NovaRunSettingsScreen() {
 
 @Composable
 private fun SettingsSectionTitle(title: String) {
-    Text(title, color = ControlBlue, fontSize = 11.sp)
+    Text(
+        title,
+        color = ControlBlue,
+        fontSize = 11.sp,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+        letterSpacing = 1.5.sp
+    )
 }
 
 @Composable
-private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+private fun SettingsCard(
+    content: @Composable ColumnScope.() -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = ControlCard),
-        shape = RoundedCornerShape(16.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = ControlCard
+        ),
+        shape = RectangleShape,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            NovaRunPalette.Border
+        )
     ) {
         Column(
             modifier = Modifier.padding(15.dp),
@@ -213,11 +268,20 @@ private fun SettingsSwitch(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(title, color = Color.White)
-                Text(detail, color = ControlMuted, fontSize = 11.sp)
+                Text(
+                    detail,
+                    color = ControlMuted,
+                    fontSize = 11.sp
+                )
             }
+
             Switch(
                 checked = checked,
-                onCheckedChange = onCheckedChange
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = NovaRunPalette.Background,
+                    checkedTrackColor = NovaRunPalette.Lime
+                )
             )
         }
     }
@@ -245,7 +309,18 @@ fun NovaRunLocalhostScreen(project: File?) {
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Localhost Control", color = Color.White, fontSize = 27.sp)
+        NovaRunBrandLogo(
+            markSize = 42.dp,
+            showTagline = false
+        )
+
+        Text(
+            "LOCALHOST CONTROL",
+            color = Color.White,
+            fontSize = 25.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
+        )
+
         Text(
             "Start, stop, monitor and open your local project server.",
             color = ControlMuted,
@@ -253,34 +328,44 @@ fun NovaRunLocalhostScreen(project: File?) {
         )
 
         SettingsCard {
-            Text("SERVER STATUS", color = ControlMuted, fontSize = 11.sp)
+            Text(
+                "SERVER STATUS",
+                color = ControlMuted,
+                fontSize = 11.sp
+            )
+
             Text(
                 state.status.name,
                 color = when (state.status) {
-                    LocalServerServiceStatus.RUNNING -> Color(0xFF30D158)
-                    LocalServerServiceStatus.ERROR -> Color(0xFFFF453A)
-                    LocalServerServiceStatus.STARTING -> Color(0xFFFF9F0A)
+                    LocalServerServiceStatus.RUNNING -> NovaRunPalette.Lime
+                    LocalServerServiceStatus.ERROR -> NovaRunPalette.Error
+                    LocalServerServiceStatus.STARTING -> NovaRunPalette.Warning
                     LocalServerServiceStatus.STOPPED -> Color.White
                 },
-                fontSize = 23.sp
+                fontSize = 23.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
             )
+
             Text(state.message, color = ControlMuted)
+
             state.projectName?.let {
                 Text("Project: $it", color = Color.White)
             }
+
             if (
                 state.status == LocalServerServiceStatus.RUNNING &&
                 state.durationMillis > 0L
             ) {
                 Text(
                     "Time left: ${state.remainingMillis / 60000} min",
-                    color = Color.White
+                    color = NovaRunPalette.Lime
                 )
             }
         }
 
         SettingsCard {
             Text("Server port", color = Color.White)
+
             OutlinedTextField(
                 value = portText,
                 onValueChange = {
@@ -292,10 +377,213 @@ fun NovaRunLocalhostScreen(project: File?) {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+
             Text(
                 "Auto stop: ${
                     if (autoStopMinutes == 0) "Never"
                     else "$autoStopMinutes minutes"
+                }",
+                color = Color.White
+            )
+
+            Slider(
+                value = autoStopMinutes.toFloat(),
+                onValueChange = { autoStopMinutes = it.toInt() },
+                valueRange = 0f..240f,
+                steps = 23,
+                colors = SliderDefaults.colors(
+                    thumbColor = NovaRunPalette.Lime,
+                    activeTrackColor = NovaRunPalette.Cyan
+                )
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    modifier = Modifier.weight(1f),
+                    enabled =
+                        state.status != LocalServerServiceStatus.RUNNING &&
+                        state.status != LocalServerServiceStatus.STARTING,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NovaRunPalette.Cyan,
+                        contentColor = NovaRunPalette.Background
+                    ),
+                    shape = RectangleShape,
+                    onClick = {
+                        val parsedPort = portText.toIntOrNull()
+
+                        when {
+                            project == null || !project.isDirectory -> {
+                                message = "প্রথমে Workspace থেকে একটি Project নির্বাচন করুন।"
+                            }
+
+                            parsedPort == null || parsedPort !in 1024..65535 -> {
+                                message = "সঠিক Port দিন (1024–65535)।"
+                            }
+
+                            else -> {
+                                prefs.edit()
+                                    .putInt("server_port", parsedPort)
+                                    .apply()
+
+                                LocalWebServerService.start(
+                                    context = context,
+                                    projectDirectory = project,
+                                    durationMillis = autoStopMinutes * 60_000L,
+                                    port = parsedPort
+                                )
+
+                                message = "Server start request পাঠানো হয়েছে।"
+                            }
+                        }
+                    }
+                ) {
+                    Text("Start Server")
+                }
+
+                OutlinedButton(
+                    modifier = Modifier.weight(1f),
+                    shape = RectangleShape,
+                    onClick = {
+                        LocalWebServerService.stop(context)
+                        message = "Server stop request পাঠানো হয়েছে।"
+                    }
+                ) {
+                    Text("Stop")
+                }
+            }
+
+            OutlinedButton(
+                modifier = Modifier.fillMaxWidth(),
+                enabled = state.status != LocalServerServiceStatus.STARTING,
+                shape = RectangleShape,
+                onClick = {
+                    val parsedPort = portText.toIntOrNull()
+
+                    if (project == null || !project.isDirectory) {
+                        message = "Restart করার আগে Workspace থেকে Project নির্বাচন করুন।"
+                    } else if (parsedPort == null || parsedPort !in 1024..65535) {
+                        message = "সঠিক Port দিন (1024–65535)।"
+                    } else {
+                        LocalWebServerService.stop(context)
+
+                        LocalWebServerService.start(
+                            context,
+                            project,
+                            autoStopMinutes * 60_000L,
+                            parsedPort
+                        )
+
+                        message = "Restart request পাঠানো হয়েছে।"
+                    }
+                }
+            ) {
+                Text("Restart Server")
+            }
+        }
+
+        state.localUrl?.let {
+            LocalhostUrlCard("Localhost URL", it)
+        }
+
+        state.lanUrl?.let {
+            LocalhostUrlCard("LAN URL", it)
+        }
+
+        state.url?.let { url ->
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RectangleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NovaRunPalette.Lime,
+                    contentColor = NovaRunPalette.Background
+                ),
+                onClick = {
+                    runCatching {
+                        val viewIntent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(url)
+                        )
+
+                        context.startActivity(
+                            Intent.createChooser(
+                                viewIntent,
+                                "Open with browser"
+                            )
+                        )
+                    }.onFailure {
+                        message = "Browser খুলতে সমস্যা: ${it.message}"
+                    }
+                }
+            ) {
+                Text("Open in External Browser")
+            }
+        }
+
+        message?.let {
+            Text(
+                it,
+                color = ControlMuted,
+                fontSize = 12.sp
+            )
+        }
+
+        SettingsCard {
+            Text(
+                "NETWORK NOTE",
+                color = NovaRunPalette.Cyan,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            )
+
+            Text(
+                "LAN URL অন্য ডিভাইসে খুলতে হলে দুই ডিভাইস একই Wi-Fi/Hotspot-এ থাকতে হবে। Router client isolation বা firewall থাকলে LAN access বন্ধ থাকতে পারে। এই server-এ এখনো password/token protection নেই; বিশ্বস্ত network ছাড়া LAN sharing ব্যবহার করবেন না।",
+                color = ControlMuted,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun LocalhostUrlCard(
+    label: String,
+    url: String
+) {
+    val context = LocalContext.current
+
+    SettingsCard {
+        Text(
+            label.uppercase(),
+            color = NovaRunPalette.Cyan,
+            fontSize = 11.sp
+        )
+
+        Text(
+            url,
+            color = Color.White
+        )
+
+        TextButton(
+            onClick = {
+                val clipboard = context.getSystemService(
+                    android.content.Context.CLIPBOARD_SERVICE
+                ) as android.content.ClipboardManager
+
+                clipboard.setPrimaryClip(
+                    android.content.ClipData.newPlainText(label, url)
+                )
+            }
+        ) {
+            Text(
+                "COPY URL",
+                color = NovaRunPalette.Lime
+            )
+        }
+    }
+}
+minutes"
                 }",
                 color = Color.White
             )
