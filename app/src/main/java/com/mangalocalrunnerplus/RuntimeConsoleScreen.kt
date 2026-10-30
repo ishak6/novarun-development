@@ -19,10 +19,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,13 +29,8 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun RuntimeConsoleScreen() {
-    var refreshKey by remember {
-        mutableIntStateOf(0)
-    }
 
-    val logs = remember(refreshKey) {
-        RuntimeConsoleLogger.getLogs()
-    }
+    val logs by RuntimeConsoleLogger.logEntries.collectAsState()
 
     Column(
         modifier = Modifier
@@ -45,11 +38,13 @@ fun RuntimeConsoleScreen() {
             .background(Color(0xFF090B10))
             .padding(16.dp)
     ) {
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+
             Text(
                 text = "Runtime Console",
                 color = Color.White,
@@ -60,7 +55,6 @@ fun RuntimeConsoleScreen() {
             Button(
                 onClick = {
                     RuntimeConsoleLogger.clear()
-                    refreshKey++
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF202938)
@@ -81,19 +75,26 @@ fun RuntimeConsoleScreen() {
         Spacer(Modifier.height(14.dp))
 
         if (logs.isEmpty()) {
+
             Text(
                 text = "No console output yet.",
                 color = Color(0xFF9AA6B5)
             )
+
         } else {
+
             LazyColumn(
+                modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+
                 items(
                     items = logs,
                     key = { it.timestamp.toString() + it.message }
                 ) { entry ->
+
                     val logColor = when (entry.level) {
+
                         RuntimeLogLevel.INFO ->
                             Color(0xFF0A84FF)
 
@@ -114,9 +115,11 @@ fun RuntimeConsoleScreen() {
                         ),
                         shape = MaterialTheme.shapes.medium
                     ) {
+
                         Column(
                             modifier = Modifier.padding(12.dp)
                         ) {
+
                             Text(
                                 text = "${RuntimeConsoleLogger.formatTimestamp(entry.timestamp)}  ${entry.level}",
                                 color = logColor,
