@@ -38,12 +38,14 @@ fun NovaRunApp() {
     var selectedTab by remember { mutableIntStateOf(0) }
     var importMessage by remember { mutableStateOf<String?>(null) }
     var importSucceeded by remember { mutableStateOf(false) }
+    var selectedProject by remember { mutableStateOf<File?>(null) }
 
     val launchZipImport = rememberZipImportLauncher { result ->
         result.fold(
-            onSuccess = { project: File ->
+            onSuccess = { project ->
                 importSucceeded = true
                 importMessage = "Project imported successfully:\n${project.name}"
+                selectedTab = 1
             },
             onFailure = { error ->
                 importSucceeded = false
@@ -85,35 +87,61 @@ fun NovaRunApp() {
             }
         }
     ) { padding ->
-        when (selectedTab) {
-            0 -> HomeScreen(
-                modifier = Modifier.padding(padding),
-                onImport = launchZipImport,
-                onWorkspace = { selectedTab = 1 },
-                onPreview = { selectedTab = 2 }
-            )
 
-            1 -> SimpleScreen(
-                "Workspace",
-                "Your project workspace will appear here.",
-                Icons.Default.Folder,
-                Modifier.padding(padding)
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when (selectedTab) {
+                0 -> HomeScreen(
+                    onImport = launchZipImport,
+                    onWorkspace = { selectedTab = 1 },
+                    onPreview = { selectedTab = 2 }
+                )
 
-            2 -> SimpleScreen(
-                "Preview",
-                "Your local website preview will appear here.",
-                Icons.Default.Visibility,
-                Modifier.padding(padding)
-            )
+                1 -> ProjectWorkspaceScreen(
+                    onProjectSelected = { project ->
+                        selectedProject = project
+                    }
+                )
 
-            else -> SimpleScreen(
-                "Settings",
-                "Configure NovaRun preferences here.",
-                Icons.Default.Settings,
-                Modifier.padding(padding)
-            )
+                2 -> SimpleScreen(
+                    "Preview",
+                    "Your local website preview will appear here.",
+                    Icons.Default.Visibility
+                )
+
+                else -> SimpleScreen(
+                    "Settings",
+                    "Configure NovaRun preferences here.",
+                    Icons.Default.Settings
+                )
+            }
         }
+    }
+
+    if (selectedProject != null) {
+        AlertDialog(
+            onDismissRequest = { selectedProject = null },
+            containerColor = CardColor,
+            title = {
+                Text("Selected Project", color = Color.White)
+            },
+            text = {
+                Text(
+                    selectedProject?.name ?: "",
+                    color = Muted
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { selectedProject = null }
+                ) {
+                    Text("OK", color = Blue)
+                }
+            }
+        )
     }
 
     if (importMessage != null) {
@@ -142,13 +170,12 @@ fun NovaRunApp() {
 
 @Composable
 private fun HomeScreen(
-    modifier: Modifier = Modifier,
     onImport: () -> Unit,
     onWorkspace: () -> Unit,
     onPreview: () -> Unit
 ) {
     LazyColumn(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(Background)
             .padding(horizontal = 20.dp),
@@ -256,7 +283,7 @@ private fun HomeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        StatusItem("PROJECTS", "0")
+                        StatusItem("PROJECTS", "Local")
                         StatusItem("SERVERS", "0")
                         StatusItem("RUNTIME", "Setup")
                     }
@@ -292,6 +319,201 @@ private fun HomeScreen(
                     title = "Workspace",
                     subtitle = "Browse project files",
                     icon = Icons.Default.Folder,
+                    accent = Purple,
+                    modifier = Modifier.weight(1f),
+                    onClick = onWorkspace
+                )
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onPreview() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF111C2B)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Visibility,
+                        contentDescription = null,
+                        tint = Blue,
+                        modifier = Modifier.size(28.dp)
+                    )
+
+                    Spacer(Modifier.width(14.dp))
+
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Live Preview",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Preview your local website",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Text(
+                        "OPEN →",
+                        color = Blue,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        item {
+            Text(
+                "PROJECT WORKSPACE",
+                color = Muted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp
+            )
+        }
+
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onWorkspace() },
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = CardColor)
+            ) {
+                Row(
+                    modifier = Modifier.padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = Blue,
+                        modifier = Modifier.size(30.dp)
+                    )
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Open Workspace",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "View your imported projects",
+                            color = Muted,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Text("→", color = Blue, fontSize = 22.sp)
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun StatusItem(label: String, value: String) {
+    Column {
+        Text(label, color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+        Spacer(Modifier.height(5.dp))
+        Text(
+            value,
+            color = Color.White,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun ActionCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    accent: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier.clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = CardColor)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(27.dp)
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            Text(
+                title,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Text(subtitle, color = Muted, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun SimpleScreen(
+    title: String,
+    description: String,
+    icon: ImageVector
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = Blue,
+            modifier = Modifier.size(48.dp)
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            title,
+            color = Color.White,
+            fontSize = 25.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(description, color = Muted, fontSize = 14.sp)
+    }
+    }
+}
+  icon = Icons.Default.Folder,
                     accent = Purple,
                     modifier = Modifier.weight(1f),
                     onClick = onWorkspace
