@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Save
@@ -58,6 +59,9 @@ fun CodeEditorScreen(
     }
 
     val isModified = code != savedCode
+    val lineCount = remember(code) {
+        code.count { it == '\n' } + 1
+    }
 
     Column(
         modifier = modifier
@@ -87,7 +91,11 @@ fun CodeEditorScreen(
 
                 Text(
                     if (isModified) "Unsaved changes" else "Saved",
-                    color = if (isModified) Color(0xFFFF9F0A) else Color(0xFF30D158),
+                    color = if (isModified) {
+                        Color(0xFFFF9F0A)
+                    } else {
+                        Color(0xFF30D158)
+                    },
                     fontSize = 11.sp
                 )
             }
@@ -113,46 +121,78 @@ fun CodeEditorScreen(
                     containerColor = EditorBlue
                 )
             ) {
-                Icon(
-                    Icons.Default.Save,
-                    contentDescription = null
-                )
+                Icon(Icons.Default.Save, contentDescription = null)
                 Spacer(Modifier.width(6.dp))
                 Text("Save")
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                "SOURCE CODE",
+                color = EditorMuted,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp
+            )
+
+            Text(
+                "$lineCount lines",
+                color = EditorMuted,
+                fontSize = 10.sp
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
 
         Card(
-            modifier = Modifier
-                .fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = EditorCard
             )
         ) {
-            Column(Modifier.padding(12.dp)) {
-                Text(
-                    "SOURCE CODE",
-                    color = EditorMuted,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.5.sp
-                )
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(10.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .width(38.dp)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    repeat(lineCount) { index ->
+                        Text(
+                            text = "${index + 1}",
+                            color = EditorMuted,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            lineHeight = 19.sp
+                        )
+                    }
+                }
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.width(10.dp))
 
                 OutlinedTextField(
                     value = code,
                     onValueChange = { code = it },
                     modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .horizontalScroll(rememberScrollState()),
                     textStyle = LocalTextStyle.current.copy(
                         color = Color(0xFFE6EDF3),
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         lineHeight = 19.sp
                     ),
                     placeholder = {
