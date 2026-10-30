@@ -38,6 +38,8 @@ data class LocalServerServiceState(
     val message: String = "Server is stopped",
     val projectName: String? = null,
     val url: String? = null,
+    val lanUrl: String? = null,
+    val localUrl: String? = null,
     val durationMillis: Long = 0L,
     val remainingMillis: Long = 0L
 )
@@ -108,20 +110,20 @@ class LocalWebServerService : Service() {
                 }
 
                 showForegroundNotification(
-                    "Starting NovaRun server..."
+                    "Starting NovaRun LAN server..."
                 )
 
                 LocalServerServiceStateStore.update(
                     LocalServerServiceState(
                         status = LocalServerServiceStatus.STARTING,
-                        message = "Starting server..."
+                        message = "Starting LAN server..."
                     )
                 )
 
                 startServer(
-                    projectPath,
-                    durationMillis,
-                    port
+                    projectPath = projectPath,
+                    durationMillis = durationMillis,
+                    port = port
                 )
             }
 
@@ -173,7 +175,8 @@ class LocalWebServerService : Service() {
 
             val newServer = LocalWebServer(
                 projectDirectory = project,
-                port = port
+                port = port,
+                bindToLan = true
             )
 
             val started = withContext(Dispatchers.IO) {
@@ -181,7 +184,9 @@ class LocalWebServerService : Service() {
             }
 
             if (!started) {
-                setError("Could not start local server")
+                setError(
+                    "Could not start LAN server. Port may already be in use."
+                )
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return@launch
@@ -189,7 +194,21 @@ class LocalWebServerService : Service() {
 
             server = newServer
 
+            val localAddress =
+                "http://127.0.0.1:$port"
+
+            val lanAddress =
+                LocalWebServer.getLocalNetworkAddress()
+
+            val lanAddressUrl = lanAddress?.let {
+                "http://$it:$port"
+            }
+
+            val primaryUrl =
+                lanAddressUrl ?: localAddress
+
             val startTime = SystemClock.elapsedRealtime()
+
             val endTime = if (durationMillis > 0L) {
                 startTime + durationMillis
             } else {
@@ -199,23 +218,29 @@ class LocalWebServerService : Service() {
             LocalServerServiceStateStore.update(
                 LocalServerServiceState(
                     status = LocalServerServiceStatus.RUNNING,
-                    message = if (durationMillis == 0L) {
-                        "Server running - Unlimited"
+                    message = if (lanAddressUrl != null) {
+                        if (durationMillis == 0L) {
+                            "LAN server running - Unlimited"
+                        } else {
+                            "LAN server running"
+                        }
                     } else {
-                        "Server running"
+                        "Server running. LAN IP unavailable."
                     },
                     projectName = project.name,
-                    url = "http://127.0.0.1:$port",
+                    url = primaryUrl,
+                    lanUrl = lanAddressUrl,
+                    localUrl = localAddress,
                     durationMillis = durationMillis,
                     remainingMillis = durationMillis
                 )
             )
 
             showForegroundNotification(
-                if (durationMillis == 0L) {
-                    "Server running - Unlimited"
+                if (lanAddressUrl != null) {
+                    "LAN server running on port $port"
                 } else {
-                    "Server running on port $port"
+                    "Server running. LAN IP unavailable."
                 }
             )
 
@@ -234,9 +259,15 @@ class LocalWebServerService : Service() {
                     LocalServerServiceStateStore.update(
                         LocalServerServiceState(
                             status = LocalServerServiceStatus.RUNNING,
-                            message = "Server running",
+                            message = if (lanAddressUrl != null) {
+                                "LAN server running"
+                            } else {
+                                "Server running. LAN IP unavailable."
+                            },
                             projectName = project.name,
-                            url = "http://127.0.0.1:$port",
+                            url = primaryUrl,
+                            lanUrl = lanAddressUrl,
+                            localUrl = localAddress,
                             durationMillis = durationMillis,
                             remainingMillis = remaining
                         )
@@ -252,6 +283,7 @@ class LocalWebServerService : Service() {
     }
 
     private suspend fun stopExistingServer() {
+
         withContext(Dispatchers.IO) {
             server?.stop()
             server = null
