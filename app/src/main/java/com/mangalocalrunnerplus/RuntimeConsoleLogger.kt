@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 
 enum class RuntimeLogLevel {
     INFO,
@@ -18,21 +19,21 @@ enum class RuntimeLogLevel {
 data class RuntimeLogEntry(
     val timestamp: Long,
     val level: RuntimeLogLevel,
-    val message: String
+    val message: String,
+    val id: Long = 0L
 )
 
 object RuntimeConsoleLogger {
 
     private const val MAX_LOGS = 1000
 
+    private val nextId = AtomicLong(0L)
+
     private val logs = mutableListOf<RuntimeLogEntry>()
 
     private val _logEntries =
         MutableStateFlow<List<RuntimeLogEntry>>(emptyList())
 
-    /**
-     * Observable log stream for Jetpack Compose.
-     */
     val logEntries: StateFlow<List<RuntimeLogEntry>> =
         _logEntries.asStateFlow()
 
@@ -41,13 +42,14 @@ object RuntimeConsoleLogger {
         level: RuntimeLogLevel,
         message: String
     ) {
-        logs.add(
-            RuntimeLogEntry(
-                timestamp = System.currentTimeMillis(),
-                level = level,
-                message = message
-            )
+        val entry = RuntimeLogEntry(
+            timestamp = System.currentTimeMillis(),
+            level = level,
+            message = message,
+            id = nextId.incrementAndGet()
         )
+
+        logs.add(entry)
 
         while (logs.size > MAX_LOGS) {
             logs.removeAt(0)
