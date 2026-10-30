@@ -6,13 +6,13 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,10 +57,7 @@ fun NovaRunSettingsScreen() {
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        NovaRunBrandLogo(
-            markSize = 42.dp,
-            showTagline = false
-        )
+        NovaRunBrandLogo(markSize = 42.dp, showTagline = false)
 
         Text(
             "SETTINGS",
@@ -203,14 +200,8 @@ fun NovaRunSettingsScreen() {
                 fontSize = 20.sp,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
             )
-            Text(
-                "Local Project Runner",
-                color = NovaRunPalette.Lime
-            )
-            Text(
-                "Version 1.0 · Debug build",
-                color = ControlMuted
-            )
+            Text("Local Project Runner", color = NovaRunPalette.Lime)
+            Text("Version 1.0 · Debug build", color = ControlMuted)
             Text(
                 "Some saved preferences need their related editor or theme implementation before they affect every screen.",
                 color = ControlMuted,
@@ -237,9 +228,7 @@ private fun SettingsCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = ControlCard
-        ),
+        colors = CardDefaults.cardColors(containerColor = ControlCard),
         shape = RectangleShape,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
@@ -268,11 +257,7 @@ private fun SettingsSwitch(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(title, color = Color.White)
-                Text(
-                    detail,
-                    color = ControlMuted,
-                    fontSize = 11.sp
-                )
+                Text(detail, color = ControlMuted, fontSize = 11.sp)
             }
 
             Switch(
@@ -309,10 +294,7 @@ fun NovaRunLocalhostScreen(project: File?) {
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        NovaRunBrandLogo(
-            markSize = 42.dp,
-            showTagline = false
-        )
+        NovaRunBrandLogo(markSize = 42.dp, showTagline = false)
 
         Text(
             "LOCALHOST CONTROL",
@@ -328,11 +310,7 @@ fun NovaRunLocalhostScreen(project: File?) {
         )
 
         SettingsCard {
-            Text(
-                "SERVER STATUS",
-                color = ControlMuted,
-                fontSize = 11.sp
-            )
+            Text("SERVER STATUS", color = ControlMuted, fontSize = 11.sp)
 
             Text(
                 state.status.name,
@@ -523,11 +501,7 @@ fun NovaRunLocalhostScreen(project: File?) {
         }
 
         message?.let {
-            Text(
-                it,
-                color = ControlMuted,
-                fontSize = 12.sp
-            )
+            Text(it, color = ControlMuted, fontSize = 12.sp)
         }
 
         SettingsCard {
@@ -560,173 +534,20 @@ private fun LocalhostUrlCard(
             fontSize = 11.sp
         )
 
-        Text(
-            url,
-            color = Color.White
-        )
-
-        TextButton(
-            onClick = {
-                val clipboard = context.getSystemService(
-                    android.content.Context.CLIPBOARD_SERVICE
-                ) as android.content.ClipboardManager
-
-                clipboard.setPrimaryClip(
-                    android.content.ClipData.newPlainText(label, url)
-                )
-            }
-        ) {
-            Text(
-                "COPY URL",
-                color = NovaRunPalette.Lime
-            )
-        }
-    }
-}
-minutes"
-                }",
-                color = Color.White
-            )
-            Slider(
-                value = autoStopMinutes.toFloat(),
-                onValueChange = { autoStopMinutes = it.toInt() },
-                valueRange = 0f..240f,
-                steps = 23
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    modifier = Modifier.weight(1f),
-                    enabled =
-                        state.status != LocalServerServiceStatus.RUNNING &&
-                        state.status != LocalServerServiceStatus.STARTING,
-                    onClick = {
-                        val parsedPort = portText.toIntOrNull()
-                        when {
-                            project == null || !project.isDirectory -> {
-                                message = "প্রথমে Workspace থেকে একটি Project নির্বাচন করুন।"
-                            }
-                            parsedPort == null || parsedPort !in 1024..65535 -> {
-                                message = "সঠিক Port দিন (1024–65535)।"
-                            }
-                            else -> {
-                                prefs.edit()
-                                    .putInt("server_port", parsedPort)
-                                    .apply()
-
-                                LocalWebServerService.start(
-                                    context = context,
-                                    projectDirectory = project,
-                                    durationMillis = autoStopMinutes * 60_000L,
-                                    port = parsedPort
-                                )
-                                message = "Server start request পাঠানো হয়েছে।"
-                            }
-                        }
-                    }
-                ) {
-                    Text("Start Server")
-                }
-
-                OutlinedButton(
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        LocalWebServerService.stop(context)
-                        message = "Server stop request পাঠানো হয়েছে।"
-                    }
-                ) {
-                    Text("Stop")
-                }
-            }
-
-            OutlinedButton(
-                modifier = Modifier.fillMaxWidth(),
-                enabled = state.status != LocalServerServiceStatus.STARTING,
-                onClick = {
-                    val parsedPort = portText.toIntOrNull()
-                    if (project == null || !project.isDirectory) {
-                        message = "Restart করার আগে Workspace থেকে Project নির্বাচন করুন।"
-                    } else if (parsedPort == null || parsedPort !in 1024..65535) {
-                        message = "সঠিক Port দিন (1024–65535)।"
-                    } else {
-                        LocalWebServerService.stop(context)
-                        LocalWebServerService.start(
-                            context,
-                            project,
-                            autoStopMinutes * 60_000L,
-                            parsedPort
-                        )
-                        message = "Restart request পাঠানো হয়েছে।"
-                    }
-                }
-            ) {
-                Text("Restart Server")
-            }
-        }
-
-        state.localUrl?.let {
-            LocalhostUrlCard("Localhost URL", it)
-        }
-        state.lanUrl?.let {
-            LocalhostUrlCard("LAN URL", it)
-        }
-
-        state.url?.let { url ->
-            Button(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    runCatching {
-                        val viewIntent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse(url)
-                        )
-                        context.startActivity(
-                            Intent.createChooser(viewIntent, "Open with browser")
-                        )
-                    }.onFailure {
-                        message = "Browser খুলতে সমস্যা: ${it.message}"
-                    }
-                }
-            ) {
-                Text("Open in External Browser")
-            }
-        }
-
-        message?.let {
-            Text(it, color = ControlMuted, fontSize = 12.sp)
-        }
-
-        SettingsCard {
-            Text("Network note", color = Color.White)
-            Text(
-                "LAN URL অন্য ডিভাইসে খুলতে হলে দুই ডিভাইস একই Wi-Fi/Hotspot-এ থাকতে হবে। Router client isolation বা firewall থাকলে LAN access বন্ধ থাকতে পারে। এই server-এ এখনো password/token protection নেই; বিশ্বস্ত network ছাড়া LAN sharing ব্যবহার করবেন না।",
-                color = ControlMuted,
-                fontSize = 12.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun LocalhostUrlCard(label: String, url: String) {
-    val context = LocalContext.current
-    SettingsCard {
-        Text(label, color = ControlMuted, fontSize = 11.sp)
         Text(url, color = Color.White)
+
         TextButton(
             onClick = {
                 val clipboard = context.getSystemService(
                     android.content.Context.CLIPBOARD_SERVICE
                 ) as android.content.ClipboardManager
+
                 clipboard.setPrimaryClip(
                     android.content.ClipData.newPlainText(label, url)
                 )
             }
         ) {
-            Text("Copy URL")
+            Text("COPY URL", color = NovaRunPalette.Lime)
         }
     }
 }
