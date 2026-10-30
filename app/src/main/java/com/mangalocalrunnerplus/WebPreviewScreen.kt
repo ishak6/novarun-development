@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
@@ -46,27 +47,12 @@ fun WebPreviewScreen(
     onBack: () -> Unit = {}
 ) {
 
-    val projectRoot = remember(projectDirectory) {
-        runCatching {
-            projectDirectory.canonicalFile
-        }.getOrNull()
+    val validation = remember(projectDirectory) {
+        ProjectPreviewValidator.validate(projectDirectory)
     }
 
-    val indexFile = remember(projectRoot) {
-        runCatching {
-            val root = projectRoot ?: return@runCatching null
-            val index = File(root, "index.html").canonicalFile
-
-            if (
-                index.path.startsWith(root.path + File.separator) &&
-                index.isFile
-            ) {
-                index
-            } else {
-                null
-            }
-        }.getOrNull()
-    }
+    val projectRoot = validation.projectRoot
+    val indexFile = validation.entryFile
 
     var webView by remember {
         mutableStateOf<WebView?>(null)
@@ -135,8 +121,6 @@ fun WebPreviewScreen(
                     Text("Back")
                 }
 
-                Spacer(Modifier.height(0.dp))
-
                 Button(
                     onClick = {
                         loadError = null
@@ -155,7 +139,7 @@ fun WebPreviewScreen(
         Spacer(Modifier.height(12.dp))
 
         Text(
-            text = indexFile?.name ?: "index.html not found",
+            text = indexFile?.name ?: "Preview unavailable",
             color = Color(0xFF9AA6B5),
             fontSize = 12.sp
         )
@@ -180,20 +164,12 @@ fun WebPreviewScreen(
 
         Spacer(Modifier.height(10.dp))
 
-        if (indexFile == null) {
+        if (!validation.isValid || indexFile == null || projectRoot == null) {
 
             Text(
-                text = "No valid index.html was found in the project root.",
+                text = validation.message,
                 color = Color(0xFFFF9F0A),
                 fontSize = 14.sp
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            Text(
-                text = "Place an index.html file in the project's main folder to preview it.",
-                color = Color(0xFF9AA6B5),
-                fontSize = 13.sp
             )
 
         } else {
@@ -269,12 +245,9 @@ fun WebPreviewScreen(
                                 val uri = request?.url
                                     ?: return true
 
-                                val root = projectRoot
-                                    ?: return true
-
                                 return !isAllowedLocalUrl(
                                     uri = uri,
-                                    root = root
+                                    root = projectRoot
                                 )
                             }
 
