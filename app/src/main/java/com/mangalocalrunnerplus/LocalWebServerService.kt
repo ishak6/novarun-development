@@ -55,10 +55,12 @@ class LocalWebServerService : Service() {
                     EXTRA_PROJECT_PATH
                 )
 
-                val durationMillis = intent.getLongExtra(
+                val requestedDuration = intent.getLongExtra(
                     EXTRA_DURATION,
                     0L
                 )
+
+                val durationMillis = requestedDuration.coerceAtLeast(0L)
 
                 val port = intent.getIntExtra(
                     EXTRA_PORT,
@@ -149,12 +151,18 @@ class LocalWebServerService : Service() {
             server = newServer
 
             showForegroundNotification(
-                "NovaRun server running on port $port"
+                if (durationMillis == 0L) {
+                    "Server running - Unlimited"
+                } else {
+                    "Server running on port $port"
+                }
             )
 
-            // Zero means unlimited duration.
+            // Zero means Unlimited.
+            // Any positive value automatically stops the server.
             if (durationMillis > 0L) {
                 delay(durationMillis)
+
                 stopServer()
                 stopSelf()
             }
@@ -188,7 +196,8 @@ class LocalWebServerService : Service() {
                 "NovaRun Local Server",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows when a NovaRun project server is running."
+                description =
+                    "Shows when a NovaRun project server is running."
             }
 
             val manager = getSystemService(
@@ -272,6 +281,7 @@ class LocalWebServerService : Service() {
     override fun onDestroy() {
 
         startJob?.cancel()
+
         server?.stop()
         server = null
 
@@ -327,7 +337,7 @@ class LocalWebServerService : Service() {
 
                 putExtra(
                     EXTRA_DURATION,
-                    durationMillis
+                    durationMillis.coerceAtLeast(0L)
                 )
 
                 putExtra(
