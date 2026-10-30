@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Save
@@ -61,6 +60,12 @@ fun CodeEditorScreen(
     val isModified = code != savedCode
     val lineCount = remember(code) {
         code.count { it == '\n' } + 1
+    }
+
+    val extension = file.extension.lowercase()
+
+    val highlightedCode = remember(code, extension) {
+        CodeSyntaxHighlighter.highlight(code, extension)
     }
 
     Column(
@@ -134,11 +139,11 @@ fun CodeEditorScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                "SOURCE CODE",
+                "SOURCE CODE · ${extension.uppercase().ifEmpty { "TEXT" }}",
                 color = EditorMuted,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp
+                letterSpacing = 1.sp
             )
 
             Text(
@@ -187,8 +192,7 @@ fun CodeEditorScreen(
                     onValueChange = { code = it },
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxHeight()
-                        .horizontalScroll(rememberScrollState()),
+                        .fillMaxHeight(),
                     textStyle = LocalTextStyle.current.copy(
                         color = Color(0xFFE6EDF3),
                         fontFamily = FontFamily.Monospace,
@@ -209,6 +213,10 @@ fun CodeEditorScreen(
                         unfocusedTextColor = Color.White
                     )
                 )
+
+                // Highlighted preview is prepared for the editor's
+                // future read-only syntax view.
+                // The editable field remains plain text for reliable typing.
             }
         }
     }
