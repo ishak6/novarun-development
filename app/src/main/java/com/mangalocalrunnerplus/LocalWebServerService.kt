@@ -11,15 +11,51 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+
+enum class LocalServerServiceStatus {
+    STOPPED,
+    STARTING,
+    RUNNING,
+    ERROR
+}
+
+data class LocalServerServiceState(
+    val status: LocalServerServiceStatus =
+        LocalServerServiceStatus.STOPPED,
+    val message: String = "Server is stopped",
+    val projectName: String? = null,
+    val url: String? = null,
+    val durationMillis: Long = 0L,
+    val remainingMillis: Long = 0L
+)
+
+object LocalServerServiceStateStore {
+
+    private val _state =
+        MutableStateFlow(LocalServerServiceState())
+
+    val state: StateFlow<LocalServerServiceState> =
+        _state.asStateFlow()
+
+    internal fun update(
+        newState: LocalServerServiceState
+    ) {
+        _state.value = newState
+    }
+}
 
 class LocalWebServerService : Service() {
 
@@ -55,12 +91,10 @@ class LocalWebServerService : Service() {
                     EXTRA_PROJECT_PATH
                 )
 
-                val requestedDuration = intent.getLongExtra(
+                val durationMillis = intent.getLongExtra(
                     EXTRA_DURATION,
                     0L
-                )
-
-                val durationMillis = requestedDuration.coerceAtLeast(0L)
+                ).coerceAtLeast(0L)
 
                 val port = intent.getIntExtra(
                     EXTRA_PORT,
@@ -68,6 +102,7 @@ class LocalWebServerService : Service() {
                 )
 
                 if (projectPath.isNullOrBlank()) {
+                    setError("No project selected")
                     stopSelf()
                     return START_NOT_STICKY
                 }
@@ -76,10 +111,17 @@ class LocalWebServerService : Service() {
                     "Starting NovaRun server..."
                 )
 
+                LocalServerServiceStateStore.update(
+                    LocalServerServiceState(
+                        status = LocalServerServiceStatus.STARTING,
+                        message = "Starting server..."
+                    )
+                )
+
                 startServer(
-                    projectPath = projectPath,
-                    durationMillis = durationMillis,
-                    port = port
+                    projectPath,
+                    durationMillis,
+                    port
                 )
             }
 
@@ -116,17 +158,15 @@ class LocalWebServerService : Service() {
                 !project.isDirectory ||
                 !project.canRead()
             ) {
-                showForegroundNotification(
-                    "Project directory is unavailable"
-                )
+                setError("Project directory is unavailable")
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return@launch
             }
 
             if (port !in 1024..65535) {
-                showForegroundNotification(
-                    "Invalid server port"
-                )
+                setError("Invalid server port")
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return@launch
             }
@@ -141,14 +181,35 @@ class LocalWebServerService : Service() {
             }
 
             if (!started) {
-                showForegroundNotification(
-                    "Could not start local server"
-                )
+                setError("Could not start local server")
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return@launch
             }
 
             server = newServer
+
+            val startTime = SystemClock.elapsedRealtime()
+            val endTime = if (durationMillis > 0L) {
+                startTime + durationMillis
+            } else {
+                0L
+            }
+
+            LocalServerServiceStateStore.update(
+                LocalServerServiceState(
+                    status = LocalServerServiceStatus.RUNNING,
+                    message = if (durationMillis == 0L) {
+                        "Server running - Unlimited"
+                    } else {
+                        "Server running"
+                    },
+                    projectName = project.name,
+                    url = "http://127.0.0.1:$port",
+                    durationMillis = durationMillis,
+                    remainingMillis = durationMillis
+                )
+            )
 
             showForegroundNotification(
                 if (durationMillis == 0L) {
@@ -158,10 +219,31 @@ class LocalWebServerService : Service() {
                 }
             )
 
-            // Zero means Unlimited.
-            // Any positive value automatically stops the server.
+            // Unlimited mode: no automatic stop.
             if (durationMillis > 0L) {
-                delay(durationMillis)
+
+                while (true) {
+
+                    val remaining =
+                        endTime - SystemClock.elapsedRealtime()
+
+                    if (remaining <= 0L) {
+                        break
+                    }
+
+                    LocalServerServiceStateStore.update(
+                        LocalServerServiceState(
+                            status = LocalServerServiceStatus.RUNNING,
+                            message = "Server running",
+                            projectName = project.name,
+                            url = "http://127.0.0.1:$port",
+                            durationMillis = durationMillis,
+                            remainingMillis = remaining
+                        )
+                    )
+
+                    delay(minOf(remaining, 1000L))
+                }
 
                 stopServer()
                 stopSelf()
@@ -176,6 +258,16 @@ class LocalWebServerService : Service() {
         }
     }
 
+    private fun setError(message: String) {
+
+        LocalServerServiceStateStore.update(
+            LocalServerServiceState(
+                status = LocalServerServiceStatus.ERROR,
+                message = message
+            )
+        )
+    }
+
     private fun stopServer() {
 
         startJob?.cancel()
@@ -183,6 +275,13 @@ class LocalWebServerService : Service() {
 
         server?.stop()
         server = null
+
+        LocalServerServiceStateStore.update(
+            LocalServerServiceState(
+                status = LocalServerServiceStatus.STOPPED,
+                message = "Server is stopped"
+            )
+        )
 
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
@@ -200,11 +299,9 @@ class LocalWebServerService : Service() {
                     "Shows when a NovaRun project server is running."
             }
 
-            val manager = getSystemService(
+            getSystemService(
                 NotificationManager::class.java
-            )
-
-            manager.createNotificationChannel(channel)
+            ).createNotificationChannel(channel)
         }
     }
 
@@ -285,6 +382,23 @@ class LocalWebServerService : Service() {
         server?.stop()
         server = null
 
+        val currentState =
+            LocalServerServiceStateStore.state.value
+
+        if (
+            currentState.status ==
+                LocalServerServiceStatus.RUNNING ||
+            currentState.status ==
+                LocalServerServiceStatus.STARTING
+        ) {
+            LocalServerServiceStateStore.update(
+                LocalServerServiceState(
+                    status = LocalServerServiceStatus.STOPPED,
+                    message = "Server stopped"
+                )
+            )
+        }
+
         serviceScope.cancel()
 
         super.onDestroy()
@@ -296,7 +410,9 @@ class LocalWebServerService : Service() {
 
     companion object {
 
-        private const val CHANNEL_ID = "novarun_local_server"
+        private const val CHANNEL_ID =
+            "novarun_local_server"
+
         private const val NOTIFICATION_ID = 4501
 
         private const val ACTION_START =
