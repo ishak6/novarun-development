@@ -61,7 +61,6 @@ fun NovaRunApp() {
             onSuccess = { project ->
 
                 importSucceeded = true
-
                 selectedProject = project
 
                 importMessage =
@@ -195,10 +194,11 @@ fun NovaRunApp() {
 
                 4 -> RuntimeConsoleScreen()
 
+                5 -> DeveloperToolsScreen()
+
                 else -> SimpleScreen(
-                    title = "Settings",
-                    description =
-                        "Configure NovaRun preferences here.",
+                    title = "Unknown Screen",
+                    description = "This screen is not available.",
                     icon = Icons.Default.Settings
                 )
             }
