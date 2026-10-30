@@ -6,19 +6,23 @@ import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.util.Collections
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 class LocalWebServer(
     private val projectDirectory: File,
-    private val port: Int = 8080
+    private val port: Int = 8080,
+    private val bindToLan: Boolean = true
 ) {
 
     private val running = AtomicBoolean(false)
@@ -49,14 +53,25 @@ class LocalWebServer(
             return false
         }
 
+        if (port !in 1024..65535) {
+            return false
+        }
+
         return try {
 
-            // Bind only to localhost.
+            // LAN mode listens on all network interfaces.
+            // Local-only mode listens only on localhost.
+            val bindAddress = if (bindToLan) {
+                InetAddress.getByName("0.0.0.0")
+            } else {
+                InetAddress.getLoopbackAddress()
+            }
+
             val socket = ServerSocket().apply {
                 reuseAddress = true
                 bind(
                     InetSocketAddress(
-                        InetAddress.getLoopbackAddress(),
+                        bindAddress,
                         port
                     )
                 )
@@ -73,6 +88,7 @@ class LocalWebServer(
                 while (running.get()) {
 
                     try {
+
                         val client = socket.accept()
 
                         runCatching {
@@ -151,7 +167,8 @@ class LocalWebServer(
                 val requestTarget = parts[1]
                 val httpVersion = parts[2]
 
-                if (httpVersion != "HTTP/1.1" &&
+                if (
+                    httpVersion != "HTTP/1.1" &&
                     httpVersion != "HTTP/1.0"
                 ) {
                     sendError(output, 400, "Bad Request")
@@ -180,7 +197,11 @@ class LocalWebServer(
                     totalHeaderBytes += header.length
 
                     if (totalHeaderBytes > 16384) {
-                        sendError(output, 431, "Request Header Too Large")
+                        sendError(
+                            output,
+                            431,
+                            "Request Header Too Large"
+                        )
                         return
                     }
 
@@ -191,7 +212,11 @@ class LocalWebServer(
                     headerCount++
 
                     if (headerCount > 32) {
-                        sendError(output, 431, "Request Header Too Large")
+                        sendError(
+                            output,
+                            431,
+                            "Request Header Too Large"
+                        )
                         return
                     }
 
@@ -245,7 +270,10 @@ class LocalWebServer(
 
                 val target = try {
                     if (requestedFile.isDirectory) {
-                        File(requestedFile, "index.html").canonicalFile
+                        File(
+                            requestedFile,
+                            "index.html"
+                        ).canonicalFile
                     } else {
                         requestedFile
                     }
@@ -414,5 +442,42 @@ class LocalWebServer(
 
         serverSocket = null
         executor = null
+    }
+
+    companion object {
+
+        /**
+         * Finds a private IPv4 address from the device's
+         * active network interfaces.
+         */
+        fun getLocalNetworkAddress(): String? {
+
+            return try {
+
+                val interfaces = Collections.list(
+                    NetworkInterface.getNetworkInterfaces()
+                )
+
+                interfaces
+                    .filter { networkInterface ->
+                        networkInterface.isUp &&
+                            !networkInterface.isLoopback
+                    }
+                    .flatMap { networkInterface ->
+                        Collections.list(
+                            networkInterface.inetAddresses
+                        )
+                    }
+                    .filterIsInstance<Inet4Address>()
+                    .firstOrNull { address ->
+                        !address.isLoopbackAddress &&
+                            address.isSiteLocalAddress
+                    }
+                    ?.hostAddress
+
+            } catch (exception: Exception) {
+                null
+            }
+        }
     }
 }
