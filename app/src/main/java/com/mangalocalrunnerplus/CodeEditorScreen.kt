@@ -14,10 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import java.io.File
 
 private val EditorBackground = Color(0xFF090B10)
@@ -58,15 +57,12 @@ fun CodeEditorScreen(
     }
 
     val isModified = code != savedCode
+
     val lineCount = remember(code) {
         code.count { it == '\n' } + 1
     }
 
     val extension = file.extension.lowercase()
-
-    val highlightedCode = remember(code, extension) {
-        CodeSyntaxHighlighter.highlight(code, extension)
-    }
 
     Column(
         modifier = modifier
@@ -109,7 +105,9 @@ fun CodeEditorScreen(
                 onClick = {
                     try {
                         if (!file.exists() || !file.isFile) {
-                            throw IllegalStateException("File is unavailable.")
+                            throw IllegalStateException(
+                                "File is unavailable."
+                            )
                         }
 
                         file.writeText(code)
@@ -118,7 +116,8 @@ fun CodeEditorScreen(
                         message = "File saved successfully."
                     } catch (exception: Exception) {
                         saveError = true
-                        message = exception.message ?: "Could not save file."
+                        message = exception.message
+                            ?: "Could not save file."
                     }
                 },
                 enabled = isModified,
@@ -126,8 +125,13 @@ fun CodeEditorScreen(
                     containerColor = EditorBlue
                 )
             ) {
-                Icon(Icons.Default.Save, contentDescription = null)
+                Icon(
+                    Icons.Default.Save,
+                    contentDescription = null
+                )
+
                 Spacer(Modifier.width(6.dp))
+
                 Text("Save")
             }
         }
@@ -142,8 +146,7 @@ fun CodeEditorScreen(
                 "SOURCE CODE · ${extension.uppercase().ifEmpty { "TEXT" }}",
                 color = EditorMuted,
                 fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                fontWeight = FontWeight.Bold
             )
 
             Text(
@@ -178,7 +181,6 @@ fun CodeEditorScreen(
                         Text(
                             text = "${index + 1}",
                             color = EditorMuted,
-                            fontFamily = FontFamily.Monospace,
                             fontSize = 12.sp,
                             lineHeight = 19.sp
                         )
@@ -187,36 +189,14 @@ fun CodeEditorScreen(
 
                 Spacer(Modifier.width(10.dp))
 
-                OutlinedTextField(
-                    value = code,
-                    onValueChange = { code = it },
+                SyntaxCodeField(
+                    code = code,
+                    onCodeChange = { code = it },
+                    extension = extension,
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxHeight(),
-                    textStyle = LocalTextStyle.current.copy(
-                        color = Color(0xFFE6EDF3),
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        lineHeight = 19.sp
-                    ),
-                    placeholder = {
-                        Text(
-                            "Write your code here...",
-                            color = EditorMuted
-                        )
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = EditorBlue,
-                        unfocusedBorderColor = Color(0xFF303A49),
-                        cursorColor = EditorBlue,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
+                        .fillMaxHeight()
                 )
-
-                // Highlighted preview is prepared for the editor's
-                // future read-only syntax view.
-                // The editable field remains plain text for reliable typing.
             }
         }
     }
@@ -232,10 +212,15 @@ fun CodeEditorScreen(
                 )
             },
             text = {
-                Text(message ?: "", color = EditorMuted)
+                Text(
+                    message ?: "",
+                    color = EditorMuted
+                )
             },
             confirmButton = {
-                TextButton(onClick = { message = null }) {
+                TextButton(
+                    onClick = { message = null }
+                ) {
                     Text("OK", color = EditorBlue)
                 }
             }
