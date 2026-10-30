@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Folder
@@ -23,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,9 +38,7 @@ private val Green = NovaRunPalette.Lime
 
 @Composable
 fun NovaRunApp() {
-
     var selectedTab by remember { mutableIntStateOf(0) }
-
     var importMessage by remember { mutableStateOf<String?>(null) }
     var importSucceeded by remember { mutableStateOf(false) }
     var selectedProject by remember { mutableStateOf<File?>(null) }
@@ -51,25 +49,17 @@ fun NovaRunApp() {
             onSuccess = { project ->
                 importSucceeded = true
                 selectedProject = project
-                importMessage =
-                    "Project imported successfully:\n${project.name}"
+                importMessage = "Project imported successfully:\n${project.name}"
                 selectedTab = 1
             },
             onFailure = { error ->
                 importSucceeded = false
-                importMessage =
-                    error.message ?: "Could not import ZIP project."
+                importMessage = error.message ?: "Could not import ZIP project."
             }
         )
     }
 
-    val tabs = listOf(
-        "Home",
-        "Workspace",
-        "Preview",
-        "Localhost",
-        "More"
-    )
+    val tabs = listOf("Home", "Workspace", "Preview", "Localhost", "More")
 
     val icons = listOf(
         Icons.Default.Home,
@@ -82,18 +72,13 @@ fun NovaRunApp() {
     Scaffold(
         containerColor = Background,
         bottomBar = {
-            NavigationBar(
-                containerColor = NovaRunPalette.Surface
-            ) {
+            NavigationBar(containerColor = NovaRunPalette.Surface) {
                 tabs.forEachIndexed { index, title ->
                     NavigationBarItem(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
                         icon = {
-                            Icon(
-                                icons[index],
-                                contentDescription = title
-                            )
+                            Icon(icons[index], contentDescription = title)
                         },
                         label = { Text(title) },
                         colors = NavigationBarItemDefaults.colors(
@@ -108,15 +93,12 @@ fun NovaRunApp() {
             }
         }
     ) { padding ->
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-
             when (selectedTab) {
-
                 0 -> HomeScreen(
                     onImport = launchZipImport,
                     onWorkspace = { selectedTab = 1 },
@@ -133,7 +115,6 @@ fun NovaRunApp() {
 
                 2 -> {
                     val project = selectedProject
-
                     if (project != null) {
                         WebPreviewScreen(
                             projectDirectory = project,
@@ -142,16 +123,13 @@ fun NovaRunApp() {
                     } else {
                         SimpleScreen(
                             title = "No Project Selected",
-                            description =
-                                "Open Workspace and select a project before starting Preview.",
+                            description = "Open Workspace and select a project before starting Preview.",
                             icon = Icons.Default.Visibility
                         )
                     }
                 }
 
-                3 -> NovaRunLocalhostScreen(
-                    project = selectedProject
-                )
+                3 -> NovaRunLocalhostScreen(project = selectedProject)
 
                 4 -> MoreScreen(
                     onRuntimes = { selectedTab = 5 },
@@ -161,11 +139,8 @@ fun NovaRunApp() {
                 )
 
                 5 -> RuntimeStatusRoute()
-
                 6 -> RuntimeConsoleScreen()
-
                 7 -> DeveloperToolsScreen()
-
                 8 -> NovaRunSettingsScreen()
 
                 else -> SimpleScreen(
@@ -179,23 +154,14 @@ fun NovaRunApp() {
 
     if (showProjectDialog && selectedProject != null) {
         AlertDialog(
-            onDismissRequest = {
-                showProjectDialog = false
-            },
+            onDismissRequest = { showProjectDialog = false },
             containerColor = CardColor,
-            title = {
-                Text("Selected Project", color = Color.White)
-            },
+            title = { Text("Selected Project", color = Color.White) },
             text = {
-                Text(
-                    selectedProject?.name ?: "",
-                    color = Muted
-                )
+                Text(selectedProject?.name ?: "", color = Muted)
             },
             confirmButton = {
-                Row(
-                    horizontalArrangement = Arrangement.End
-                ) {
+                Row(horizontalArrangement = Arrangement.End) {
                     TextButton(
                         onClick = {
                             showProjectDialog = false
@@ -214,11 +180,7 @@ fun NovaRunApp() {
                         Text("Localhost", color = Blue)
                     }
 
-                    TextButton(
-                        onClick = {
-                            showProjectDialog = false
-                        }
-                    ) {
+                    TextButton(onClick = { showProjectDialog = false }) {
                         Text("OK", color = Blue)
                     }
                 }
@@ -228,27 +190,19 @@ fun NovaRunApp() {
 
     if (importMessage != null) {
         AlertDialog(
-            onDismissRequest = {
-                importMessage = null
-            },
+            onDismissRequest = { importMessage = null },
             containerColor = CardColor,
             title = {
                 Text(
-                    if (importSucceeded) "Import Complete"
-                    else "Import Failed",
+                    if (importSucceeded) "Import Complete" else "Import Failed",
                     color = Color.White
                 )
             },
             text = {
-                Text(
-                    importMessage ?: "",
-                    color = Muted
-                )
+                Text(importMessage ?: "", color = Muted)
             },
             confirmButton = {
-                TextButton(
-                    onClick = { importMessage = null }
-                ) {
+                TextButton(onClick = { importMessage = null }) {
                     Text("OK", color = Blue)
                 }
             }
@@ -263,7 +217,6 @@ private fun HomeScreen(
     onPreview: () -> Unit,
     onLocalhost: () -> Unit
 ) {
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -271,7 +224,6 @@ private fun HomeScreen(
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-
         item {
             Spacer(Modifier.height(14.dp))
 
@@ -316,15 +268,10 @@ private fun HomeScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RectangleShape,
-                colors = CardDefaults.cardColors(
-                    containerColor = CardColor
-                )
+                colors = CardDefaults.cardColors(containerColor = CardColor)
             ) {
                 Column(Modifier.padding(20.dp)) {
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
@@ -518,9 +465,7 @@ private fun HomeScreen(
                     .fillMaxWidth()
                     .clickable { onWorkspace() },
                 shape = RectangleShape,
-                colors = CardDefaults.cardColors(
-                    containerColor = CardColor
-                )
+                colors = CardDefaults.cardColors(containerColor = CardColor)
             ) {
                 Row(
                     modifier = Modifier.padding(20.dp),
@@ -549,11 +494,7 @@ private fun HomeScreen(
                         )
                     }
 
-                    Text(
-                        "→",
-                        color = Blue,
-                        fontSize = 22.sp
-                    )
+                    Text("→", color = Blue, fontSize = 22.sp)
                 }
             }
 
@@ -631,9 +572,7 @@ private fun MoreAction(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RectangleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = CardColor
-        )
+        colors = CardDefaults.cardColors(containerColor = CardColor)
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
@@ -662,11 +601,7 @@ private fun MoreAction(
                 )
             }
 
-            Text(
-                "→",
-                color = Blue,
-                fontSize = 22.sp
-            )
+            Text("→", color = Blue, fontSize = 22.sp)
         }
     }
 }
@@ -707,9 +642,7 @@ private fun ActionCard(
     Card(
         modifier = modifier.clickable { onClick() },
         shape = RectangleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = CardColor
-        )
+        colors = CardDefaults.cardColors(containerColor = CardColor)
     ) {
         Column(Modifier.padding(16.dp)) {
             Icon(
