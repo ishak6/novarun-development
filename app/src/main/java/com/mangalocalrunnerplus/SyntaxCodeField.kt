@@ -24,7 +24,9 @@ fun SyntaxCodeField(
     code: String,
     onCodeChange: (String) -> Unit,
     extension: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    fontSizeSp: Int = 14,
+    wordWrap: Boolean = true
 ) {
     val highlighted = remember(code, extension) {
         CodeSyntaxHighlighter.highlight(code, extension)
@@ -35,14 +37,14 @@ fun SyntaxCodeField(
 
     val editorTextStyle = TextStyle(
         fontFamily = FontFamily.Monospace,
-        fontSize = 12.sp,
-        lineHeight = 19.sp
+        fontSize = fontSizeSp.coerceIn(10, 24).sp,
+        lineHeight = (fontSizeSp.coerceIn(10, 24) + 7).sp
     )
 
     Box(
         modifier = modifier
             .background(
-                Color(0xFF111722),
+                NovaRunPalette.Background,
                 RoundedCornerShape(10.dp)
             )
             .padding(8.dp)
@@ -53,23 +55,32 @@ fun SyntaxCodeField(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(verticalScroll)
-                .horizontalScroll(horizontalScroll),
+                .then(
+                    if (wordWrap) {
+                        Modifier
+                    } else {
+                        Modifier.horizontalScroll(horizontalScroll)
+                    }
+                ),
             textStyle = editorTextStyle.copy(
                 color = Color.Transparent
             ),
-            cursorBrush = SolidColor(Color(0xFF0A84FF)),
+            cursorBrush = SolidColor(NovaRunPalette.Cyan),
+            softWrap = wordWrap,
             decorationBox = { innerTextField ->
                 Box {
                     Text(
                         text = highlighted,
-                        style = editorTextStyle
+                        style = editorTextStyle.copy(
+                            color = NovaRunPalette.TextPrimary
+                        )
                     )
 
                     if (code.isEmpty()) {
                         Text(
                             text = "Write your code here...",
                             style = editorTextStyle.copy(
-                                color = Color(0xFF9AA6B5)
+                                color = NovaRunPalette.TextSecondary
                             )
                         )
                     }
