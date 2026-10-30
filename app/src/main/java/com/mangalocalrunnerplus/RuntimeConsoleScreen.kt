@@ -90,7 +90,7 @@ fun RuntimeConsoleScreen() {
 
                 items(
                     items = logs,
-                    key = { it.timestamp.toString() + it.message }
+                    key = { it.id }
                 ) { entry ->
 
                     val logColor = when (entry.level) {
