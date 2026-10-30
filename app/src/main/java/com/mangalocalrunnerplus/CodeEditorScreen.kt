@@ -13,16 +13,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.io.File
-
-private val EditorBackground = Color(0xFF090B10)
-private val EditorCard = Color(0xFF171D28)
-private val EditorBlue = Color(0xFF0A84FF)
-private val EditorMuted = Color(0xFF9AA6B5)
 
 @Composable
 fun CodeEditorScreen(
@@ -30,10 +28,63 @@ fun CodeEditorScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
+    val prefs = remember(context) {
+        context.getSharedPreferences("novarun_settings", 0)
+    }
+
+    var autoSave by remember {
+        mutableStateOf(prefs.getBoolean("auto_save", true))
+    }
+
+    var wordWrap by remember {
+        mutableStateOf(prefs.getBoolean("word_wrap", true))
+    }
+
+    var fontSize by remember {
+        mutableIntStateOf(
+            prefs.getInt("font_size", 14).coerceIn(10, 24)
+        )
+    }
+
+    DisposableEffect(prefs) {
+        val listener =
+            android.content.SharedPreferences.OnSharedPreferenceChangeListener {
+                    sharedPreferences, key ->
+
+                when (key) {
+                    "auto_save" -> {
+                        autoSave = sharedPreferences
+                            ?.getBoolean("auto_save", true) ?: true
+                    }
+
+                    "word_wrap" -> {
+                        wordWrap = sharedPreferences
+                            ?.getBoolean("word_wrap", true) ?: true
+                    }
+
+                    "font_size" -> {
+                        fontSize = sharedPreferences
+                            ?.getInt("font_size", 14)
+                            ?.coerceIn(10, 24) ?: 14
+                    }
+                }
+            }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
     var code by remember(file.absolutePath) {
         mutableStateOf(
             try {
-                if (file.exists() && file.isFile && file.length() <= 2_000_000L) {
+                if (file.exists() && file.isFile &&
+                    file.length() <= 2_000_000L
+                ) {
                     file.readText()
                 } else {
                     ""
@@ -57,17 +108,50 @@ fun CodeEditorScreen(
     }
 
     val isModified = code != savedCode
+    val extension = file.extension.lowercase()
 
     val lineCount = remember(code) {
         code.count { it == '\n' } + 1
     }
 
-    val extension = file.extension.lowercase()
+    fun saveFile(): Boolean {
+        return try {
+            if (!file.exists() || !file.isFile) {
+                throw IllegalStateException("File is unavailable.")
+            }
+
+            file.writeText(code)
+            savedCode = code
+            saveError = false
+            true
+        } catch (exception: Exception) {
+            saveError = true
+            message = exception.message ?: "Could not save file."
+            false
+        }
+    }
+
+    LaunchedEffect(code, autoSave, file.absolutePath) {
+        if (autoSave && code != savedCode) {
+            delay(700)
+
+            withContext(Dispatchers.IO) {
+                if (file.exists() && file.isFile) {
+                    file.writeText(code)
+                } else {
+                    throw IllegalStateException("File is unavailable.")
+                }
+            }
+
+            savedCode = code
+            saveError = false
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(EditorBackground)
+            .background(NovaRunPalette.Background)
             .padding(14.dp)
     ) {
         Row(
@@ -78,24 +162,27 @@ fun CodeEditorScreen(
                 Icon(
                     Icons.Default.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.White
+                    tint = NovaRunPalette.TextPrimary
                 )
             }
 
             Column(Modifier.weight(1f)) {
                 Text(
                     file.name,
-                    color = Color.White,
+                    color = NovaRunPalette.TextPrimary,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
 
                 Text(
-                    if (isModified) "Unsaved changes" else "Saved",
-                    color = if (isModified) {
-                        Color(0xFFFF9F0A)
-                    } else {
-                        Color(0xFF30D158)
+                    when {
+                        isModified && autoSave -> "Auto-saving..."
+                        isModified -> "Unsaved changes"
+                        else -> "Saved"
+                    },
+                    color = when {
+                        isModified -> NovaRunPalette.Warning
+                        else -> NovaRunPalette.Success
                     },
                     fontSize = 11.sp
                 )
@@ -103,26 +190,14 @@ fun CodeEditorScreen(
 
             Button(
                 onClick = {
-                    try {
-                        if (!file.exists() || !file.isFile) {
-                            throw IllegalStateException(
-                                "File is unavailable."
-                            )
-                        }
-
-                        file.writeText(code)
-                        savedCode = code
-                        saveError = false
+                    if (saveFile()) {
                         message = "File saved successfully."
-                    } catch (exception: Exception) {
-                        saveError = true
-                        message = exception.message
-                            ?: "Could not save file."
                     }
                 },
                 enabled = isModified,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = EditorBlue
+                    containerColor = NovaRunPalette.Cyan,
+                    contentColor = NovaRunPalette.Background
                 )
             ) {
                 Icon(
@@ -131,7 +206,6 @@ fun CodeEditorScreen(
                 )
 
                 Spacer(Modifier.width(6.dp))
-
                 Text("Save")
             }
         }
@@ -144,14 +218,14 @@ fun CodeEditorScreen(
         ) {
             Text(
                 "SOURCE CODE · ${extension.uppercase().ifEmpty { "TEXT" }}",
-                color = EditorMuted,
+                color = NovaRunPalette.TextSecondary,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
                 "$lineCount lines",
-                color = EditorMuted,
+                color = NovaRunPalette.TextSecondary,
                 fontSize = 10.sp
             )
         }
@@ -162,7 +236,11 @@ fun CodeEditorScreen(
             modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = EditorCard
+                containerColor = NovaRunPalette.Surface
+            ),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                NovaRunPalette.Border
             )
         ) {
             Row(
@@ -180,9 +258,9 @@ fun CodeEditorScreen(
                     repeat(lineCount) { index ->
                         Text(
                             text = "${index + 1}",
-                            color = EditorMuted,
-                            fontSize = 12.sp,
-                            lineHeight = 19.sp
+                            color = NovaRunPalette.TextSecondary,
+                            fontSize = fontSize.sp,
+                            lineHeight = (fontSize + 7).sp
                         )
                     }
                 }
@@ -193,6 +271,8 @@ fun CodeEditorScreen(
                     code = code,
                     onCodeChange = { code = it },
                     extension = extension,
+                    fontSizeSp = fontSize,
+                    wordWrap = wordWrap,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -204,24 +284,25 @@ fun CodeEditorScreen(
     if (message != null) {
         AlertDialog(
             onDismissRequest = { message = null },
-            containerColor = EditorCard,
+            containerColor = NovaRunPalette.Surface,
             title = {
                 Text(
                     if (saveError) "Save Failed" else "Save Complete",
-                    color = Color.White
+                    color = NovaRunPalette.TextPrimary
                 )
             },
             text = {
                 Text(
                     message ?: "",
-                    color = EditorMuted
+                    color = NovaRunPalette.TextSecondary
                 )
             },
             confirmButton = {
-                TextButton(
-                    onClick = { message = null }
-                ) {
-                    Text("OK", color = EditorBlue)
+                TextButton(onClick = { message = null }) {
+                    Text(
+                        "OK",
+                        color = NovaRunPalette.Cyan
+                    )
                 }
             }
         )
