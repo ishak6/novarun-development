@@ -1,4 +1,3 @@
-
 package com.mangalocalrunnerplus
 
 import androidx.compose.foundation.background
@@ -41,6 +40,7 @@ fun NovaRunApp() {
     var importMessage by remember { mutableStateOf<String?>(null) }
     var importSucceeded by remember { mutableStateOf(false) }
     var selectedProject by remember { mutableStateOf<File?>(null) }
+    var selectedFile by remember { mutableStateOf<File?>(null) }
     var showProjectDialog by remember { mutableStateOf(false) }
 
     val launchZipImport = rememberZipImportLauncher { result ->
@@ -138,9 +138,49 @@ fun NovaRunApp() {
                 )
 
                 5 -> RuntimeStatusRoute()
+
                 6 -> RuntimeConsoleScreen()
+
                 7 -> DeveloperToolsScreen()
+
                 8 -> NovaRunSettingsScreen()
+
+                9 -> {
+                    val project = selectedProject
+
+                    if (project != null) {
+                        ProjectFileExplorer(
+                            projectRoot = project,
+                            onFileSelected = { file ->
+                                selectedFile = file
+                                selectedTab = 10
+                            }
+                        )
+                    } else {
+                        SimpleScreen(
+                            title = "No Project Selected",
+                            description = "Select a project before opening File Explorer.",
+                            icon = Icons.Default.Folder
+                        )
+                    }
+                }
+
+                10 -> {
+                    val file = selectedFile
+
+                    if (file != null && file.exists() && file.isFile) {
+                        CodeEditorScreen(
+                            file = file,
+                            onBack = { selectedTab = 9 }
+                        )
+                    } else {
+                        SimpleScreen(
+                            title = "File Not Available",
+                            description = "The selected file no longer exists.",
+                            icon = Icons.Default.Code
+                        )
+                    }
+                }
 
                 else -> SimpleScreen(
                     title = "Unknown Screen",
@@ -165,7 +205,18 @@ fun NovaRunApp() {
                 Text(selectedProject?.name ?: "", color = Muted)
             },
             confirmButton = {
-                Row(horizontalArrangement = Arrangement.End) {
+                Row(
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = {
+                            showProjectDialog = false
+                            selectedTab = 9
+                        }
+                    ) {
+                        Text("Files", color = Blue)
+                    }
+
                     TextButton(
                         onClick = {
                             showProjectDialog = false
@@ -184,7 +235,11 @@ fun NovaRunApp() {
                         Text("Localhost", color = Blue)
                     }
 
-                    TextButton(onClick = { showProjectDialog = false }) {
+                    TextButton(
+                        onClick = {
+                            showProjectDialog = false
+                        }
+                    ) {
                         Text("OK", color = Blue)
                     }
                 }
@@ -206,7 +261,9 @@ fun NovaRunApp() {
                 Text(importMessage ?: "", color = Muted)
             },
             confirmButton = {
-                TextButton(onClick = { importMessage = null }) {
+                TextButton(
+                    onClick = { importMessage = null }
+                ) {
                     Text("OK", color = Blue)
                 }
             }
@@ -272,10 +329,14 @@ private fun HomeScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RectangleShape,
-                colors = CardDefaults.cardColors(containerColor = CardColor)
+                colors = CardDefaults.cardColors(
+                    containerColor = CardColor
+                )
             ) {
                 Column(Modifier.padding(20.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
@@ -469,7 +530,9 @@ private fun HomeScreen(
                     .fillMaxWidth()
                     .clickable { onWorkspace() },
                 shape = RectangleShape,
-                colors = CardDefaults.cardColors(containerColor = CardColor)
+                colors = CardDefaults.cardColors(
+                    containerColor = CardColor
+                )
             ) {
                 Row(
                     modifier = Modifier.padding(20.dp),
@@ -498,7 +561,11 @@ private fun HomeScreen(
                         )
                     }
 
-                    Text("→", color = Blue, fontSize = 22.sp)
+                    Text(
+                        "→",
+                        color = Blue,
+                        fontSize = 22.sp
+                    )
                 }
             }
 
@@ -576,7 +643,9 @@ private fun MoreAction(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RectangleShape,
-        colors = CardDefaults.cardColors(containerColor = CardColor)
+        colors = CardDefaults.cardColors(
+            containerColor = CardColor
+        )
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
@@ -605,7 +674,11 @@ private fun MoreAction(
                 )
             }
 
-            Text("→", color = Blue, fontSize = 22.sp)
+            Text(
+                "→",
+                color = Blue,
+                fontSize = 22.sp
+            )
         }
     }
 }
@@ -646,7 +719,9 @@ private fun ActionCard(
     Card(
         modifier = modifier.clickable { onClick() },
         shape = RectangleShape,
-        colors = CardDefaults.cardColors(containerColor = CardColor)
+        colors = CardDefaults.cardColors(
+            containerColor = CardColor
+        )
     ) {
         Column(Modifier.padding(16.dp)) {
             Icon(
