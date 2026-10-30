@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
@@ -29,12 +28,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.File
 
-private val Background = NovaRunPalette.Background
-private val CardColor = NovaRunPalette.Surface
-private val Muted = NovaRunPalette.TextSecondary
-private val Blue = NovaRunPalette.Cyan
-private val Purple = NovaRunPalette.Purple
-private val Green = NovaRunPalette.Lime
+private val Background get() = NovaRunPalette.Background
+private val CardColor get() = NovaRunPalette.Surface
+private val Muted get() = NovaRunPalette.TextSecondary
+private val Blue get() = NovaRunPalette.Cyan
+private val Purple get() = NovaRunPalette.Purple
+private val Green get() = NovaRunPalette.Lime
 
 @Composable
 fun NovaRunApp() {
@@ -156,7 +155,12 @@ fun NovaRunApp() {
         AlertDialog(
             onDismissRequest = { showProjectDialog = false },
             containerColor = CardColor,
-            title = { Text("Selected Project", color = Color.White) },
+            title = {
+                Text(
+                    "Selected Project",
+                    color = NovaRunPalette.TextPrimary
+                )
+            },
             text = {
                 Text(selectedProject?.name ?: "", color = Muted)
             },
@@ -195,7 +199,7 @@ fun NovaRunApp() {
             title = {
                 Text(
                     if (importSucceeded) "Import Complete" else "Import Failed",
-                    color = Color.White
+                    color = NovaRunPalette.TextPrimary
                 )
             },
             text = {
@@ -251,7 +255,7 @@ private fun HomeScreen(
             Column {
                 Text(
                     "Build something",
-                    color = Color.White,
+                    color = NovaRunPalette.TextPrimary,
                     fontSize = 29.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -300,7 +304,7 @@ private fun HomeScreen(
 
                             Text(
                                 "Ready to set up",
-                                color = Color.White,
+                                color = NovaRunPalette.TextPrimary,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -381,7 +385,7 @@ private fun HomeScreen(
                     Column(Modifier.weight(1f)) {
                         Text(
                             "Localhost Control",
-                            color = Color.White,
+                            color = NovaRunPalette.TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
 
@@ -428,7 +432,7 @@ private fun HomeScreen(
                     Column(Modifier.weight(1f)) {
                         Text(
                             "Live Preview",
-                            color = Color.White,
+                            color = NovaRunPalette.TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
 
@@ -483,7 +487,7 @@ private fun HomeScreen(
                     Column(Modifier.weight(1f)) {
                         Text(
                             "Open Workspace",
-                            color = Color.White,
+                            color = NovaRunPalette.TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
 
@@ -519,7 +523,7 @@ private fun MoreScreen(
     ) {
         Text(
             "More",
-            color = Color.White,
+            color = NovaRunPalette.TextPrimary,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )
@@ -590,7 +594,7 @@ private fun MoreAction(
             Column(Modifier.weight(1f)) {
                 Text(
                     title,
-                    color = Color.White,
+                    color = NovaRunPalette.TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
 
@@ -623,7 +627,7 @@ private fun StatusItem(
 
         Text(
             value,
-            color = Color.White,
+            color = NovaRunPalette.TextPrimary,
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold
         )
@@ -656,7 +660,7 @@ private fun ActionCard(
 
             Text(
                 title,
-                color = Color.White,
+                color = NovaRunPalette.TextPrimary,
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp
             )
@@ -697,7 +701,7 @@ private fun SimpleScreen(
 
         Text(
             title,
-            color = Color.White,
+            color = NovaRunPalette.TextPrimary,
             fontSize = 25.sp,
             fontWeight = FontWeight.Bold
         )
