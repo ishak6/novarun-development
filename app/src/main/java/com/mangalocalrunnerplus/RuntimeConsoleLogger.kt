@@ -1,6 +1,9 @@
 
 package com.mangalocalrunnerplus
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -20,9 +23,18 @@ data class RuntimeLogEntry(
 
 object RuntimeConsoleLogger {
 
+    private const val MAX_LOGS = 1000
+
     private val logs = mutableListOf<RuntimeLogEntry>()
 
-    private const val MAX_LOGS = 1000
+    private val _logEntries =
+        MutableStateFlow<List<RuntimeLogEntry>>(emptyList())
+
+    /**
+     * Observable log stream for Jetpack Compose.
+     */
+    val logEntries: StateFlow<List<RuntimeLogEntry>> =
+        _logEntries.asStateFlow()
 
     @Synchronized
     fun log(
@@ -40,6 +52,8 @@ object RuntimeConsoleLogger {
         while (logs.size > MAX_LOGS) {
             logs.removeAt(0)
         }
+
+        _logEntries.value = logs.toList()
     }
 
     @Synchronized
@@ -70,6 +84,7 @@ object RuntimeConsoleLogger {
     @Synchronized
     fun clear() {
         logs.clear()
+        _logEntries.value = emptyList()
     }
 
     fun formatTimestamp(timestamp: Long): String {
