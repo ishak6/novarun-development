@@ -2,6 +2,7 @@
 package com.mangalocalrunnerplus
 
 import android.content.Context
+import java.io.File
 
 data class RuntimeCheckResult(
     val language: String,
@@ -40,7 +41,23 @@ object RuntimeStatusChecker {
             return RuntimeCheckResult(
                 language = language,
                 status = RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-                message = "Available for Android WebView preview."
+                message = capability.description
+            )
+        }
+
+        if (RuntimeAdapterRegistry.isRegistered(language)) {
+            return RuntimeCheckResult(
+                language = language,
+                status = RuntimeStatus.NOT_CONFIGURED,
+                message = "Adapter registered. Check whether its runtime is executable on this device."
+            )
+        }
+
+        if (capability.status == RuntimeStatus.ADAPTER_PLANNED) {
+            return RuntimeCheckResult(
+                language = language,
+                status = RuntimeStatus.ADAPTER_PLANNED,
+                message = capability.description
             )
         }
 
@@ -49,24 +66,20 @@ object RuntimeStatusChecker {
             Context.MODE_PRIVATE
         )
 
-        val runtimeFile = java.io.File(
+        val runtimeFile = File(
             runtimeDirectory,
             language.lowercase().replace(" ", "_")
         )
 
-        if (runtimeFile.exists() && runtimeFile.isDirectory) {
-            return RuntimeCheckResult(
-                language = language,
-                status = RuntimeStatus.NOT_CONFIGURED,
-                message = "Runtime directory exists, but executable verification is required.",
-                executablePath = runtimeFile.absolutePath
-            )
-        }
-
         return RuntimeCheckResult(
             language = language,
             status = RuntimeStatus.NOT_CONFIGURED,
-            message = "Runtime is not installed. An adapter is required."
+            message = if (runtimeFile.exists()) {
+                "Runtime files exist, but executable verification and an adapter are still required."
+            } else {
+                "Runtime is not installed."
+            },
+            executablePath = runtimeFile.takeIf { it.exists() }?.absolutePath
         )
     }
 
