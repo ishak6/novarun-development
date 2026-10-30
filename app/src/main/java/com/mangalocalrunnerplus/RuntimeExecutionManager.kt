@@ -15,6 +15,10 @@ object RuntimeExecutionManager {
 
         return withContext(Dispatchers.IO) {
 
+            RuntimeConsoleLogger.info(
+                "Starting $language execution."
+            )
+
             val validation =
                 RuntimeExecutionValidator.validate(
                     projectDirectory = request.projectDirectory,
@@ -22,6 +26,10 @@ object RuntimeExecutionManager {
                 )
 
             if (!validation.valid) {
+                RuntimeConsoleLogger.error(
+                    validation.message
+                )
+
                 return@withContext RuntimeExecutionResult(
                     success = false,
                     output = "",
@@ -33,45 +41,89 @@ object RuntimeExecutionManager {
                 RuntimeAdapterRegistry.getAdapter(language)
 
             if (adapter == null) {
+                val message =
+                    "No runtime adapter registered for $language."
+
+                RuntimeConsoleLogger.warning(message)
+
                 return@withContext RuntimeExecutionResult(
                     success = false,
                     output = "",
-                    error = "No runtime adapter registered for $language."
+                    error = message
                 )
             }
 
             val available = try {
                 adapter.isAvailable(context)
             } catch (error: Exception) {
+                val message = error.message
+                    ?: "Could not check runtime availability."
+
+                RuntimeConsoleLogger.error(message)
+
                 return@withContext RuntimeExecutionResult(
                     success = false,
                     output = "",
-                    error = error.message
-                        ?: "Could not check runtime availability."
+                    error = message
                 )
             }
 
             if (!available) {
+                val message =
+                    "$language runtime is not available."
+
+                RuntimeConsoleLogger.warning(message)
+
                 return@withContext RuntimeExecutionResult(
                     success = false,
                     output = "",
-                    error = "$language runtime is not available."
+                    error = message
                 )
             }
 
             try {
-                adapter.execute(
+                val result = adapter.execute(
                     context,
                     request.copy(
-                        entryFile = validation.entryFile!!.absolutePath
+                        entryFile =
+                            validation.entryFile!!.absolutePath
                     )
                 )
+
+                if (result.output.isNotBlank()) {
+                    RuntimeConsoleLogger.output(
+                        result.output
+                    )
+                }
+
+                if (result.error.isNotBlank()) {
+                    RuntimeConsoleLogger.error(
+                        result.error
+                    )
+                }
+
+                if (result.success) {
+                    RuntimeConsoleLogger.info(
+                        "$language execution completed successfully."
+                    )
+                } else {
+                    RuntimeConsoleLogger.error(
+                        "$language execution failed."
+                    )
+                }
+
+                result
+
             } catch (error: Exception) {
+                val message = error.message
+                    ?: "Runtime execution failed."
+
+                RuntimeConsoleLogger.error(message)
+
                 RuntimeExecutionResult(
                     success = false,
                     output = "",
-                    error = error.message
-                        ?: "Runtime execution failed."
+                    error = message
                 )
             }
         }
