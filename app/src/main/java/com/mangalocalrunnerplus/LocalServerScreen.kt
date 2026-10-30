@@ -14,7 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -37,6 +36,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import java.io.File
 
 private const val MAX_TIMER_MILLIS =
@@ -153,6 +156,26 @@ fun LocalServerScreen(
         minutes = minute
     }
 
+    fun copyAddress(address: String) {
+
+        val clipboard = context.getSystemService(
+            Context.CLIPBOARD_SERVICE
+        ) as ClipboardManager
+
+        clipboard.setPrimaryClip(
+            ClipData.newPlainText(
+                "NovaRun Server Address",
+                address
+            )
+        )
+
+        Toast.makeText(
+            context,
+            "Address copied",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -171,7 +194,7 @@ fun LocalServerScreen(
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Run your project on this Android device.",
+            text = "Run your project on this Android device and share it over your local network.",
             color = Color(0xFF9AA6B5),
             fontSize = 14.sp
         )
@@ -265,6 +288,40 @@ fun LocalServerScreen(
                     fontSize = 17.sp
                 )
 
+                Spacer(Modifier.height(18.dp))
+
+                Text(
+                    text = "LAN ADDRESS",
+                    color = Color(0xFF9AA6B5),
+                    fontSize = 11.sp
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    text = serverState.lanUrl ?: "Not available",
+                    color = Color(0xFF30D158),
+                    fontSize = 16.sp
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        serverState.lanUrl?.let {
+                            copyAddress(it)
+                        }
+                    },
+                    enabled = isRunning &&
+                        serverState.lanUrl != null,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Copy LAN Address",
+                        color = Color.White
+                    )
+                }
+
                 Spacer(Modifier.height(16.dp))
 
                 Text(
@@ -276,16 +333,40 @@ fun LocalServerScreen(
                 Spacer(Modifier.height(8.dp))
 
                 Text(
-                    text = serverState.url ?: "Not available",
+                    text = serverState.localUrl ?: "Not available",
                     color = Color(0xFF0A84FF),
                     fontSize = 16.sp
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = "PORT",
+                    color = Color(0xFF9AA6B5),
+                    fontSize = 11.sp
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    text = if (isRunning) "8080" else "Not active",
+                    color = Color.White,
+                    fontSize = 16.sp
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = "Open the LAN address in another phone's browser while both devices are connected to the same Wi-Fi or hotspot.",
+                    color = Color(0xFF9AA6B5),
+                    fontSize = 12.sp
                 )
 
                 Spacer(Modifier.height(8.dp))
 
                 Text(
-                    text = "This address is accessible only from this device.",
-                    color = Color(0xFF9AA6B5),
+                    text = "Security: Other devices on the same network may access files in this selected project. Use trusted networks only.",
+                    color = Color(0xFFFF9F0A),
                     fontSize = 12.sp
                 )
             }
@@ -423,8 +504,7 @@ fun LocalServerScreen(
                     OutlinedTextField(
                         value = days,
                         onValueChange = {
-                            days = it.filter(Char::isDigit)
-                                .take(2)
+                            days = it.filter(Char::isDigit).take(2)
                             selectedTimer = "Custom"
                         },
                         modifier = Modifier.weight(1f),
@@ -447,8 +527,7 @@ fun LocalServerScreen(
                     OutlinedTextField(
                         value = hours,
                         onValueChange = {
-                            hours = it.filter(Char::isDigit)
-                                .take(3)
+                            hours = it.filter(Char::isDigit).take(3)
                             selectedTimer = "Custom"
                         },
                         modifier = Modifier.weight(1f),
@@ -471,8 +550,7 @@ fun LocalServerScreen(
                     OutlinedTextField(
                         value = minutes,
                         onValueChange = {
-                            minutes = it.filter(Char::isDigit)
-                                .take(3)
+                            minutes = it.filter(Char::isDigit).take(3)
                             selectedTimer = "Custom"
                         },
                         modifier = Modifier.weight(1f),
@@ -534,8 +612,6 @@ fun LocalServerScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        // START SERVER
-
         Button(
             onClick = {
 
@@ -578,8 +654,6 @@ fun LocalServerScreen(
         }
 
         Spacer(Modifier.height(10.dp))
-
-        // STOP SERVER
 
         OutlinedButton(
             onClick = {
