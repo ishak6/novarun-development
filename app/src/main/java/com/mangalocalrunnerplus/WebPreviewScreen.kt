@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
@@ -46,7 +45,6 @@ fun WebPreviewScreen(
     projectDirectory: File,
     onBack: () -> Unit = {}
 ) {
-
     val validation = remember(projectDirectory) {
         ProjectPreviewValidator.validate(projectDirectory)
     }
@@ -75,7 +73,6 @@ fun WebPreviewScreen(
     }
 
     DisposableEffect(projectDirectory) {
-
         onDispose {
             webView?.let { view ->
                 view.stopLoading()
@@ -83,7 +80,6 @@ fun WebPreviewScreen(
                 view.removeAllViews()
                 view.destroy()
             }
-
             webView = null
         }
     }
@@ -94,13 +90,11 @@ fun WebPreviewScreen(
             .background(Color(0xFF090B10))
             .padding(16.dp)
     ) {
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Text(
                 text = "Web Preview",
                 color = Color.White,
@@ -111,7 +105,6 @@ fun WebPreviewScreen(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
                 Button(
                     onClick = onBack,
                     colors = ButtonDefaults.buttonColors(
@@ -145,7 +138,6 @@ fun WebPreviewScreen(
         )
 
         if (isLoading) {
-
             Spacer(Modifier.height(10.dp))
 
             LinearProgressIndicator(
@@ -165,23 +157,18 @@ fun WebPreviewScreen(
         Spacer(Modifier.height(10.dp))
 
         if (!validation.isValid || indexFile == null || projectRoot == null) {
-
             Text(
                 text = validation.message,
                 color = Color(0xFFFF9F0A),
                 fontSize = 14.sp
             )
-
         } else {
-
             loadError?.let { error ->
-
                 Text(
                     text = "Preview error: $error",
                     color = Color(0xFFFF453A),
                     fontSize = 12.sp
                 )
-
                 Spacer(Modifier.height(8.dp))
             }
 
@@ -189,39 +176,30 @@ fun WebPreviewScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-
                 factory = { context ->
-
                     WebView(context).apply {
-
                         webView = this
 
                         settings.apply {
                             javaScriptEnabled = true
                             domStorageEnabled = true
-
                             allowFileAccess = true
                             allowContentAccess = false
-
                             allowFileAccessFromFileURLs = false
                             allowUniversalAccessFromFileURLs = false
-
                             mixedContentMode =
                                 WebSettings.MIXED_CONTENT_NEVER_ALLOW
-
                             javaScriptCanOpenWindowsAutomatically = false
                             setSupportMultipleWindows(false)
                         }
 
                         webViewClient = object : WebViewClient() {
-
                             override fun onPageStarted(
                                 view: WebView?,
                                 url: String?,
                                 favicon: Bitmap?
                             ) {
                                 super.onPageStarted(view, url, favicon)
-
                                 loadError = null
                                 isLoading = true
                                 progress = 0
@@ -232,7 +210,6 @@ fun WebPreviewScreen(
                                 url: String?
                             ) {
                                 super.onPageFinished(view, url)
-
                                 isLoading = false
                                 progress = 100
                             }
@@ -241,10 +218,7 @@ fun WebPreviewScreen(
                                 view: WebView?,
                                 request: WebResourceRequest?
                             ): Boolean {
-
-                                val uri = request?.url
-                                    ?: return true
-
+                                val uri = request?.url ?: return true
                                 return !isAllowedLocalUrl(
                                     uri = uri,
                                     root = projectRoot
@@ -263,9 +237,7 @@ fun WebPreviewScreen(
                                 )
 
                                 if (request?.isForMainFrame == true) {
-
                                     isLoading = false
-
                                     loadError =
                                         error?.description?.toString()
                                             ?: "Unable to load page"
@@ -274,16 +246,11 @@ fun WebPreviewScreen(
                         }
 
                         webChromeClient = object : WebChromeClient() {
-
                             override fun onProgressChanged(
                                 view: WebView?,
                                 newProgress: Int
                             ) {
-                                super.onProgressChanged(
-                                    view,
-                                    newProgress
-                                )
-
+                                super.onProgressChanged(view, newProgress)
                                 progress = newProgress
 
                                 if (newProgress >= 100) {
@@ -293,21 +260,15 @@ fun WebPreviewScreen(
                         }
 
                         tag = reloadKey
-
                         loadUrl(indexFile.toURI().toString())
                     }
                 },
-
                 update = { view ->
-
                     if (view.tag != reloadKey) {
-
                         view.tag = reloadKey
-
                         loadError = null
                         isLoading = true
                         progress = 0
-
                         view.reload()
                     }
                 }
@@ -320,13 +281,11 @@ private fun isAllowedLocalUrl(
     uri: Uri,
     root: File
 ): Boolean {
-
     if (uri.scheme != "file") {
         return false
     }
 
     return runCatching {
-
         val requestedFile = File(
             uri.path ?: return@runCatching false
         ).canonicalFile
@@ -334,6 +293,5 @@ private fun isAllowedLocalUrl(
         requestedFile.path.startsWith(
             root.path + File.separator
         ) || requestedFile == root
-
     }.getOrDefault(false)
 }
