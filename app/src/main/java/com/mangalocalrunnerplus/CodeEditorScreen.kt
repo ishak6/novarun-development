@@ -17,8 +17,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -29,6 +31,7 @@ fun CodeEditorScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val prefs = remember(context) {
         context.getSharedPreferences("novarun_settings", 0)
@@ -52,7 +55,6 @@ fun CodeEditorScreen(
         val listener =
             android.content.SharedPreferences.OnSharedPreferenceChangeListener {
                     sharedPreferences, key ->
-
                 when (key) {
                     "auto_save" -> {
                         autoSave = sharedPreferences
@@ -82,7 +84,9 @@ fun CodeEditorScreen(
     var code by remember(file.absolutePath) {
         mutableStateOf(
             try {
-                if (file.exists() && file.isFile &&
+                if (
+                    file.exists() &&
+                    file.isFile &&
                     file.length() <= 2_000_000L
                 ) {
                     file.readText()
@@ -107,6 +111,14 @@ fun CodeEditorScreen(
         mutableStateOf(false)
     }
 
+    var isSaving by remember {
+        mutableStateOf(false)
+    }
+
+    var showLeaveDialog by remember {
+        mutableStateOf(false)
+    }
+
     val isModified = code != savedCode
     val extension = file.extension.lowercase()
 
@@ -114,20 +126,53 @@ fun CodeEditorScreen(
         code.count { it == '\n' } + 1
     }
 
-    fun saveFile(): Boolean {
+    suspend fun saveSnapshot(snapshot: String): Boolean {
+        if (isSaving) return false
+
+        isSaving = true
+
         return try {
-            if (!file.exists() || !file.isFile) {
-                throw IllegalStateException("File is unavailable.")
+            withContext(Dispatchers.IO) {
+                if (!file.exists() || !file.isFile) {
+                    throw IllegalStateException(
+                        "File is unavailable. It may have been deleted or moved."
+                    )
+                }
+
+                if (file.length() > 2_000_000L) {
+                    throw IllegalStateException(
+                        "File is larger than the supported 2 MB limit."
+                    )
+                }
+
+                val parent = file.parentFile
+                    ?: throw IllegalStateException(
+                        "File location is unavailable."
+                    )
+
+                if (!parent.exists() || !parent.isDirectory) {
+                    throw IllegalStateException(
+                        "Parent directory is unavailable."
+                    )
+                }
+
+                file.writeText(snapshot)
             }
 
-            file.writeText(code)
-            savedCode = code
+            savedCode = snapshot
             saveError = false
             true
+
+        } catch (exception: CancellationException) {
+            throw exception
+
         } catch (exception: Exception) {
             saveError = true
             message = exception.message ?: "Could not save file."
             false
+
+        } finally {
+            isSaving = false
         }
     }
 
@@ -135,16 +180,21 @@ fun CodeEditorScreen(
         if (autoSave && code != savedCode) {
             delay(700)
 
-            withContext(Dispatchers.IO) {
-                if (file.exists() && file.isFile) {
-                    file.writeText(code)
-                } else {
-                    throw IllegalStateException("File is unavailable.")
-                }
-            }
+            val snapshot = code
+            val success = saveSnapshot(snapshot)
 
-            savedCode = code
-            saveError = false
+            if (success && code != snapshot) {
+                // New edits arrived while saving.
+                // The next effect saves the newer content.
+            }
+        }
+    }
+
+    fun requestBack() {
+        if (isModified) {
+            showLeaveDialog = true
+        } else {
+            onBack()
         }
     }
 
@@ -158,7 +208,7 @@ fun CodeEditorScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
+            IconButton(onClick = { requestBack() }) {
                 Icon(
                     Icons.Default.ArrowBack,
                     contentDescription = "Back",
@@ -176,12 +226,15 @@ fun CodeEditorScreen(
 
                 Text(
                     when {
+                        isSaving -> "Saving..."
+                        saveError -> "Save failed"
                         isModified && autoSave -> "Auto-saving..."
                         isModified -> "Unsaved changes"
                         else -> "Saved"
                     },
                     color = when {
-                        isModified -> NovaRunPalette.Warning
+                        saveError -> NovaRunPalette.Error
+                        isModified || isSaving -> NovaRunPalette.Warning
                         else -> NovaRunPalette.Success
                     },
                     fontSize = 11.sp
@@ -190,11 +243,14 @@ fun CodeEditorScreen(
 
             Button(
                 onClick = {
-                    if (saveFile()) {
-                        message = "File saved successfully."
+                    val snapshot = code
+                    scope.launch {
+                        if (saveSnapshot(snapshot)) {
+                            message = "File saved successfully."
+                        }
                     }
                 },
-                enabled = isModified,
+                enabled = isModified && !isSaving,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = NovaRunPalette.Cyan,
                     contentColor = NovaRunPalette.Background
@@ -281,9 +337,71 @@ fun CodeEditorScreen(
         }
     }
 
+    if (showLeaveDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showLeaveDialog = false
+            },
+            containerColor = NovaRunPalette.Surface,
+            title = {
+                Text(
+                    "Unsaved Changes",
+                    color = NovaRunPalette.TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    "You have unsaved changes. Save before leaving?",
+                    color = NovaRunPalette.TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isSaving,
+                    onClick = {
+                        val snapshot = code
+                        scope.launch {
+                            if (saveSnapshot(snapshot)) {
+                                showLeaveDialog = false
+                                onBack()
+                            }
+                        }
+                    }
+                ) {
+                    Text("Save & Leave", color = NovaRunPalette.Cyan)
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            showLeaveDialog = false
+                            onBack()
+                        }
+                    ) {
+                        Text(
+                            "Discard",
+                            color = NovaRunPalette.Warning
+                        )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            showLeaveDialog = false
+                        }
+                    ) {
+                        Text("Cancel", color = NovaRunPalette.TextSecondary)
+                    }
+                }
+            }
+        )
+    }
+
     if (message != null) {
         AlertDialog(
-            onDismissRequest = { message = null },
+            onDismissRequest = {
+                message = null
+            },
             containerColor = NovaRunPalette.Surface,
             title = {
                 Text(
@@ -298,11 +416,12 @@ fun CodeEditorScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { message = null }) {
-                    Text(
-                        "OK",
-                        color = NovaRunPalette.Cyan
-                    )
+                TextButton(
+                    onClick = {
+                        message = null
+                    }
+                ) {
+                    Text("OK", color = NovaRunPalette.Cyan)
                 }
             }
         )
