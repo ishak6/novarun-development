@@ -35,12 +35,12 @@ object NovaRunTestHarness {
             check("Project scan") {
                 val analysis = ProjectZipAnalyzer.analyze(projectRoot)
                 require(analysis.totalFiles >= 0) { "Invalid project file count." }
-                "Scanned \${analysis.totalFiles} files; languages: \${analysis.detectedLanguages.joinToString().ifBlank { "unknown" }}."
+                "Scanned ${analysis.totalFiles} files; languages: ${analysis.detectedLanguages.joinToString().ifBlank { "unknown" }}."
             }
             check("Website preview") {
                 val result = ProjectPreviewValidator.validate(projectRoot)
-                if (result.isValid) "Preview ready: \${result.entryFile?.name}."
-                else "Preview not ready: \${result.message}"
+                if (result.isValid) "Preview ready: ${result.entryFile?.name}."
+                else "Preview not ready: ${result.message}"
             }
             check("Path traversal protection") {
                 val result = RuntimeExecutionValidator.validate(projectRoot, "../outside.txt")
@@ -55,7 +55,7 @@ object NovaRunTestHarness {
                     val names = projectRoot.walkTopDown().maxDepth(8).filter { it.isFile }
                         .map { it.name.lowercase() }.toSet()
                     val report = NodeProjectInspector.inspect(packageFile, names)
-                    "Read-only inspection: \${report.packageManager}; \${report.scripts.size} scripts; no scripts executed."
+                    "Read-only inspection: ${report.packageManager}; ${report.scripts.size} scripts; no scripts executed."
                 }
             }
             check("PHP Composer metadata") {
@@ -66,7 +66,7 @@ object NovaRunTestHarness {
                     val names = projectRoot.walkTopDown().maxDepth(8).filter { it.isFile }
                         .map { it.relativeTo(projectRoot).invariantSeparatorsPath.lowercase() }.toSet()
                     val report = PhpProjectInspector.inspect(composer, names)
-                    "Read-only inspection: \${report.framework ?: "unknown"}; no Composer scripts executed."
+                    "Read-only inspection: ${report.framework ?: "unknown"}; no Composer scripts executed."
                 }
             }
         }
@@ -75,7 +75,7 @@ object NovaRunTestHarness {
             val falselyReady = planned.filter {
                 RuntimeCapabilityManager.getCapability(it).status == RuntimeStatus.AVAILABLE_FOR_EXECUTION
             }
-            require(falselyReady.isEmpty()) { "Unintegrated runtimes marked ready: \${falselyReady.joinToString()}." }
+            require(falselyReady.isEmpty()) { "Unintegrated runtimes marked ready: ${falselyReady.joinToString()}." }
             "Unintegrated toolchains remain marked as planned."
         }
         return HarnessReport(checks, started, System.currentTimeMillis())
