@@ -365,6 +365,9 @@ private fun ProjectCard(
     val size = ProjectRepository.formatSize(
         ProjectRepository.getProjectSize(project)
     )
+    val analysis = remember(project.absolutePath, project.lastModified()) {
+        ProjectZipAnalyzer.analyze(project)
+    }
 
     Card(
         modifier = Modifier
@@ -404,6 +407,18 @@ private fun ProjectCard(
                     size,
                     color = WorkspaceMuted,
                     fontSize = 11.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    analysis.summary,
+                    color = WorkspaceBlue,
+                    fontSize = 11.sp
+                )
+                Text(
+                    analysis.nextStep,
+                    color = WorkspaceMuted,
+                    fontSize = 10.sp,
+                    maxLines = 2
                 )
             }
 
