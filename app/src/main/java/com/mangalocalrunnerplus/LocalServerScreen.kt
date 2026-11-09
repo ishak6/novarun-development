@@ -392,7 +392,7 @@ fun LocalServerScreen(
                 }
 
                 Text(
-                    text = "Browser login username: ${serverState.accessUsername ?: \"not available\"}",
+                    text = "Browser login username: ${serverState.accessUsername ?: "not available"}",
                     color = Color(0xFF9AA6B5),
                     fontSize = 12.sp
                 )
