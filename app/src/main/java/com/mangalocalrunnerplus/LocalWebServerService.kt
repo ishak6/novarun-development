@@ -523,7 +523,7 @@ class LocalWebServerService : Service() {
             LocalServerServiceStateStore.update(
                 LocalServerServiceState(
                     status = LocalServerServiceStatus.STARTING,
-                    message = "Preparing authenticated LAN server...",
+                    message = if (authenticationEnabled) "Preparing password-protected LAN server..." else "Preparing LAN server without password protection...",
                     port = port,
                     accessPassword = accessToken,
                     authenticationEnabled = authenticationEnabled
