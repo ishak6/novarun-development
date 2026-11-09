@@ -1,6 +1,5 @@
 package com.mangalocalrunnerplus
 
-import android.database.sqlite.SQLiteDatabase
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -199,7 +198,7 @@ private fun SQLiteTool() {
         )
 
         Text(
-            "Database file: project/.novarun/database.db",
+            "Database: private SQLite file for this project (stored in app data)",
             color = ToolMuted
         )
 
@@ -241,99 +240,48 @@ private fun SQLiteTool() {
     }
 }
 
-private fun executeProjectSql(
+private suspend fun executeProjectSql(
     context: android.content.Context,
     projectName: String,
     sql: String
 ): String {
+    if (!projectName.matches(Regex("[A-Za-z0-9._-]{1,80}"))) {
+        return "Invalid project folder name."
+    }
+
+    val projectsRoot = File(context.filesDir, "projects").canonicalFile
+    val project = File(projectsRoot, projectName).canonicalFile
+
+    if (!project.isDirectory || project.parentFile != projectsRoot) {
+        return "Project not found in the imported projects folder."
+    }
+
+    val runnerDirectory = File(project, ".novarun")
+    if (!runnerDirectory.exists() && !runnerDirectory.mkdirs()) {
+        return "Could not prepare the SQL runner."
+    }
+
+    val scriptFile = File(runnerDirectory, ".temporary-query.sql")
     return try {
-        if (!projectName.matches(Regex("[A-Za-z0-9._-]{1,80}"))) {
-            return "Invalid project folder name."
+        if (sql.toByteArray(Charsets.UTF_8).size > 2_000_000) {
+            return "SQL input exceeds the 2 MB limit."
         }
+        scriptFile.writeText(sql, Charsets.UTF_8)
 
-        val projectsRoot = File(context.filesDir, "projects")
-        val project = File(projectsRoot, projectName)
-
-        if (!project.exists() || !project.isDirectory) {
-            return "Project not found in the imported projects folder."
-        }
-
-        val projectCanonical = project.canonicalFile
-        if (projectCanonical.parentFile != projectsRoot.canonicalFile) {
-            return "Invalid project path."
-        }
-
-        val dataDirectory = File(project, ".novarun")
-        if (!dataDirectory.exists()) dataDirectory.mkdirs()
-
-        val databaseFile = File(dataDirectory, "database.db")
-        val database = SQLiteDatabase.openOrCreateDatabase(
-            databaseFile,
-            null
+        val result = RuntimeExecutionManager.execute(
+            context = context,
+            language = "SQL",
+            request = RuntimeExecutionRequest(
+                projectDirectory = project,
+                entryFile = scriptFile.absolutePath
+            )
         )
 
-        try {
-            val statements = sql
-                .split(";")
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-
-            if (statements.isEmpty()) {
-                return "No SQL statement provided."
-            }
-
-            val result = StringBuilder()
-
-            statements.forEach { statement ->
-                val normalized = statement
-                    .trimStart()
-                    .uppercase()
-
-                if (
-                    normalized.startsWith("SELECT") ||
-                    normalized.startsWith("PRAGMA") ||
-                    normalized.startsWith("WITH")
-                ) {
-                    database.rawQuery(statement, null).use { cursor ->
-                        val columns = cursor.columnNames
-
-                        result.append(columns.joinToString(" | "))
-                        result.append("\n")
-
-                        var rowCount = 0
-
-                        while (cursor.moveToNext() && rowCount < 200) {
-                            val row = columns.indices.map { index ->
-                                if (cursor.isNull(index)) {
-                                    "NULL"
-                                } else {
-                                    cursor.getString(index) ?: ""
-                                }
-                            }
-
-                            result.append(row.joinToString(" | "))
-                            result.append("\n")
-                            rowCount++
-                        }
-
-                        result.append("Rows shown: $rowCount\n\n")
-                    }
-                } else {
-                    database.execSQL(statement)
-                    result.append("Executed successfully.\n")
-                    result.append(statement.take(160))
-                    result.append("\n\n")
-                }
-            }
-
-            result.toString().ifBlank {
-                "SQL executed successfully."
-            }
-        } finally {
-            database.close()
-        }
+        if (result.success) result.output else "SQLite error: ${result.error}"
     } catch (error: Exception) {
         "SQLite error: ${error.message ?: "Unknown database error"}"
+    } finally {
+        runCatching { scriptFile.delete() }
     }
 }
 
