@@ -373,6 +373,10 @@ fun NovaRunLocalhostScreen(project: File?) {
         mutableStateOf(false)
     }
 
+    var lanPasswordEnabled by remember {
+        mutableStateOf(prefs.getBoolean("lan_password_enabled", true))
+    }
+
     fun copyToClipboard(value: String, label: String) {
         val clipboard = context.getSystemService(
             android.content.Context.CLIPBOARD_SERVICE
@@ -504,6 +508,13 @@ fun NovaRunLocalhostScreen(project: File?) {
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Text("LAN password protection", color = NovaRunPalette.TextPrimary)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = lanPasswordEnabled, onClick = { lanPasswordEnabled = true; prefs.edit().putBoolean("lan_password_enabled", true).apply() }, enabled = state.status != LocalServerServiceStatus.RUNNING && state.status != LocalServerServiceStatus.STARTING, label = { Text("Password ON") })
+                FilterChip(selected = !lanPasswordEnabled, onClick = { lanPasswordEnabled = false; prefs.edit().putBoolean("lan_password_enabled", false).apply() }, enabled = state.status != LocalServerServiceStatus.RUNNING && state.status != LocalServerServiceStatus.STARTING, label = { Text("Password OFF") })
+            }
+            Text(if (lanPasswordEnabled) "LAN access requires the session password." else "WARNING: Anyone on the same network can access this project without a password.", color = if (lanPasswordEnabled) NovaRunPalette.Lime else NovaRunPalette.Warning, fontSize = 11.sp)
+
             Text(
                 "Auto stop: ${
                     if (autoStopMinutes == 0) {
@@ -567,7 +578,8 @@ fun NovaRunLocalhostScreen(project: File?) {
                                     projectDirectory = project,
                                     durationMillis =
                                         autoStopMinutes * 60_000L,
-                                    port = parsedPort
+                                    port = parsedPort,
+                                    authenticationEnabled = lanPasswordEnabled
                                 )
 
                                 message =
@@ -617,7 +629,8 @@ fun NovaRunLocalhostScreen(project: File?) {
                             context,
                             project,
                             autoStopMinutes * 60_000L,
-                            parsedPort
+                            parsedPort,
+                            lanPasswordEnabled
                         )
 
                         message =
@@ -653,7 +666,7 @@ fun NovaRunLocalhostScreen(project: File?) {
                 )
 
                 Text(
-                    state.accessPassword?.let {
+                    if (!state.authenticationEnabled) "Password protection is OFF" else state.accessPassword?.let {
                         if (showAccessPassword) it else "••••••••••••••••••••••••"
                     } ?: "Password unavailable — stop and restart the server",
                     color = NovaRunPalette.TextPrimary,
@@ -693,8 +706,8 @@ fun NovaRunLocalhostScreen(project: File?) {
                 )
 
                 Text(
-                    "LAN authentication: ON",
-                    color = NovaRunPalette.Lime,
+                    if (state.authenticationEnabled) "LAN authentication: ON" else "LAN authentication: OFF — no password required",
+                    color = if (state.authenticationEnabled) NovaRunPalette.Lime else NovaRunPalette.Warning,
                     fontSize = 12.sp
                 )
             }
