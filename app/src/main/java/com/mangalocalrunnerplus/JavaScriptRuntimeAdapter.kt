@@ -6,9 +6,11 @@ import android.database.sqlite.SQLiteDatabase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.mozilla.javascript.BaseFunction
 import org.mozilla.javascript.Context as RhinoContext
 import org.mozilla.javascript.ContextFactory
 import org.mozilla.javascript.Scriptable
+import org.mozilla.javascript.ScriptableObject
 import java.io.File
 import java.security.MessageDigest
 
@@ -94,8 +96,32 @@ object JavaScriptRuntimeAdapter : RuntimeAdapter {
             val deadline = System.nanoTime() +
                 MAX_EXECUTION_TIME_MS * 1_000_000L
 
-            val output = BoundedRhinoContextFactory(deadline).call { rhino ->
+            val output = BoundedRuntimeOutput(MAX_SCRIPT_OUTPUT_CHARS)
+            BoundedRhinoContextFactory(deadline).call { rhino ->
                 val scope: Scriptable = rhino.initSafeStandardObjects()
+                val console = rhino.newObject(scope)
+
+                val writeConsole = object : BaseFunction() {
+                    override fun call(
+                        cx: RhinoContext,
+                        callScope: Scriptable,
+                        thisObj: Scriptable,
+                        args: Array<Any?>
+                    ): Any {
+                        val line = args.joinToString(" ") { value ->
+                            if (value == null) "null" else RhinoContext.toString(value)
+                        }
+                        output.appendLine(line)
+                        return org.mozilla.javascript.Undefined.instance
+                    }
+                }
+
+                listOf("log", "info", "warn", "error").forEach { method ->
+                    ScriptableObject.putProperty(console, method, writeConsole)
+                }
+                ScriptableObject.putProperty(scope, "console", console)
+                ScriptableObject.putProperty(scope, "print", writeConsole)
+                ScriptableObject.putProperty(scope, "println", writeConsole)
 
                 val result = scriptFile.reader(Charsets.UTF_8).use { reader ->
                     rhino.evaluateReader(
@@ -107,20 +133,14 @@ object JavaScriptRuntimeAdapter : RuntimeAdapter {
                     )
                 }
 
-                if (result == org.mozilla.javascript.Undefined.instance) {
-                    "JavaScript executed successfully."
-                } else {
-                    RhinoContext.toString(result)
+                if (result != org.mozilla.javascript.Undefined.instance) {
+                    output.appendLine("Result: " + RhinoContext.toString(result))
                 }
             }
 
             RuntimeExecutionResult(
                 success = true,
-                output = if (output.length > MAX_SCRIPT_OUTPUT_CHARS) {
-                    output.take(MAX_SCRIPT_OUTPUT_CHARS) + System.lineSeparator() + "Output truncated at 48,000 characters."
-                } else {
-                    output
-                },
+                output = output.render().ifBlank { "JavaScript executed successfully." },
                 exitCode = 0
             )
 
