@@ -218,8 +218,8 @@ object RuntimeCapabilityManager {
         "SQL" to RuntimeCapability(
             "SQL",
             RuntimeType.DATABASE,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Runs project SQL scripts against an isolated, persistent SQLite database on this device."
+            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
+            "A registered SQLite adapter runs project SQL scripts against an isolated, persistent database on this device."
         ),
 
         "Bash" to RuntimeCapability(
