@@ -9,15 +9,33 @@ import java.io.IOException
 import java.util.UUID
 import java.util.zip.ZipInputStream
 
+data class ZipImportLimits(
+    val maxEntries: Int = 2000,
+    val maxTotalBytes: Long = 200L * 1024L * 1024L,
+    val maxSingleFileBytes: Long = 64L * 1024L * 1024L
+) {
+    companion object {
+        fun from(context: Context): ZipImportLimits {
+            val prefs = context.getSharedPreferences("novarun_settings", Context.MODE_PRIVATE)
+            val entries = prefs.getInt("zip_max_entries", 2000).coerceAtLeast(0)
+            val totalMb = prefs.getInt("zip_max_total_mb", 200).coerceAtLeast(0)
+            val singleMb = prefs.getInt("zip_max_single_mb", 64).coerceAtLeast(0)
+            return ZipImportLimits(
+                maxEntries = entries,
+                maxTotalBytes = totalMb.toLong() * 1024L * 1024L,
+                maxSingleFileBytes = singleMb.toLong() * 1024L * 1024L
+            )
+        }
+    }
+}
+
 object ZipProjectImporter {
 
-    private const val MAX_ENTRIES = 2000
-    private const val MAX_TOTAL_BYTES = 200L * 1024L * 1024L
-    private const val MAX_SINGLE_FILE_BYTES = 64L * 1024L * 1024L
+    private const val MAX_ENTRY_NAME_LENGTH = 1024
     private const val MAX_ENTRY_NAME_LENGTH = 1024
     private const val BUFFER_SIZE = 8192
 
-    fun importZip(context: Context, uri: Uri): File {
+    fun importZip(context: Context, uri: Uri, limits: ZipImportLimits = ZipImportLimits.from(context)): File {
         val projectsDir = File(context.filesDir, "projects")
 
         if (!projectsDir.exists() && !projectsDir.mkdirs()) {
@@ -57,7 +75,7 @@ object ZipProjectImporter {
                         val entry = zip.nextEntry ?: break
                         entryCount++
 
-                        if (entryCount > MAX_ENTRIES) {
+                        if (limits.maxEntries > 0 && entryCount > limits.maxEntries) {
                             throw IOException("ZIP contains too many entries.")
                         }
 
@@ -108,11 +126,11 @@ object ZipProjectImporter {
                                     fileBytes += count
                                     totalBytes += count
 
-                                    if (fileBytes > MAX_SINGLE_FILE_BYTES) {
-                                        throw IOException("A ZIP file exceeds the 64 MB per-file limit.")
+                                    if (limits.maxSingleFileBytes > 0 && fileBytes > limits.maxSingleFileBytes) {
+                                        throw IOException("A ZIP file exceeds the configured per-file limit (${limits.maxSingleFileBytes / (1024L * 1024L)} MB).")
                                     }
-                                    if (totalBytes > MAX_TOTAL_BYTES) {
-                                        throw IOException("ZIP extraction size limit exceeded (200 MB).")
+                                    if (limits.maxTotalBytes > 0 && totalBytes > limits.maxTotalBytes) {
+                                        throw IOException("ZIP extraction exceeds the configured total limit (${limits.maxTotalBytes / (1024L * 1024L)} MB).")
                                     }
 
                                     output.write(buffer, 0, count)

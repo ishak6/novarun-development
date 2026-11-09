@@ -60,6 +60,10 @@ fun NovaRunSettingsScreen() {
         mutableStateOf(prefs.getString("theme", "Dark") ?: "Dark")
     }
 
+    var maxZipEntries by remember { mutableStateOf(prefs.getInt("zip_max_entries", 2000).toString()) }
+    var maxZipTotalMb by remember { mutableStateOf(prefs.getInt("zip_max_total_mb", 200).toString()) }
+    var maxZipSingleMb by remember { mutableStateOf(prefs.getInt("zip_max_single_mb", 64).toString()) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -241,6 +245,60 @@ fun NovaRunSettingsScreen() {
                 color = ControlMuted,
                 fontSize = 12.sp
             )
+        }
+
+        SettingsSectionTitle("FULL FREEDOM · ZIP IMPORT")
+
+        SettingsCard {
+            Text("Import limits", color = NovaRunPalette.TextPrimary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text("Set 0 for no configured cap. Android storage availability and ZIP path safety still apply.", color = ControlMuted, fontSize = 11.sp)
+
+            OutlinedTextField(
+                value = maxZipEntries,
+                onValueChange = { value ->
+                    if (value.length <= 8 && value.all(Char::isDigit)) {
+                        maxZipEntries = value
+                        value.toIntOrNull()?.let { prefs.edit().putInt("zip_max_entries", it.coerceAtLeast(0)).apply() }
+                    }
+                },
+                label = { Text("Maximum ZIP entries (0 = unlimited)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = maxZipTotalMb,
+                onValueChange = { value ->
+                    if (value.length <= 8 && value.all(Char::isDigit)) {
+                        maxZipTotalMb = value
+                        value.toIntOrNull()?.let { prefs.edit().putInt("zip_max_total_mb", it.coerceAtLeast(0)).apply() }
+                    }
+                },
+                label = { Text("Maximum extracted total MB (0 = unlimited)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = maxZipSingleMb,
+                onValueChange = { value ->
+                    if (value.length <= 8 && value.all(Char::isDigit)) {
+                        maxZipSingleMb = value
+                        value.toIntOrNull()?.let { prefs.edit().putInt("zip_max_single_mb", it.coerceAtLeast(0)).apply() }
+                    }
+                },
+                label = { Text("Maximum single file MB (0 = unlimited)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text("Current: ${maxZipEntries.ifBlank { "2000" }} entries · ${maxZipTotalMb.ifBlank { "200" }} MB total · ${maxZipSingleMb.ifBlank { "64" }} MB/file", color = NovaRunPalette.Cyan, fontSize = 11.sp)
+            OutlinedButton(
+                onClick = {
+                    maxZipEntries = "2000"
+                    maxZipTotalMb = "200"
+                    maxZipSingleMb = "64"
+                    prefs.edit().putInt("zip_max_entries", 2000).putInt("zip_max_total_mb", 200).putInt("zip_max_single_mb", 64).apply()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Restore recommended defaults") }
         }
 
         SettingsSectionTitle("ABOUT")
