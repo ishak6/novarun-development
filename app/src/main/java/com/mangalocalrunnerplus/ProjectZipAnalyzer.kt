@@ -47,6 +47,7 @@ object ProjectZipAnalyzer {
         }
 
         val names = files.map { it.name.lowercase() }.toSet()
+        val relativePaths = files.map { it.relativeTo(rootCanonical).invariantSeparatorsPath.lowercase() }.toSet()
         val extensions = files.map { it.extension.lowercase() }.toSet()
         val languages = ProjectLanguageScanner.scan(rootCanonical).languages.map { it.name }.distinct().sorted()
         val packageFile = files.firstOrNull { it.name.equals("package.json", true) }
@@ -59,7 +60,7 @@ object ProjectZipAnalyzer {
         val hasVue = packageText.contains("\"vue\"")
         val hasAngular = packageText.contains("\"@angular/core\"")
         val composerFile = files.firstOrNull { it.name.equals("composer.json", true) }
-        val phpProject = composerFile?.let { PhpProjectInspector.inspect(it, names) }
+        val phpProject = composerFile?.let { PhpProjectInspector.inspect(it, relativePaths) }
         val hasPhp = "php" in extensions || composerFile != null
         val hasPython = "py" in extensions
         val hasJava = "java" in extensions || "kt" in extensions || "kts" in extensions

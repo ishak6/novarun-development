@@ -85,6 +85,25 @@ class ProjectZipAnalyzerTest {
     }
 
     @Test
+    fun analyzerRecognizesComposerProjectWithNestedPublicEntryPoint() {
+        val root = Files.createTempDirectory("novarun-laravel").toFile()
+        try {
+            File(root, "composer.json").writeText(
+                """{"name":"demo/app","require":{"php":"^8.2","laravel/framework":"^11.0"}}"""
+            )
+            File(root, "composer.lock").writeText("{}")
+            File(root, "public").mkdirs()
+            File(root, "public/index.php").writeText("<?php")
+            val result = ProjectZipAnalyzer.analyze(root)
+            assertEquals("Laravel PHP project", result.projectKind)
+            assertTrue(result.missingRuntimes.any { it.startsWith("PHP runtime") })
+            assertEquals("public/index.php", result.phpProject?.entryPoint)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun identifiesPhpAndNativeCompilerRequirements() {
         val root = Files.createTempDirectory("novarun-mixed").toFile()
         try {
