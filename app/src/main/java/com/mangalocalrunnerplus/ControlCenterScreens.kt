@@ -485,6 +485,8 @@ fun NovaRunLocalhostScreen(project: File?) {
             }
         }
 
+        LanCredentialsSettingsCard()
+
         SettingsCard {
             Text(
                 "Server port",
@@ -700,7 +702,7 @@ fun NovaRunLocalhostScreen(project: File?) {
                 }
 
                 Text(
-                    "Browser username: novarun",
+                    "Browser username: ${state.accessUsername ?: \"not available\"}",
                     color = ControlMuted,
                     fontSize = 12.sp
                 )
