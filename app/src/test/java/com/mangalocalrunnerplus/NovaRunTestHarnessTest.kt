@@ -41,7 +41,7 @@ class NovaRunTestHarnessTest {
         val root = fixture()
         try {
             val file = File(root, "package.json")
-            file.writeText(""" + "\"\"\"" + """{"name":"demo","scripts":{"build":"vite build","postinstall":"node setup.js"},"devDependencies":{"vite":"^6"}}""" + "\"\"\"" + """)
+            file.writeText("{\"name\":\"demo\",\"scripts\":{\"build\":\"vite build\",\"postinstall\":\"node setup.js\"},\"devDependencies\":{\"vite\":\"^6\"}}")
             val report = NodeProjectInspector.inspect(file, setOf("package.json", "package-lock.json"))
             assertEquals("npm", report.packageManager)
             assertEquals("npm run build", report.buildCommand)
@@ -53,7 +53,7 @@ class NovaRunTestHarnessTest {
         val root = fixture()
         try {
             val file = File(root, "composer.json")
-            file.writeText("{\\"require\\":{\\"php\\":\\"^8.2\\",\\"laravel/framework\\":\\"^11\\"},\\"scripts\\":{\\"post-install-cmd\\":\\"php setup.php\\"}}")
+            file.writeText("{\"require\":{\"php\":\"^8.2\",\"laravel/framework\":\"^11\"},\"scripts\":{\"post-install-cmd\":\"php setup.php\"}}")
             val report = PhpProjectInspector.inspect(file, setOf("composer.json", "public/index.php"))
             assertEquals("Laravel", report.framework)
             assertEquals("public/index.php", report.entryPoint)
