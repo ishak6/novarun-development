@@ -420,6 +420,44 @@ private fun ProjectCard(
                     fontSize = 10.sp,
                     maxLines = 2
                 )
+                Text(
+                    when {
+                        analysis.previewReady -> "PREVIEW READY • Static output detected"
+                        analysis.requiresBuild -> "BUILD REQUIRED • Runtime/build tool needed"
+                        analysis.missingRuntimes.isNotEmpty() -> "RUNTIME REQUIRED • Cannot execute yet"
+                        else -> "SOURCE DETECTED • Choose a supported run target"
+                    },
+                    color = when {
+                        analysis.previewReady -> NovaRunPalette.Success
+                        analysis.requiresBuild || analysis.missingRuntimes.isNotEmpty() -> NovaRunPalette.Warning
+                        else -> WorkspaceMuted
+                    },
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+                if (analysis.detectedLanguages.isNotEmpty()) {
+                    Text(
+                        "Languages: " + analysis.detectedLanguages.take(5).joinToString() +
+                            if (analysis.detectedLanguages.size > 5) " +" + (analysis.detectedLanguages.size - 5) else "",
+                        color = WorkspaceMuted,
+                        fontSize = 10.sp,
+                        maxLines = 1
+                    )
+                }
+                if (analysis.missingRuntimes.isNotEmpty()) {
+                    Text(
+                        "Missing: " + analysis.missingRuntimes.joinToString(),
+                        color = NovaRunPalette.Warning,
+                        fontSize = 10.sp,
+                        maxLines = 2
+                    )
+                }
+                Text(
+                    "Scanned files: " + analysis.totalFiles,
+                    color = WorkspaceMuted,
+                    fontSize = 9.sp
+                )
                 analysis.nodeProject?.let { node ->
                     Text(
                         node.packageManager + " • " + node.dependencyCount + " dependencies • lock: " + (node.lockfileName ?: "missing"),
