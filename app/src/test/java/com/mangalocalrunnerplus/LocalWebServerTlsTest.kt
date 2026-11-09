@@ -73,10 +73,10 @@ class LocalWebServerTlsTest {
                 socket.soTimeout = 5000
                 socket.startHandshake()
                 val headers = buildString {
-                    append("GET /index.html HTTP/1.1\\r\\n")
-                    append("Host: localhost\\r\\n")
-                    if (authorization != null) append("Authorization: $authorization\\r\\n")
-                    append("Connection: close\\r\\n\\r\\n")
+                    append("GET /index.html HTTP/1.1\r\n")
+                    append("Host: localhost\r\n")
+                    if (authorization != null) append("Authorization: $authorization\r\n")
+                    append("Connection: close\r\n\r\n")
                 }
                 socket.getOutputStream().write(headers.toByteArray(Charsets.US_ASCII))
                 socket.getInputStream().bufferedReader().readText()
