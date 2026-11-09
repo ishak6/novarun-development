@@ -44,13 +44,13 @@ object NodeProjectInspector {
             lockfile == "pnpm-lock.yaml" -> "pnpm"
             lockfile == "yarn.lock" -> "yarn"
             lockfile == "bun.lock" || lockfile == "bun.lockb" -> "bun"
-            else -> "npm (default)"
+            else -> "npm"
         }
         val installCommand = when {
             manager == "pnpm" && lockfile != null -> "pnpm install --frozen-lockfile"
             manager == "yarn" && lockfile != null -> "yarn install --immutable"
             manager == "bun" && lockfile != null -> "bun install --frozen-lockfile"
-            manager.startsWith("npm") && lockfile != null -> "npm ci"
+            manager == "npm" && lockfile != null -> "npm ci"
             manager == "pnpm" -> "pnpm install"
             manager == "yarn" -> "yarn install"
             manager == "bun" -> "bun install"
@@ -77,13 +77,13 @@ object NodeProjectInspector {
     }
 
     private fun readTopLevelString(source: String, key: String): String {
-        val prefix = "\"" + Regex.escape(key) + "\"\\\\s*:\\\\s*\""
-        val match = Regex(prefix + "((?:\\\\\\\\.|[^\"\\\\\\\\])*)\"").find(source) ?: return ""
+        val prefix = "\"" + Regex.escape(key) + "\"\\s*:\\s*\""
+        val match = Regex(prefix + "((?:\\\\.|[^\"\\\\])*)\"").find(source) ?: return ""
         return decodeJsonString(match.groupValues[1])
     }
 
     private fun readObject(source: String, key: String): String {
-        val match = Regex("\"" + Regex.escape(key) + "\"\\\\s*:\\\\s*\\\\{").find(source) ?: return ""
+        val match = Regex("\"" + Regex.escape(key) + "\"\\s*:\\s*\\{").find(source) ?: return ""
         val start = source.indexOf('{', match.range.first)
         var depth = 0
         var inString = false
@@ -92,7 +92,7 @@ object NodeProjectInspector {
             val char = source[index]
             if (inString) {
                 if (escaped) escaped = false
-                else if (char == '\\\\') escaped = true
+                else if (char == '\\') escaped = true
                 else if (char == '"') inString = false
             } else {
                 when (char) {
@@ -110,16 +110,16 @@ object NodeProjectInspector {
 
     private fun readStringMap(source: String): Map<String, String> {
         if (source.isBlank()) return emptyMap()
-        val pattern = Regex("\"((?:\\\\\\\\.|[^\"\\\\\\\\])*)\"\\\\s*:\\\\s*\"((?:\\\\\\\\.|[^\"\\\\\\\\])*)\"")
+        val pattern = Regex("\"((?:\\\\.|[^\"\\\\])*)\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
         return pattern.findAll(source).associate {
             decodeJsonString(it.groupValues[1]) to decodeJsonString(it.groupValues[2])
         }
     }
 
     private fun decodeJsonString(value: String): String = value
-        .replace("\\\\\"", "\"")
-        .replace("\\\\\\\\", "\\\\")
-        .replace("\\\\n", "\n")
-        .replace("\\\\r", "\r")
-        .replace("\\\\t", "\t")
+        .replace("\\\"", "\"")
+        .replace("\\\\", "\\")
+        .replace("\\n", "\n")
+        .replace("\\r", "\r")
+        .replace("\\t", "\t")
 }
