@@ -45,7 +45,8 @@ data class LocalServerServiceState(
     val port: Int = 8080,
     val accessPassword: String? = null,
     val accessUsername: String? = null,
-    val authenticationEnabled: Boolean = true
+    val authenticationEnabled: Boolean = true,
+    val tlsFingerprint: String? = null
 )
 
 object LocalServerServiceStateStore {
@@ -130,7 +131,7 @@ class LocalWebServerService : Service() {
                 LocalServerServiceStateStore.update(
                     LocalServerServiceState(
                         status = LocalServerServiceStatus.STARTING,
-                        message = "Starting LAN server...",
+                        message = "Starting HTTPS LAN server...",
                         port = port,
                         accessPassword = accessToken,
                         accessUsername = accessUsername,
@@ -144,7 +145,8 @@ class LocalWebServerService : Service() {
                     port = port,
                     accessToken = accessToken,
                     accessUsername = accessUsername,
-                    authenticationEnabled = authenticationEnabled
+                    authenticationEnabled = authenticationEnabled,
+                    tlsFingerprint = tlsIdentity.sha256Fingerprint
                 )
             }
 
@@ -202,12 +204,24 @@ class LocalWebServerService : Service() {
             val webRoot = ProjectPreviewValidator.validate(project).projectRoot
                 ?: project
 
+            val tlsIdentity = try {
+                withContext(Dispatchers.IO) {
+                    LanTlsIdentity.create(this@LocalWebServerService)
+                }
+            } catch (error: Exception) {
+                setError("Could not prepare HTTPS identity: ${error.message ?: "Android Keystore error"}")
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return@launch
+            }
+
             val newServer = LocalWebServer(
                 projectDirectory = webRoot,
                 port = port,
                 bindToLan = true,
                 accessToken = accessToken,
-                accessUsername = accessUsername ?: "novarun"
+                accessUsername = accessUsername ?: "novarun",
+                sslContext = tlsIdentity.sslContext
             )
 
             val started = withContext(Dispatchers.IO) {
@@ -226,13 +240,13 @@ class LocalWebServerService : Service() {
             server = newServer
 
             val localAddress =
-                "http://127.0.0.1:$port"
+                "https://127.0.0.1:$port"
 
             val lanAddress =
                 LocalWebServer.getLocalNetworkAddress()
 
             val lanAddressUrl = lanAddress?.let {
-                "http://$it:$port"
+                "https://$it:$port"
             }
 
             val primaryUrl =
@@ -251,12 +265,12 @@ class LocalWebServerService : Service() {
                     status = LocalServerServiceStatus.RUNNING,
                     message = if (lanAddressUrl != null) {
                         if (durationMillis == 0L) {
-                            "LAN server running - Unlimited"
+                            "HTTPS LAN server running - Unlimited"
                         } else {
-                            "LAN server running"
+                            "HTTPS LAN server running"
                         }
                     } else {
-                        "Server running. LAN IP unavailable."
+                        "HTTPS server running. LAN IP unavailable."
                     },
                     projectName = project.name,
                     url = primaryUrl,
@@ -308,7 +322,8 @@ class LocalWebServerService : Service() {
                             port = port,
                             accessPassword = accessToken,
                             accessUsername = accessUsername,
-                            authenticationEnabled = authenticationEnabled
+                            authenticationEnabled = authenticationEnabled,
+                            tlsFingerprint = tlsIdentity.sha256Fingerprint
                         )
                     )
 
