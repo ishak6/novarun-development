@@ -172,7 +172,7 @@ fun WebPreviewScreen(
         Spacer(Modifier.height(8.dp))
         Text(
             text = validation.entryFile?.relativeTo(projectRoot ?: projectDirectory)?.invariantSeparatorsPath
-                ?: "Preview entry point unavailable",
+                ?: if (nodeServerUrl != null) "Node.js backend: $nodeServerUrl" else "Preview entry point unavailable",
             color = Color(0xFF9AA6B5),
             fontSize = 12.sp
         )
@@ -195,7 +195,7 @@ fun WebPreviewScreen(
         Spacer(Modifier.height(10.dp))
 
         when {
-            !validation.isValid -> Text(
+            !validation.isValid && nodeServerUrl == null -> Text(
                 text = validation.message,
                 color = Color(0xFFFF9F0A),
                 fontSize = 14.sp

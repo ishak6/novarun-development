@@ -85,6 +85,16 @@ jobs:
       - name: Run JVM unit tests
         run: gradle testDebugUnitTest --stacktrace
 
+      - name: Verify Node.js 24 and SQLite on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: gradle connectedDebugAndroidTest --stacktrace
+
       - name: Build Debug APK
         run: gradle assembleDebug --stacktrace
 
