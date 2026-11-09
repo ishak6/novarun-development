@@ -515,7 +515,7 @@ fun NovaRunLocalhostScreen(project: File?) {
                 FilterChip(selected = lanPasswordEnabled, onClick = { lanPasswordEnabled = true; prefs.edit().putBoolean("lan_password_enabled", true).apply() }, enabled = state.status != LocalServerServiceStatus.RUNNING && state.status != LocalServerServiceStatus.STARTING, label = { Text("Password ON") })
                 FilterChip(selected = !lanPasswordEnabled, onClick = { lanPasswordEnabled = false; prefs.edit().putBoolean("lan_password_enabled", false).apply() }, enabled = state.status != LocalServerServiceStatus.RUNNING && state.status != LocalServerServiceStatus.STARTING, label = { Text("Password OFF") })
             }
-            Text(if (lanPasswordEnabled) "LAN access requires the session password." else "WARNING: Anyone on the same network can access this project without a password.", color = if (lanPasswordEnabled) NovaRunPalette.Lime else NovaRunPalette.Warning, fontSize = 11.sp)
+            Text(if (lanPasswordEnabled) "LAN access requires your saved custom username and password." else "WARNING: Anyone on the same network can access this project without a password.", color = if (lanPasswordEnabled) NovaRunPalette.Lime else NovaRunPalette.Warning, fontSize = 11.sp)
 
             Text(
                 "Auto stop: ${
@@ -702,7 +702,7 @@ fun NovaRunLocalhostScreen(project: File?) {
                 }
 
                 Text(
-                    "Browser username: ${state.accessUsername ?: \"not available\"}",
+                    "Browser username: ${state.accessUsername ?: "not available"}",
                     color = ControlMuted,
                     fontSize = 12.sp
                 )
