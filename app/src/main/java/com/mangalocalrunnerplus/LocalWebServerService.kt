@@ -525,7 +525,8 @@ class LocalWebServerService : Service() {
                     status = LocalServerServiceStatus.STARTING,
                     message = "Preparing authenticated LAN server...",
                     port = port,
-                    accessPassword = accessToken
+                    accessPassword = accessToken,
+                    authenticationEnabled = authenticationEnabled
                 )
             )
 
