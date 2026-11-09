@@ -27,7 +27,7 @@ object RuntimeCapabilityManager {
         RuntimeCapability("SVG", RuntimeType.WEB_VIEW, RuntimeStatus.AVAILABLE_FOR_PREVIEW, "SVG vector assets can be served and previewed.", true),
         RuntimeCapability("JavaScript", RuntimeType.INTERPRETER, RuntimeStatus.AVAILABLE_FOR_EXECUTION, "Browser JavaScript runs in project preview; standalone .js uses the bounded Rhino ES6 interpreter. This is not Node.js.", true),
         RuntimeCapability("JavaScript JSX", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.ADAPTER_PLANNED, "Requires a JavaScript build tool to transform JSX."),
-        RuntimeCapability("Node.js", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.ADAPTER_PLANNED, "Not executable yet: no maintained, tested Android Node.js runtime is bundled. Rhino does not provide Node APIs or built-in modules."),
+        RuntimeCapability("Node.js", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.AVAILABLE_FOR_EXECUTION, "Embedded Node.js Mobile 18.20.4 is bundled for arm64-v8a and x86_64. Start a user-selected server.js from the Node Backend Runner. npm installation is not included; dependencies must already exist in node_modules. Android compatibility is experimental."),
         RuntimeCapability("npm", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.ADAPTER_PLANNED, "Not executable yet: requires a working Node.js runtime, package lifecycle consent, registry handling, storage quotas, and native-addon compatibility policy."),
         RuntimeCapability("TypeScript", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.ADAPTER_PLANNED, "Requires a TypeScript compiler or build tool."),
         RuntimeCapability("TypeScript JSX", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.ADAPTER_PLANNED, "Requires a TypeScript and JSX build pipeline."),

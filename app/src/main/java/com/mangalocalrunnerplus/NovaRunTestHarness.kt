@@ -71,12 +71,15 @@ object NovaRunTestHarness {
             }
         }
         check("Runtime capability honesty") {
-            val planned = listOf("Node.js", "npm", "PHP", "Java", "Kotlin", "C", "C++")
+            val planned = listOf("npm", "PHP", "Java", "Kotlin", "C", "C++")
             val falselyReady = planned.filter {
                 RuntimeCapabilityManager.getCapability(it).status == RuntimeStatus.AVAILABLE_FOR_EXECUTION
             }
             require(falselyReady.isEmpty()) { "Unintegrated runtimes marked ready: ${falselyReady.joinToString()}." }
-            "Unintegrated toolchains remain marked as planned."
+            require(RuntimeCapabilityManager.getCapability("Node.js").status == RuntimeStatus.AVAILABLE_FOR_EXECUTION) {
+                "Embedded Node.js runner is not represented as integrated."
+            }
+            "Node.js is integrated; npm installation and other toolchains remain marked as planned."
         }
         return HarnessReport(checks, started, System.currentTimeMillis())
     }

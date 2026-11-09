@@ -12,8 +12,8 @@ This document records only capabilities integrated into the current Android app.
 | .gitkeep | Project metadata | Preserved by ZIP import; hidden from public HTTP serving with other dotfiles |
 | SQL | Executable with limits | Project-isolated SQLite database |
 | Python | Executable with limits; CI bridge verified | CPython 3.11 via Chaquopy; Android-specific package limitations; physical-device verification remains required |
-| Node.js | Planned | Not bundled; Android support is experimental. Project package metadata is inspected, but Node code is not executed |
-| npm / npx | Planned | Requires a working Node runtime and package lifecycle / native-addon controls |
+| Node.js | Embedded runtime integrated; device verification pending | Node.js Mobile 18.20.4 is packaged for arm64-v8a and x86_64. User-selected server entry points can be started from the Node Backend Runner with visible foreground notification and Stop control. Physical-device compatibility remains unverified |
+| npm / npx | Not integrated | package.json and lockfiles are inspected; no npm/npx CLI or dependency installation is bundled. Existing node_modules may be used by the Node server; lifecycle scripts are never auto-run |
 | PHP | Planned | Composer/PHP manifests are inspected; no PHP CLI runtime is bundled or executed |
 | Java | Planned | Requires compiler, DEX conversion, dependency resolution and constrained class loading |
 | Kotlin | Planned | Requires compiler, DEX conversion, dependency resolution and constrained class loading |
@@ -48,7 +48,8 @@ This document records only capabilities integrated into the current Android app.
 
 ## Remaining integration gates
 
-- **Node.js + npm:** select a maintained Android-compatible build (official Node.js documentation currently classifies Android as unsupported), package supported ABI binaries, and test Node core APIs, npm registry, lockfiles, lifecycle consent, quotas and native add-ons.
+- **Node.js:** embedded Node.js Mobile 18.20.4 is now packaged for arm64-v8a and x86_64, with a JNI bridge and visible foreground service. Verify server startup, shutdown, logging, networking, core APIs and ABI compatibility on physical devices. Node.js Mobile has compatibility limitations, including unsupported child_process/cluster APIs.
+- **npm / npx:** still not integrated. Add an explicit-consent package installation workflow with lockfile enforcement, registry TLS, project-scoped cache/storage quotas, cancellation, lifecycle-script approval and native-addon compatibility checks before enabling package installation.
 - **PHP:** build and maintain PHP CLI for each supported Android ABI, select extensions, integrate process I/O and test Composer workflows.
 - **Java:** bundle a compiler, convert class files to DEX, resolve dependencies and execute through a constrained class-loading boundary.
 - **Kotlin:** integrate a compatible Kotlin compiler, convert output to DEX and verify Android API compatibility.
@@ -59,6 +60,14 @@ This document records only capabilities integrated into the current Android app.
 - Reads `composer.json` and detects Laravel, Symfony, Slim, CakePHP and CodeIgniter 4 dependencies.
 - Reports PHP version constraints, required `ext-*` extensions, production/development dependency counts, `composer.lock`, conventional entry points and Composer scripts.
 - Composer scripts are diagnostics only; NovaRun does not run Composer or PHP code until a maintained Android CLI build is integrated and explicit execution controls are in place.
+
+## Node.js backend runner
+
+- Embedded Node.js Mobile 18.20.4 is downloaded during CI and packaged for arm64-v8a and x86_64, together with a JNI bridge.
+- A user-selected Node entry point is started in a dedicated Android service process with an ongoing notification and explicit Stop action.
+- The runner checks common entry points, port range and the presence of `node_modules` when dependencies are declared. It reports compatibility warnings and captures server logs.
+- The runner currently expects dependencies to be installed already. It does not run npm, package lifecycle scripts, child processes or cluster workers. Native addons require Android ABI-compatible binaries.
+- CI verifies native compilation and JVM launch-plan tests; physical-device runtime verification remains outstanding.
 
 ## Node project inspection
 

@@ -21,6 +21,20 @@ object RuntimeStatusChecker {
             return RuntimeCheckResult(language, RuntimeStatus.NOT_SUPPORTED, capability.description)
         }
 
+        if (language.equals("Node.js", ignoreCase = true)) {
+            val nativeDir = File(context.applicationInfo.nativeLibraryDir)
+            val nodeLibrary = File(nativeDir, "libnode.so")
+            val bridgeLibrary = File(nativeDir, "libnovarun_node_bridge.so")
+            val ready = nodeLibrary.isFile && bridgeLibrary.isFile
+            return RuntimeCheckResult(
+                language,
+                if (ready) RuntimeStatus.AVAILABLE_FOR_EXECUTION else RuntimeStatus.NOT_CONFIGURED,
+                if (ready) "Embedded Node.js Mobile runtime and JNI bridge are packaged for this device ABI. Use the Node Backend Runner; npm install is not available."
+                else "Node.js native runtime libraries are missing for this device ABI.",
+                nodeLibrary.takeIf { it.isFile }?.absolutePath
+            )
+        }
+
         val adapter = RuntimeAdapterRegistry.getAdapter(language)
         if (adapter != null) {
             val available = runCatching { adapter.isAvailable(context) }.getOrDefault(false)
