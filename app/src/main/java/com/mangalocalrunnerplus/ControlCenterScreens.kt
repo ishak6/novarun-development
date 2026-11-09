@@ -369,6 +369,43 @@ fun NovaRunLocalhostScreen(project: File?) {
         mutableStateOf<String?>(null)
     }
 
+    var showAccessPassword by remember {
+        mutableStateOf(false)
+    }
+
+    fun copyToClipboard(value: String, label: String) {
+        val clipboard = context.getSystemService(
+            android.content.Context.CLIPBOARD_SERVICE
+        ) as? android.content.ClipboardManager
+
+        if (clipboard == null) {
+            android.widget.Toast.makeText(
+                context,
+                "Clipboard unavailable",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        runCatching {
+            clipboard.setPrimaryClip(
+                android.content.ClipData.newPlainText("NovaRun $label", value)
+            )
+        }.onSuccess {
+            android.widget.Toast.makeText(
+                context,
+                "$label copied",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }.onFailure {
+            android.widget.Toast.makeText(
+                context,
+                "Copy failed: ${it.localizedMessage ?: "clipboard error"}",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -606,6 +643,63 @@ fun NovaRunLocalhostScreen(project: File?) {
             )
         }
 
+        if (state.status == LocalServerServiceStatus.RUNNING && state.lanUrl != null) {
+            SettingsCard {
+                Text(
+                    "LAN ACCESS PASSWORD",
+                    color = NovaRunPalette.Cyan,
+                    fontSize = 11.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+
+                Text(
+                    state.accessPassword?.let {
+                        if (showAccessPassword) it else "••••••••••••••••••••••••"
+                    } ?: "Password unavailable — stop and restart the server",
+                    color = NovaRunPalette.TextPrimary,
+                    fontSize = 14.sp
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        modifier = Modifier.weight(1f),
+                        enabled = state.accessPassword != null,
+                        onClick = { showAccessPassword = !showAccessPassword }
+                    ) {
+                        Text(if (showAccessPassword) "Hide Password" else "Show Password")
+                    }
+
+                    Button(
+                        modifier = Modifier.weight(1f),
+                        enabled = state.accessPassword != null,
+                        onClick = {
+                            state.accessPassword?.let {
+                                copyToClipboard(it, "Password")
+                            }
+                        }
+                    ) {
+                        Text("Copy Password")
+                    }
+                }
+
+                Text(
+                    "Browser username: novarun",
+                    color = ControlMuted,
+                    fontSize = 12.sp
+                )
+
+                Text(
+                    "LAN authentication: ON",
+                    color = NovaRunPalette.Lime,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
         state.url?.let { url ->
             Button(
                 modifier = Modifier.fillMaxWidth(),
@@ -653,7 +747,7 @@ fun NovaRunLocalhostScreen(project: File?) {
             )
 
             Text(
-                "LAN URL অন্য ডিভাইসে খুলতে হলে দুই ডিভাইস একই Wi-Fi/Hotspot-এ থাকতে হবে। Router client isolation বা firewall থাকলে LAN access বন্ধ থাকতে পারে। এই server-এ এখনো password/token protection নেই; বিশ্বস্ত network ছাড়া LAN sharing ব্যবহার করবেন না।",
+                "LAN URL অন্য ডিভাইসে খুলতে হলে দুই ডিভাইস একই Wi-Fi/Hotspot-এ থাকতে হবে। Router client isolation বা firewall থাকলে LAN access বন্ধ থাকতে পারে। LAN server-এ Basic Authentication চালু থাকে: username novarun এবং উপরের session password দিতে হবে। HTTP হওয়ায় একই নেটওয়ার্কে traffic encrypted নয়—শুধু বিশ্বস্ত private network-এ ব্যবহার করুন।",
                 color = ControlMuted,
                 fontSize = 12.sp
             )
