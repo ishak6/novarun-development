@@ -16,6 +16,22 @@ class RuntimeCapabilityManagerTest {
     }
 
     @Test
+    fun webProjectAssetsAreRegisteredForPreview() {
+        listOf("HTML", "CSS", "JavaScript", "SVG").forEach { language ->
+            val capability = RuntimeCapabilityManager.getCapability(language)
+            assertEquals(
+                "$language should be available for preview",
+                RuntimeStatus.AVAILABLE_FOR_PREVIEW,
+                capability.status
+            )
+            assertTrue(
+                "$language should be previewable",
+                capability.canPreviewInWebView
+            )
+        }
+    }
+
+    @Test
     fun runtimesWithoutAdaptersRemainPlanned() {
         assertEquals(
             RuntimeStatus.AVAILABLE_FOR_PREVIEW,
