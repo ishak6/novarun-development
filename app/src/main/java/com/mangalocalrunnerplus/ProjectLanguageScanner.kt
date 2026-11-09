@@ -30,6 +30,10 @@ object ProjectLanguageScanner {
             return emptyResult()
         }
 
+        val root = runCatching { projectDirectory.canonicalFile }.getOrNull()
+            ?: return emptyResult()
+        val rootPrefix = root.path + File.separator
+        val visitedDirectories = HashSet<String>()
         val filesByLanguage = linkedMapOf<String, MutableList<File>>()
         var totalFiles = 0
         var supportedFiles = 0
@@ -37,21 +41,34 @@ object ProjectLanguageScanner {
 
         fun visit(directory: File, depth: Int) {
             if (depth > 8 || totalFiles >= 10000) return
+            val canonicalDirectory = runCatching { directory.canonicalFile }.getOrNull()
+                ?: return
+            if (
+                canonicalDirectory.path != root.path &&
+                !canonicalDirectory.path.startsWith(rootPrefix)
+            ) return
+            if (!visitedDirectories.add(canonicalDirectory.path)) return
 
-            val children = directory.listFiles() ?: return
+            val children = canonicalDirectory.listFiles() ?: return
 
             for (child in children) {
+                val canonicalChild = runCatching { child.canonicalFile }.getOrNull()
+                    ?: continue
+                if (
+                    canonicalChild.path != root.path &&
+                    !canonicalChild.path.startsWith(rootPrefix)
+                ) continue
                 if (totalFiles >= 10000) break
 
                 if (child.isDirectory) {
                     if (child.name !in ignoredDirectories) {
-                        visit(child, depth + 1)
+                        visit(canonicalChild, depth + 1)
                     }
-                } else if (child.isFile) {
+                } else if (canonicalChild.isFile) {
                     totalFiles++
 
                     val language =
-                        ProjectLanguageDetector.detectFile(child)
+                        ProjectLanguageDetector.detectFile(canonicalChild)
 
                     if (language.name == "Unknown") {
                         unknownFiles++
@@ -62,7 +79,7 @@ object ProjectLanguageScanner {
                             .getOrPut(language.name) {
                                 mutableListOf()
                             }
-                            .add(child)
+                            .add(canonicalChild)
                     }
                 }
             }
