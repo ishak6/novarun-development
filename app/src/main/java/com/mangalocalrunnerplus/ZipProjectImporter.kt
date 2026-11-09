@@ -32,7 +32,6 @@ data class ZipImportLimits(
 object ZipProjectImporter {
 
     private const val MAX_ENTRY_NAME_LENGTH = 1024
-    private const val MAX_ENTRY_NAME_LENGTH = 1024
     private const val BUFFER_SIZE = 8192
 
     fun importZip(context: Context, uri: Uri, limits: ZipImportLimits = ZipImportLimits.from(context)): File {
