@@ -117,7 +117,7 @@ object JavaScriptRuntimeAdapter : RuntimeAdapter {
             RuntimeExecutionResult(
                 success = true,
                 output = if (output.length > MAX_SCRIPT_OUTPUT_CHARS) {
-                    output.take(MAX_SCRIPT_OUTPUT_CHARS) + "\\nOutput truncated at 48,000 characters."
+                    output.take(MAX_SCRIPT_OUTPUT_CHARS) + System.lineSeparator() + "Output truncated at 48,000 characters."
                 } else {
                     output
                 },
