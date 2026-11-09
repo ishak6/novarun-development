@@ -23,7 +23,6 @@ class ProjectZipAnalyzerTest {
         }
     }
 
-
     @Test
     fun detectsWebsiteWhenIndexIsNestedInUnstructuredZipLayout() {
         val root = Files.createTempDirectory("novarun-nested-site").toFile()
@@ -62,7 +61,6 @@ class ProjectZipAnalyzerTest {
             root.deleteRecursively()
         }
     }
-
 
     @Test
     fun detectsBuildScriptWhenPackageJsonUsesWhitespaceFormatting() {
@@ -132,6 +130,47 @@ class ProjectZipAnalyzerTest {
             val result = ProjectZipAnalyzer.analyze(root)
             assertTrue(result.missingRuntimes.any { it.startsWith("PHP runtime") })
             assertTrue(result.missingRuntimes.any { it.startsWith("C/C++ compiler") })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun ignoresUppercaseDependencyAndBuildDirectoriesDuringAnalysis() {
+        val root = Files.createTempDirectory("novarun-uppercase-ignore").toFile()
+        try {
+            File(root, "index.html").writeText("<html></html>")
+            File(root, "NODE_MODULES/fake-package").mkdirs()
+            File(root, "NODE_MODULES/fake-package/package.json")
+                .writeText("""{"dependencies":{"react":"*","vite":"*"}}""")
+            File(root, "DIST/generated").mkdirs()
+            File(root, "DIST/generated/app.js").writeText("generated();")
+            val result = ProjectZipAnalyzer.analyze(root)
+            assertEquals("Static website", result.projectKind)
+            assertTrue(result.previewReady)
+            assertFalse(result.detectedLanguages.contains("JavaScript"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun scannerIgnoresUppercaseDependencyDirectories() {
+        val root = Files.createTempDirectory("novarun-uppercase-scan").toFile()
+        try {
+            File(root, "main.py").writeText("print('ok')")
+            File(root, "NODE_MODULES/pkg/index.js").apply {
+                parentFile.mkdirs()
+                writeText("module.exports = 1")
+            }
+            File(root, ".GIT/hidden.py").apply {
+                parentFile.mkdirs()
+                writeText("print('hidden')")
+            }
+            val result = ProjectLanguageScanner.scan(root)
+            assertEquals(1, result.totalFiles)
+            assertTrue(result.languages.any { it.name == "Python" })
+            assertFalse(result.languages.any { it.name == "JavaScript" })
         } finally {
             root.deleteRecursively()
         }

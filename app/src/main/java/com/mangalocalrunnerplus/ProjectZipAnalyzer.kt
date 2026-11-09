@@ -19,7 +19,7 @@ data class ProjectZipAnalysis(
 object ProjectZipAnalyzer {
     private val ignored = setOf(
         ".git", ".gradle", ".idea", "node_modules", "build",
-        "dist", "vendor", ".dart_tool", "__pycache__"
+        "dist", "vendor", ".dart_tool", "__pycache__", ".next", ".nuxt", ".cache"
     )
 
     fun analyze(root: File): ProjectZipAnalysis {
@@ -38,7 +38,7 @@ object ProjectZipAnalyzer {
                 val canonical = runCatching { child.canonicalFile }.getOrNull() ?: continue
                 if (canonical != rootCanonical && !canonical.path.startsWith(prefix)) continue
                 if (child.isDirectory) {
-                    if (child.name !in ignored) stack.add(canonical to depth + 1)
+                    if (child.name.lowercase() !in ignored) stack.add(canonical to depth + 1)
                 } else if (canonical.isFile) {
                     files.add(canonical)
                     if (files.size >= 10000) break

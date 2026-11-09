@@ -1,4 +1,3 @@
-
 package com.mangalocalrunnerplus
 
 import java.io.File
@@ -14,15 +13,8 @@ data class LanguageScanResult(
 object ProjectLanguageScanner {
 
     private val ignoredDirectories = setOf(
-        ".git",
-        ".gradle",
-        ".idea",
-        "node_modules",
-        "build",
-        "dist",
-        "vendor",
-        ".dart_tool",
-        "__pycache__"
+        ".git", ".gradle", ".idea", "node_modules", "build", "dist",
+        "vendor", ".dart_tool", "__pycache__", ".next", ".nuxt", ".cache"
     )
 
     fun scan(projectDirectory: File): LanguageScanResult {
@@ -61,14 +53,13 @@ object ProjectLanguageScanner {
                 if (totalFiles >= 10000) break
 
                 if (child.isDirectory) {
-                    if (child.name !in ignoredDirectories) {
+                    if (child.name.lowercase() !in ignoredDirectories) {
                         visit(canonicalChild, depth + 1)
                     }
                 } else if (canonicalChild.isFile) {
                     totalFiles++
 
-                    val language =
-                        ProjectLanguageDetector.detectFile(canonicalChild)
+                    val language = ProjectLanguageDetector.detectFile(canonicalChild)
 
                     if (language.name == "Unknown") {
                         unknownFiles++

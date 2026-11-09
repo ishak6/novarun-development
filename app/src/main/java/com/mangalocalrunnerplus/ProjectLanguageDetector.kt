@@ -1,4 +1,3 @@
-
 package com.mangalocalrunnerplus
 
 import java.io.File
@@ -146,7 +145,7 @@ object ProjectLanguageDetector {
                 if (foundLanguages.size >= 30) return
 
                 if (child.isDirectory) {
-                    if (child.name !in ignoredDirectories) {
+                    if (child.name.lowercase() !in ignoredDirectories) {
                         scan(canonicalChild, depth + 1)
                     }
                 } else if (canonicalChild.isFile) {
@@ -168,14 +167,7 @@ object ProjectLanguageDetector {
     }
 
     private val ignoredDirectories = setOf(
-        ".git",
-        ".gradle",
-        ".idea",
-        "node_modules",
-        "build",
-        "dist",
-        "vendor",
-        ".dart_tool",
-        "__pycache__"
+        ".git", ".gradle", ".idea", "node_modules", "build", "dist",
+        "vendor", ".dart_tool", "__pycache__", ".next", ".nuxt", ".cache"
     )
 }
