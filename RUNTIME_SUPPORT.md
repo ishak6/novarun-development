@@ -40,17 +40,23 @@ This document records only capabilities integrated into the current Android app.
 - Failed imports remove the temporary extraction directory.
 - ZIP import is not a malware scanner. Imported project code is not trusted merely because extraction succeeded.
 
-## LAN server authentication
+## LAN server authentication and HTTPS
 
 - LAN binding is opt-in through the foreground LAN server service; the server class defaults to loopback-only.
+- LAN sessions use TLS 1.2 or TLS 1.3 with an RSA identity generated and retained by Android Keystore. The private key is non-exportable.
+- The certificate is self-signed and device-local. HTTPS encrypts traffic, but browsers will show a trust warning until the certificate is explicitly trusted; verify the displayed SHA-256 fingerprint before trusting it. The certificate does not establish public-CA trust or automatic hostname/IP validation.
 - Password protection can be enabled or disabled in the app while the server is stopped.
 - When enabled, HTTP Basic authentication checks the configured username and password before serving project paths.
 - The default username is `novarun`; users can change the username and password in the app.
 - Credentials are encrypted at rest with an Android Keystore AES-GCM key.
 - When password protection is disabled, anyone able to reach the LAN server may access its served project content.
-- The transport remains HTTP. Basic authentication is not encrypted in transit, so use a trusted private network only. HTTPS/TLS is required before using an untrusted network.
+- Basic Authentication is carried inside the TLS connection when password protection is enabled. Password OFF still exposes the project to any reachable LAN client; TLS does not replace access control.
 
-## Release gate
+## TLS limitations and release gate
+
+- HTTPS is enabled for the LAN server, but self-signed certificate trust UX and Android-device handshake verification remain release gates.
+- Do not expose the LAN server to public/untrusted networks until certificate identity verification, hostname/IP SAN handling, and a clear trust/onboarding flow are complete.
+
 
 Do not mark a runtime as Available until CI tests pass and an Android device test verifies a real script execution. Do not describe build success as proof of runtime compatibility.
 
