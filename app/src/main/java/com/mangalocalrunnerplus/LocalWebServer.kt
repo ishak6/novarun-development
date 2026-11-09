@@ -30,7 +30,8 @@ class LocalWebServer(
     private val bindToLan: Boolean = false,
     private val accessToken: String? = null,
     private val accessUsername: String = "novarun",
-    private val sslContext: SSLContext? = null
+    private val sslContext: SSLContext? = null,
+    private val defaultDocument: String = "index.html"
 ) {
 
     private val running = AtomicBoolean(false)
@@ -64,6 +65,9 @@ class LocalWebServer(
         if (port !in 1024..65535) {
             return false
         }
+        if (defaultDocument.isBlank() || defaultDocument != File(defaultDocument).name ||
+            defaultDocument.contains('/') || defaultDocument.contains('\\')
+        ) return false
 
         // Never expose a project on the LAN over plaintext HTTP.
         // Loopback-only preview may still use HTTP for local browser access.
@@ -302,7 +306,7 @@ class LocalWebServer(
 
                 val requestedPath = path
                     .removePrefix("/")
-                    .ifEmpty { "index.html" }
+                    .ifEmpty { defaultDocument }
 
                 if (isSensitivePath(requestedPath)) {
                     // Never publish VCS metadata, dotfiles, credentials or private keys.
@@ -326,7 +330,7 @@ class LocalWebServer(
                     if (requestedFile.isDirectory) {
                         File(
                             requestedFile,
-                            "index.html"
+                            defaultDocument
                         ).canonicalFile
                     } else {
                         requestedFile
@@ -347,7 +351,7 @@ class LocalWebServer(
                     val lastSegment = requestedPath.substringAfterLast('/')
                     val isExtensionlessRoute = !lastSegment.contains('.')
                     val fallbackIndex = try {
-                        File(root, "index.html").canonicalFile
+                        File(root, defaultDocument).canonicalFile
                     } catch (exception: Exception) {
                         sendError(output, 403, "Forbidden")
                         return

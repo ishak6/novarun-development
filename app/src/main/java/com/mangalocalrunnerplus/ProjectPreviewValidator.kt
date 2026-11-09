@@ -28,7 +28,7 @@ object ProjectPreviewValidator {
             val entry = ProjectEntryPointFinder.find(root)
                 ?: return PreviewValidationResult(
                     false,
-                    "No readable index.html was found within the project scan limits. Add a website entry point or build the frontend first."
+                    "No supported HTML entry point (index.html, index.htm, default.html, home.html, main.html or start.html) was found within the project scan limits. Add one or build the frontend first."
                 )
             val previewRoot = entry.parentFile?.canonicalFile
                 ?: return PreviewValidationResult(false, "Website entry point has no parent directory.")

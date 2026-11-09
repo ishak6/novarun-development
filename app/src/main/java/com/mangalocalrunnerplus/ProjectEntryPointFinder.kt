@@ -12,6 +12,7 @@ object ProjectEntryPointFinder {
         ".dart_tool", "__pycache__", ".next", ".nuxt", ".cache"
     )
     private val preferredOutputDirectories = listOf("dist", "build", "out")
+    private val supportedEntryNames = listOf("index.html", "index.htm", "default.html", "home.html", "main.html", "start.html")
 
     fun find(projectDirectory: File): File? {
         val root = runCatching { projectDirectory.canonicalFile }.getOrNull()
@@ -49,7 +50,7 @@ object ProjectEntryPointFinder {
                     }
                 } else if (canonicalChild.isFile) {
                     visitedFiles++
-                    if (child.name.equals("index.html", ignoreCase = true) &&
+                    if (child.name.lowercase() in supportedEntryNames &&
                         canonicalChild.canRead()
                     ) {
                         candidates += canonicalChild
@@ -60,6 +61,7 @@ object ProjectEntryPointFinder {
 
         return candidates.minWithOrNull(
             compareBy<File> { candidatePriority(root, it) }
+                .thenBy { supportedEntryNames.indexOf(it.name.lowercase()).let { rank -> if (rank < 0) Int.MAX_VALUE else rank } }
                 .thenBy { it.relativeTo(root).invariantSeparatorsPath.split('/').size }
                 .thenBy { it.relativeTo(root).invariantSeparatorsPath.lowercase() }
         )

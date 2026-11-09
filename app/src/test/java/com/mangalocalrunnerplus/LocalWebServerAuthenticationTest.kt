@@ -48,6 +48,23 @@ class LocalWebServerAuthenticationTest {
     }
 
     @Test
+    fun servesDetectedNonIndexHtmlAsTheRootDocument() {
+        val root = Files.createTempDirectory("novarun-web-home").toFile()
+        File(root, "home.html").writeText("<html>home-page</html>")
+        val port = ServerSocket(0).use { it.localPort }
+        val server = LocalWebServer(root, port, defaultDocument = "home.html")
+        try {
+            assertTrue(server.start())
+            val response = request(port)
+            assertTrue(response.startsWith("HTTP/1.1 200 OK"))
+            assertTrue(response.contains("home-page"))
+        } finally {
+            server.stop()
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun headRequestReturnsHeadersWithoutAssetBody() {
         val root = Files.createTempDirectory("novarun-head").toFile()
         File(root, "index.html").writeText("preview-body")

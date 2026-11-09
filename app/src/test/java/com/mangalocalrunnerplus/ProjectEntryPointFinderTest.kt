@@ -41,6 +41,20 @@ class ProjectEntryPointFinderTest {
     }
 
     @Test
+    fun recognizesCommonHtmlHomePageNames() {
+        listOf("index.htm", "default.html", "home.html", "main.html", "start.html").forEach { name ->
+            val root = Files.createTempDirectory("novarun-entry-$name").toFile()
+            try {
+                val page = File(root, name)
+                page.writeText("<html>home</html>")
+                assertEquals(page.canonicalFile, ProjectEntryPointFinder.find(root))
+            } finally {
+                root.deleteRecursively()
+            }
+        }
+    }
+
+    @Test
     fun ignoresDependencyDirectoriesCaseInsensitively() {
         val root = Files.createTempDirectory("novarun-entry-ignore").toFile()
         try {

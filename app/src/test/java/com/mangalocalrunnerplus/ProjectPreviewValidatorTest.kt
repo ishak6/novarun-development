@@ -85,6 +85,23 @@ class ProjectPreviewValidatorTest {
     }
 
     @Test
+    fun acceptsCommonHtmlHomePageNames() {
+        listOf("index.htm", "default.html", "home.html", "main.html", "start.html").forEach { name ->
+            val root = Files.createTempDirectory("novarun-preview-$name").toFile()
+            try {
+                val page = File(root, name)
+                page.writeText("<html>home</html>")
+                val result = ProjectPreviewValidator.validate(root)
+                assertTrue("$name should be previewable", result.isValid)
+                assertEquals(root.canonicalFile, result.projectRoot)
+                assertEquals(page.canonicalFile, result.entryFile)
+            } finally {
+                root.deleteRecursively()
+            }
+        }
+    }
+
+    @Test
     fun rejectsMissingIndexHtml() {
         val root = Files.createTempDirectory("novarun-preview-missing").toFile()
         try {

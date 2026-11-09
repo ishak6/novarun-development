@@ -198,10 +198,16 @@ class LocalWebServerService : Service() {
                 return@launch
             }
 
-            // Serve compiled frontend output when present (dist/build/out),
-            // otherwise serve the selected project root as a static directory.
-            val webRoot = ProjectPreviewValidator.validate(project).projectRoot
-                ?: project
+            // Resolve and validate the HTML entry point before opening a socket.
+            val preview = ProjectPreviewValidator.validate(project)
+            if (!preview.isValid || preview.projectRoot == null || preview.entryFile == null) {
+                setError(preview.message)
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return@launch
+            }
+            val webRoot = preview.projectRoot
+            val defaultDocument = preview.entryFile.name
 
             val tlsIdentity = try {
                 withContext(Dispatchers.IO) {
@@ -220,7 +226,8 @@ class LocalWebServerService : Service() {
                 bindToLan = true,
                 accessToken = accessToken,
                 accessUsername = accessUsername ?: "novarun",
-                sslContext = tlsIdentity.sslContext
+                sslContext = tlsIdentity.sslContext,
+                defaultDocument = defaultDocument
             )
 
             val started = withContext(Dispatchers.IO) {
@@ -229,7 +236,7 @@ class LocalWebServerService : Service() {
 
             if (!started) {
                 setError(
-                    "Could not start LAN server. Port may already be in use."
+                    "Could not bind HTTPS server to port $port. It may already be in use, or Android could not open the TLS socket. Try another port."
                 )
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
