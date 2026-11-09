@@ -194,6 +194,7 @@ class NodeProjectService : Service() {
         val plan = project?.let { NodeLaunchPlan.create(it, port) }
         if (plan == null || plan.isFailure) {
             NodeStateStore.write(this, NodeState("ERROR", plan?.exceptionOrNull()?.message ?: "No project selected."))
+            started.set(false)
             stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return
         }
         val p = plan.getOrThrow()
@@ -211,6 +212,7 @@ class NodeProjectService : Service() {
             } catch (e: Throwable) {
                 NodeStateStore.write(this, NodeState("ERROR", "Node runtime error: ${e.message ?: e.javaClass.simpleName}", url, log.absolutePath))
             } finally {
+                started.set(false)
                 stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
             }
         }, "NovaRun-Node-Engine").start()
