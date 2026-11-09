@@ -422,12 +422,14 @@ private fun ProjectCard(
                 )
                 Text(
                     when {
+                        analysis.projectKind == "Node.js backend" -> "BACKEND READY • Start Node.js in Localhost"
                         analysis.previewReady -> "PREVIEW READY • Static output detected"
                         analysis.requiresBuild -> "BUILD REQUIRED • Runtime/build tool needed"
                         analysis.missingRuntimes.isNotEmpty() -> "RUNTIME REQUIRED • Cannot execute yet"
                         else -> "SOURCE DETECTED • Choose a supported run target"
                     },
                     color = when {
+                        analysis.projectKind == "Node.js backend" -> NovaRunPalette.Success
                         analysis.previewReady -> NovaRunPalette.Success
                         analysis.requiresBuild || analysis.missingRuntimes.isNotEmpty() -> NovaRunPalette.Warning
                         else -> WorkspaceMuted

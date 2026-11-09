@@ -69,8 +69,17 @@ object ProjectZipAnalyzer {
         val hasRust = "rs" in extensions
         val staticEntry = ProjectEntryPointFinder.find(rootCanonical)
         val previewReady = staticEntry != null
+        val hasNodeBackendEntry = relativePaths.any { path ->
+            path == "server.js" || path.endsWith("/server.js") ||
+                path == "app.js" || path.endsWith("/app.js") ||
+                path.endsWith("/backend/server.js")
+        }
+        val nodeBackendReady = packageFile != null && hasNodeBackendEntry
+        val nodeDependenciesMissing = nodeProject != null &&
+            (nodeProject.dependencyCount + nodeProject.devDependencyCount) > 0 &&
+            !File(packageFile?.parentFile ?: rootCanonical, "node_modules").isDirectory
         val missing = mutableListOf<String>()
-        if (packageFile != null && !previewReady) missing += "Node.js + npm (install dependencies and build)"
+        if (nodeDependenciesMissing) missing += "npm dependencies (node_modules missing)"
         if (hasPhp) missing += "PHP runtime"
         if (hasPython && (names.any { it == "requirements.txt" } || files.any { it.name == "manage.py" || it.name == "pyproject.toml" })) {
             missing += "Python web dependencies/framework runtime"
@@ -87,6 +96,7 @@ object ProjectZipAnalyzer {
             hasReact -> "React web app"
             hasVue && hasVite -> "Vue + Vite"
             hasVue -> "Vue web app"
+            nodeBackendReady -> "Node.js backend"
             packageFile != null -> "Node.js web/project"
             previewReady -> "Static website"
             phpProject?.framework != null -> phpProject.framework + " PHP project"
@@ -101,7 +111,8 @@ object ProjectZipAnalyzer {
         val languageSummary = languages.take(4).joinToString().ifBlank { "file types unknown" }
         val summary = kind + " • " + languageSummary
         val next = when {
-            previewReady && packageFile != null -> "Existing static output found — preview ready. Node.js build tooling is not run by NovaRun yet."
+            nodeBackendReady -> "Node.js backend detected. Start it from Localhost → Node Backend Runner. This project uses built-in SQLite and declares no npm dependencies."
+            previewReady && packageFile != null -> "Static output found. Use Preview for static files or Localhost → Node Backend Runner for the full backend."
             previewReady -> "Static output found — ready for preview."
             packageFile != null && hasBuildScript ->
                 "Build script detected. Command: " + (nodeProject?.buildCommand ?: "npm run build") + ". Node.js/npm runtime is required; build output not found."
@@ -114,7 +125,9 @@ object ProjectZipAnalyzer {
         }
         return ProjectZipAnalysis(
             summary, next, languages, kind, previewReady,
-            packageFile != null && !previewReady, missing.distinct(), files.size, nodeProject, phpProject
+            packageFile != null && !previewReady && !nodeBackendReady &&
+                (hasBuildScript || hasVite || hasReact || hasVue || hasAngular),
+            missing.distinct(), files.size, nodeProject, phpProject
         )
     }
 

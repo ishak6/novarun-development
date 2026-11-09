@@ -68,6 +68,26 @@ class NovaRunTestHarnessTest {
         }
     }
 
+
+    @Test fun detectsRunnableNodeBackendZipLayout() {
+        val root = fixture()
+        try {
+            val nested = File(root, "clothing_store_secure")
+            val public = File(nested, "public")
+            assertTrue(public.mkdirs())
+            File(nested, "server.js").writeText("require('node:http').createServer().listen(3000)")
+            File(nested, "package.json").writeText("""{"engines":{"node":">=22.13.0"},"scripts":{"start":"node server.js"}}""")
+            File(public, "index.html").writeText("<html><body>Store</body></html>")
+            File(nested, "data").mkdirs()
+            File(nested, "data/.gitkeep").writeText("")
+            val analysis = ProjectZipAnalyzer.analyze(root)
+            assertEquals("Node.js backend", analysis.projectKind)
+            assertFalse(analysis.requiresBuild)
+            assertTrue(analysis.missingRuntimes.isEmpty())
+            assertTrue(analysis.nextStep.contains("Localhost"))
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun reportCountsStatuses() {
         val report = HarnessReport(listOf(
             HarnessCheck("a", HarnessStatus.PASS, "ok"),
