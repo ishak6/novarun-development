@@ -16,6 +16,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         RuntimeAdapterRegistry.register(JavaScriptRuntimeAdapter)
+        RuntimeAdapterRegistry.register(SqliteRuntimeAdapter)
 
         setContent {
             NovaRunTheme(context = this) {
