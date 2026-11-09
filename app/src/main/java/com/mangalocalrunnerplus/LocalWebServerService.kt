@@ -44,6 +44,7 @@ data class LocalServerServiceState(
     val remainingMillis: Long = 0L,
     val port: Int = 8080,
     val accessPassword: String? = null,
+    val accessUsername: String? = null,
     val authenticationEnabled: Boolean = true
 )
 
@@ -106,7 +107,9 @@ class LocalWebServerService : Service() {
                     DEFAULT_PORT
                 )
                 val authenticationEnabled = intent.getBooleanExtra(EXTRA_AUTH_ENABLED, true)
-                val accessToken = if (authenticationEnabled) intent.getStringExtra(EXTRA_ACCESS_TOKEN) else null
+                val credentials = if (authenticationEnabled) LanCredentialsStore.get(this) else null
+                val accessToken = credentials?.password
+                val accessUsername = credentials?.username
 
                 if (projectPath.isNullOrBlank()) {
                     setError("No project selected")
@@ -130,6 +133,7 @@ class LocalWebServerService : Service() {
                         message = "Starting LAN server...",
                         port = port,
                         accessPassword = accessToken,
+                        accessUsername = accessUsername,
                         authenticationEnabled = authenticationEnabled
                     )
                 )
@@ -139,6 +143,7 @@ class LocalWebServerService : Service() {
                     durationMillis = durationMillis,
                     port = port,
                     accessToken = accessToken,
+                    accessUsername = accessUsername,
                     authenticationEnabled = authenticationEnabled
                 )
             }
@@ -157,6 +162,7 @@ class LocalWebServerService : Service() {
         durationMillis: Long,
         port: Int,
         accessToken: String?,
+        accessUsername: String?,
         authenticationEnabled: Boolean
     ) {
 
@@ -200,7 +206,8 @@ class LocalWebServerService : Service() {
                 projectDirectory = webRoot,
                 port = port,
                 bindToLan = true,
-                accessToken = accessToken
+                accessToken = accessToken,
+                accessUsername = accessUsername ?: "novarun"
             )
 
             val started = withContext(Dispatchers.IO) {
@@ -259,6 +266,7 @@ class LocalWebServerService : Service() {
                     remainingMillis = durationMillis,
                     port = port,
                     accessPassword = accessToken,
+                    accessUsername = accessUsername,
                     authenticationEnabled = authenticationEnabled
                 )
             )
@@ -299,6 +307,7 @@ class LocalWebServerService : Service() {
                             remainingMillis = remaining,
                             port = port,
                             accessPassword = accessToken,
+                            accessUsername = accessUsername,
                             authenticationEnabled = authenticationEnabled
                         )
                     )
@@ -500,17 +509,6 @@ class LocalWebServerService : Service() {
 
         private const val DEFAULT_PORT = 8080
 
-        private fun createAccessToken(): String {
-            val bytes = ByteArray(24)
-            java.security.SecureRandom().nextBytes(bytes)
-            return android.util.Base64.encodeToString(
-                bytes,
-                android.util.Base64.URL_SAFE or
-                    android.util.Base64.NO_PADDING or
-                    android.util.Base64.NO_WRAP
-            )
-        }
-
         fun start(
             context: Context,
             projectDirectory: File,
@@ -519,13 +517,15 @@ class LocalWebServerService : Service() {
             authenticationEnabled: Boolean = true
         ) {
 
-            val accessToken = if (authenticationEnabled) createAccessToken() else null
+            val credentials = if (authenticationEnabled) LanCredentialsStore.get(context) else null
+            val accessToken = credentials?.password
             LocalServerServiceStateStore.update(
                 LocalServerServiceState(
                     status = LocalServerServiceStatus.STARTING,
                     message = if (authenticationEnabled) "Preparing password-protected LAN server..." else "Preparing LAN server without password protection...",
                     port = port,
                     accessPassword = accessToken,
+                    accessUsername = credentials?.username,
                     authenticationEnabled = authenticationEnabled
                 )
             )
@@ -550,10 +550,6 @@ class LocalWebServerService : Service() {
                 putExtra(
                     EXTRA_PORT,
                     port
-                )
-                putExtra(
-                    EXTRA_ACCESS_TOKEN,
-                    accessToken
                 )
                 putExtra(EXTRA_AUTH_ENABLED, authenticationEnabled)
             }
