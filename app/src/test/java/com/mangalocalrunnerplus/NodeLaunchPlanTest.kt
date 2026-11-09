@@ -40,6 +40,54 @@ class NodeLaunchPlanTest {
         }
     }
 
+
+    @Test
+    fun detectsNestedZipWrapperProjectRoot() {
+        val root = project {
+            val nested = File(it, "clothing_store_secure")
+            assertTrue(nested.mkdirs())
+            File(nested, "server.js").writeText("console.log('ready')")
+            File(nested, "package.json").writeText("""{"engines":{"node":">=22.13.0"}}""")
+        }
+        try {
+            val result = NodeLaunchPlan.create(root, 3000)
+            assertTrue(result.exceptionOrNull()?.message.orEmpty(), result.isSuccess)
+            assertEquals(File(root, "clothing_store_secure").canonicalFile, result.getOrThrow().root)
+            assertEquals(File(root, "clothing_store_secure/server.js").canonicalFile, result.getOrThrow().entry)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun acceptsTargetZipNodeEngineRequirement() {
+        val root = project {
+            File(it, "server.js").writeText("console.log('ready')")
+            File(it, "package.json").writeText("""{"engines":{"node":">=22.13.0"}}""")
+        }
+        try {
+            assertTrue(NodeLaunchPlan.create(root, 3000).isSuccess)
+            assertEquals("24.22.1", NodeLaunchPlan.BUNDLED_NODE_VERSION)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsNodeEngineNewerThanBundledRuntime() {
+        val root = project {
+            File(it, "server.js").writeText("console.log('ready')")
+            File(it, "package.json").writeText("""{"engines":{"node":">=25.0.0"}}""")
+        }
+        try {
+            val result = NodeLaunchPlan.create(root, 3000)
+            assertFalse(result.isSuccess)
+            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("requires Node.js"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test
     fun rejectsMissingEntryPoint() {
         val root = project { File(it, "README.md").writeText("not a server") }

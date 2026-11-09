@@ -62,7 +62,10 @@ jobs:
       - name: Download pinned Node.js Mobile runtime
         run: |
           mkdir -p app/src/main/jniLibs
-          curl -fL --retry 3 "https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.20.4/nodejs-mobile-v18.20.4-android.zip" -o /tmp/node-mobile.zip
+          NODE_MOBILE_VERSION="24.22.1-0"
+          NODE_MOBILE_SHA256="d6fd9f610fe5d81fede8f0d400c5a62723247725a19831835f15abf4f0604250"
+          curl -fL --retry 3 "https://github.com/fogtape/nodejs-mobile/releases/download/v${NODE_MOBILE_VERSION}/nodejs-mobile-android-${NODE_MOBILE_VERSION}.zip" -o /tmp/node-mobile.zip
+          echo "${NODE_MOBILE_SHA256}  /tmp/node-mobile.zip" | sha256sum --check -
           unzip -q /tmp/node-mobile.zip -d /tmp/node-mobile
           for abi in arm64-v8a x86_64; do
             library="$(find /tmp/node-mobile -type f -path "*/$abi/libnode.so" -print -quit)"

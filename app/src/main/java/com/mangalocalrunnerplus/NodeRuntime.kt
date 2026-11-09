@@ -57,7 +57,7 @@ internal data class NodeLaunchPlan(
     val root: File, val entry: File, val port: Int, val warnings: List<String>
 ) {
     companion object {
-        const val BUNDLED_NODE_VERSION = "18.20.4"
+        const val BUNDLED_NODE_VERSION = "24.22.1"
         private val entryNames = listOf("server.js", "index.js", "app.js", "src/server.js", "src/index.js", "backend/server.js")
         private val ignoredDirectories = setOf(".git", ".gradle", ".idea", "node_modules", "vendor", ".next", ".nuxt", ".cache")
 
@@ -198,7 +198,7 @@ class NodeProjectService : Service() {
         }
         val p = plan.getOrThrow()
         val log = File(filesDir, "node-backend-${p.root.name.hashCode()}-$port.log")
-        log.writeText("NovaRun embedded Node.js 18.20.4\nProject: ${p.root.name}\nEntry: ${p.entry.relativeTo(p.root).path}\n")
+        log.writeText("NovaRun embedded Node.js 24.22.1\nProject: ${p.root.name}\nEntry: ${p.entry.relativeTo(p.root).path}\n")
         val url = "http://127.0.0.1:$port/"
         NodeStateStore.write(this, NodeState("STARTING", "Starting ${p.entry.name}…", url, log.absolutePath))
         Thread({
@@ -295,7 +295,7 @@ fun NodeBackendRunnerCard(project: File?) {
             Text(state.message, color = NovaRunPalette.TextSecondary, fontSize = 12.sp)
             OutlinedTextField(value = portText, onValueChange = { if (it.length <= 5 && it.all(Char::isDigit)) portText = it },
                 label = { Text("Node server port") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Text("Uses embedded Node.js 18.20.4. Dependencies must already exist in node_modules. npm install and package scripts are not run. child_process/cluster are unsupported.", color = NovaRunPalette.TextSecondary, fontSize = 11.sp)
+            Text("Uses embedded Node.js 24.22.1. Dependencies must already exist in node_modules. npm install and package scripts are not run. child_process/cluster are unsupported.", color = NovaRunPalette.TextSecondary, fontSize = 11.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = project != null && state.status !in setOf("STARTING", "RUNNING"),
                     onClick = {

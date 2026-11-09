@@ -62,7 +62,8 @@ class NovaRunTestHarnessTest {
     }
 
     @Test fun unintegratedRuntimesAreNotMarkedReady() {
-        listOf("Node.js", "npm", "PHP", "Java", "Kotlin", "C", "C++").forEach {
+        assertEquals(RuntimeStatus.AVAILABLE_FOR_EXECUTION, RuntimeCapabilityManager.getCapability("Node.js").status)
+        listOf("npm", "PHP", "Java", "Kotlin", "C", "C++").forEach {
             assertEquals(RuntimeStatus.ADAPTER_PLANNED, RuntimeCapabilityManager.getCapability(it).status)
         }
     }
