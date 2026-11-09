@@ -3,6 +3,7 @@ package com.mangalocalrunnerplus
 
 import android.content.Context
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 data class RuntimeExecutionRequest(
     val projectDirectory: File,
@@ -32,7 +33,7 @@ interface RuntimeAdapter {
 object RuntimeAdapterRegistry {
 
     private val adapters =
-        mutableMapOf<String, RuntimeAdapter>()
+        ConcurrentHashMap<String, RuntimeAdapter>()
 
     fun register(adapter: RuntimeAdapter) {
         adapters[adapter.language.lowercase()] = adapter
