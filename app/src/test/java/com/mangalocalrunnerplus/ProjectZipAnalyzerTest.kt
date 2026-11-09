@@ -43,7 +43,7 @@ class ProjectZipAnalyzerTest {
     }
 
     @Test
-    fun detectsReactViteAndReportsMissingNodeRuntimeWhenNoBuildOutput() {
+    fun detectsReactViteAndReportsMissingNpmDependenciesWhenNoBuildOutput() {
         val root = Files.createTempDirectory("novarun-vite").toFile()
         try {
             File(root, "package.json").writeText(
@@ -55,7 +55,7 @@ class ProjectZipAnalyzerTest {
             assertEquals("React + Vite", result.projectKind)
             assertFalse(result.previewReady)
             assertTrue(result.requiresBuild)
-            assertTrue(result.missingRuntimes.any { it.startsWith("Node.js + npm") })
+            assertTrue(result.missingRuntimes.any { it.startsWith("npm dependencies") })
             assertEquals("npm run build", result.nodeProject?.buildCommand)
         } finally {
             root.deleteRecursively()
