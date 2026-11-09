@@ -42,7 +42,8 @@ data class LocalServerServiceState(
     val localUrl: String? = null,
     val durationMillis: Long = 0L,
     val remainingMillis: Long = 0L,
-    val port: Int = 8080
+    val port: Int = 8080,
+    val accessPassword: String? = null
 )
 
 object LocalServerServiceStateStore {
@@ -103,9 +104,16 @@ class LocalWebServerService : Service() {
                     EXTRA_PORT,
                     DEFAULT_PORT
                 )
+                val accessToken = intent.getStringExtra(EXTRA_ACCESS_TOKEN)
 
                 if (projectPath.isNullOrBlank()) {
                     setError("No project selected")
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+
+                if (accessToken.isNullOrBlank()) {
+                    setError("LAN access token is missing")
                     stopSelf()
                     return START_NOT_STICKY
                 }
@@ -118,14 +126,16 @@ class LocalWebServerService : Service() {
                     LocalServerServiceState(
                         status = LocalServerServiceStatus.STARTING,
                         message = "Starting LAN server...",
-                        port = port
+                        port = port,
+                        accessPassword = accessToken
                     )
                 )
 
                 startServer(
                     projectPath = projectPath,
                     durationMillis = durationMillis,
-                    port = port
+                    port = port,
+                    accessToken = accessToken
                 )
             }
 
@@ -141,7 +151,8 @@ class LocalWebServerService : Service() {
     private fun startServer(
         projectPath: String,
         durationMillis: Long,
-        port: Int
+        port: Int,
+        accessToken: String
     ) {
 
         startJob?.cancel()
@@ -183,7 +194,8 @@ class LocalWebServerService : Service() {
             val newServer = LocalWebServer(
                 projectDirectory = webRoot,
                 port = port,
-                bindToLan = true
+                bindToLan = true,
+                accessToken = accessToken
             )
 
             val started = withContext(Dispatchers.IO) {
@@ -240,7 +252,8 @@ class LocalWebServerService : Service() {
                     localUrl = localAddress,
                     durationMillis = durationMillis,
                     remainingMillis = durationMillis,
-                    port = port
+                    port = port,
+                    accessPassword = accessToken
                 )
             )
 
@@ -278,7 +291,8 @@ class LocalWebServerService : Service() {
                             localUrl = localAddress,
                             durationMillis = durationMillis,
                             remainingMillis = remaining,
-                            port = port
+                            port = port,
+                            accessPassword = accessToken
                         )
                     )
 
@@ -471,7 +485,21 @@ class LocalWebServerService : Service() {
         private const val EXTRA_PORT =
             "server_port"
 
+        private const val EXTRA_ACCESS_TOKEN =
+            "server_access_token"
+
         private const val DEFAULT_PORT = 8080
+
+        private fun createAccessToken(): String {
+            val bytes = ByteArray(24)
+            java.security.SecureRandom().nextBytes(bytes)
+            return android.util.Base64.encodeToString(
+                bytes,
+                android.util.Base64.URL_SAFE or
+                    android.util.Base64.NO_PADDING or
+                    android.util.Base64.NO_WRAP
+            )
+        }
 
         fun start(
             context: Context,
@@ -479,6 +507,16 @@ class LocalWebServerService : Service() {
             durationMillis: Long = 0L,
             port: Int = DEFAULT_PORT
         ) {
+
+            val accessToken = createAccessToken()
+            LocalServerServiceStateStore.update(
+                LocalServerServiceState(
+                    status = LocalServerServiceStatus.STARTING,
+                    message = "Preparing authenticated LAN server...",
+                    port = port,
+                    accessPassword = accessToken
+                )
+            )
 
             val intent = Intent(
                 context,
@@ -500,6 +538,10 @@ class LocalWebServerService : Service() {
                 putExtra(
                     EXTRA_PORT,
                     port
+                )
+                putExtra(
+                    EXTRA_ACCESS_TOKEN,
+                    accessToken
                 )
             }
 
