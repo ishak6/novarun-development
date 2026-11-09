@@ -36,3 +36,15 @@ This document records only runtime capabilities which are actually integrated. A
 ## Release gate
 
 Do not mark a runtime as Available until CI tests pass and an Android device test verifies a real script execution. Do not describe build success as proof of runtime compatibility.
+
+## Remaining runtime integration gates
+
+These items remain planned and must not be shown as runnable until the complete toolchain is packaged and verified on a physical Android device:
+
+- **Node.js + npm:** choose a maintained Android-compatible Node release; package the correct ABI binaries; implement npm registry access, lockfile handling, lifecycle-script controls, disk quotas, cancellation, and native-addon compatibility. Rhino is not a Node substitute.
+- **PHP:** build and maintain PHP CLI for each supported Android ABI, provide required extensions, connect process I/O and lifecycle to the app, and test common Composer workflows. A static PHP archive is not a runnable CLI.
+- **Java:** bundle a compiler, convert emitted class files to Android DEX, resolve dependencies, and execute only through a constrained class-loading boundary.
+- **Kotlin:** integrate a compatible Kotlin compiler and dependency resolver, convert compiler output to DEX, and verify Android API compatibility. Kotlin/JVM output cannot be loaded as raw DEX without conversion.
+- **C/C++:** package an Android-hosted compiler and sysroot, define supported target ABIs and C++ runtime, compile to Android ELF binaries, and execute with strict resource and file-access limits.
+
+Do not silently route any of these languages to JavaScript, the browser, or an external browser. A missing adapter must produce a clear “not installed / adapter planned” result. Package installation and arbitrary project scripts can execute untrusted code; before enabling them, add explicit user consent, project-scoped storage, cancellation, resource limits, and a documented security boundary.
