@@ -50,7 +50,7 @@ object RuntimeCapabilityManager {
             "JavaScript",
             RuntimeType.WEB_VIEW,
             RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-            "Browser JavaScript can run inside a configured WebView.",
+            "JavaScript files can run with the embedded interpreter; browser scripts can also be previewed in WebView.",
             true
         ),
 
