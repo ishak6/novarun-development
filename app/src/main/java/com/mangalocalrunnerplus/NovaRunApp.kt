@@ -2,6 +2,7 @@
 package com.mangalocalrunnerplus
 
 import android.app.Activity
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,6 +27,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.io.File
 
 private val Background
@@ -43,6 +47,30 @@ private val Blue
 @Composable
 fun NovaRunApp() {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Stop the server when the app leaves the foreground if background
+    // serving has been disabled in Settings.
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                val prefs = context.getSharedPreferences(
+                    "novarun_settings",
+                    android.content.Context.MODE_PRIVATE
+                )
+                if (!prefs.getBoolean("background_server", true)) {
+                    context.stopService(
+                        Intent(context, LocalWebServerService::class.java)
+                    )
+                }
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var importMessage by remember { mutableStateOf<String?>(null) }
