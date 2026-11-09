@@ -61,6 +61,10 @@ fun LocalServerScreen(
         mutableStateOf("1h")
     }
 
+    var showAccessPassword by remember {
+        mutableStateOf(false)
+    }
+
     val preferences = remember(context) {
         context.getSharedPreferences("novarun_settings", Context.MODE_PRIVATE)
     }
@@ -174,24 +178,37 @@ fun LocalServerScreen(
         minutes = minute
     }
 
-    fun copyAddress(address: String) {
-
+    fun copyToClipboard(value: String, label: String) {
         val clipboard = context.getSystemService(
             Context.CLIPBOARD_SERVICE
-        ) as ClipboardManager
+        ) as? ClipboardManager
 
-        clipboard.setPrimaryClip(
-            ClipData.newPlainText(
-                "NovaRun Server Address",
-                address
+        if (clipboard == null) {
+            Toast.makeText(
+                context,
+                "Could not access clipboard",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        runCatching {
+            clipboard.setPrimaryClip(
+                ClipData.newPlainText("NovaRun $label", value)
             )
-        )
-
-        Toast.makeText(
-            context,
-            "Address copied",
-            Toast.LENGTH_SHORT
-        ).show()
+        }.onSuccess {
+            Toast.makeText(
+                context,
+                "$label copied to clipboard",
+                Toast.LENGTH_SHORT
+            ).show()
+        }.onFailure {
+            Toast.makeText(
+                context,
+                "Copy failed: ${it.localizedMessage ?: "clipboard error"}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     Column(
@@ -333,21 +350,41 @@ fun LocalServerScreen(
                 Spacer(Modifier.height(6.dp))
 
                 Text(
-                    text = serverState.accessPassword ?: "Generated when server starts",
+                    text = serverState.accessPassword?.let {
+                        if (showAccessPassword) it else "••••••••••••"
+                    } ?: "Generated when server starts",
                     color = Color(0xFFFFD166),
                     fontSize = 14.sp
                 )
 
                 Spacer(Modifier.height(8.dp))
 
-                OutlinedButton(
-                    onClick = {
-                        serverState.accessPassword?.let { copyAddress(it) }
-                    },
-                    enabled = isRunning && serverState.accessPassword != null,
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Copy Access Password", color = Color.White)
+                    OutlinedButton(
+                        onClick = { showAccessPassword = !showAccessPassword },
+                        enabled = serverState.accessPassword != null,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            if (showAccessPassword) "Hide Password" else "Show Password",
+                            color = Color.White
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            serverState.accessPassword?.let {
+                                copyToClipboard(it, "Password")
+                            }
+                        },
+                        enabled = isRunning && serverState.accessPassword != null,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Copy Password", color = Color.White)
+                    }
                 }
 
                 Text(
@@ -361,7 +398,7 @@ fun LocalServerScreen(
                 OutlinedButton(
                     onClick = {
                         serverState.lanUrl?.let {
-                            copyAddress(it)
+                            copyToClipboard(it, "LAN address")
                         }
                     },
                     enabled = isRunning &&
