@@ -5,82 +5,46 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RuntimeCapabilityManagerTest {
-
     @Test
-    fun registeredSqliteRuntimeIsMarkedAvailable() {
-        val sql = RuntimeCapabilityManager.getCapability("SQL")
-
-        assertEquals(RuntimeType.DATABASE, sql.runtimeType)
-        assertEquals(RuntimeStatus.AVAILABLE_FOR_PREVIEW, sql.status)
-        assertTrue(sql.description.contains("SQLite"))
-    }
-
-    @Test
-    fun webProjectAssetsAreRegisteredForPreview() {
-        listOf("HTML", "CSS", "JavaScript", "SVG").forEach { language ->
-            val capability = RuntimeCapabilityManager.getCapability(language)
-            assertEquals(
-                "$language should be available for preview",
-                RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-                capability.status
-            )
-            assertTrue(
-                "$language should be previewable",
-                capability.canPreviewInWebView
-            )
+    fun executableRuntimesAreDistinctFromPreviewOnlyAssets() {
+        assertEquals(RuntimeStatus.AVAILABLE_FOR_EXECUTION, RuntimeCapabilityManager.getCapability("Python").status)
+        assertEquals(RuntimeStatus.AVAILABLE_FOR_EXECUTION, RuntimeCapabilityManager.getCapability("JavaScript").status)
+        assertEquals(RuntimeStatus.AVAILABLE_FOR_EXECUTION, RuntimeCapabilityManager.getCapability("SQL").status)
+        listOf("HTML", "CSS", "SVG").forEach {
+            assertEquals("$it must be preview-only", RuntimeStatus.AVAILABLE_FOR_PREVIEW, RuntimeCapabilityManager.getCapability(it).status)
         }
     }
 
     @Test
-    fun runtimesWithoutAdaptersRemainPlanned() {
-        assertEquals(
-            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-            RuntimeCapabilityManager.getCapability("Python").status
-        )
-        assertEquals(
-            RuntimeStatus.ADAPTER_PLANNED,
-            RuntimeCapabilityManager.getCapability("PHP").status
-        )
-        assertEquals(
-            RuntimeStatus.ADAPTER_PLANNED,
-            RuntimeCapabilityManager.getCapability("Node.js").status
-        )
-        assertEquals(
-            RuntimeStatus.ADAPTER_PLANNED,
-            RuntimeCapabilityManager.getCapability("npm").status
-        )
-        assertEquals(
-            RuntimeStatus.ADAPTER_PLANNED,
-            RuntimeCapabilityManager.getCapability("Java").status
-        )
-        assertEquals(
-            RuntimeStatus.ADAPTER_PLANNED,
-            RuntimeCapabilityManager.getCapability("Kotlin").status
-        )
-        assertEquals(
-            RuntimeStatus.ADAPTER_PLANNED,
-            RuntimeCapabilityManager.getCapability("C").status
-        )
-        assertEquals(
-            RuntimeStatus.ADAPTER_PLANNED,
-            RuntimeCapabilityManager.getCapability("C++").status
-        )
+    fun unsupportedCompilerAndInterpreterIntegrationsRemainPlanned() {
+        listOf("PHP", "Node.js", "npm", "Java", "Kotlin", "C", "C++").forEach {
+            assertEquals("$it must not be reported as installed", RuntimeStatus.ADAPTER_PLANNED, RuntimeCapabilityManager.getCapability(it).status)
+        }
     }
 
     @Test
-    fun runtimeOverviewCountsEachStatus() {
+    fun browserJavaScriptIsPreviewableAndStandaloneJavaScriptCanExecute() {
+        val javascript = RuntimeCapabilityManager.getCapability("JavaScript")
+        assertTrue(javascript.canPreviewInWebView)
+        assertTrue(javascript.description.contains("Rhino"))
+        assertTrue(javascript.description.contains("not Node.js"))
+    }
+
+    @Test
+    fun runtimeOverviewSeparatesExecutionFromPreview() {
         val overview = RuntimeOverviewManager.create(
             listOf(
-                RuntimeCheckResult("SQL", RuntimeStatus.AVAILABLE_FOR_PREVIEW, "ready"),
-                RuntimeCheckResult("JavaScript", RuntimeStatus.AVAILABLE_FOR_PREVIEW, "ready"),
+                RuntimeCheckResult("SQL", RuntimeStatus.AVAILABLE_FOR_EXECUTION, "ready"),
+                RuntimeCheckResult("JavaScript", RuntimeStatus.AVAILABLE_FOR_EXECUTION, "ready"),
+                RuntimeCheckResult("HTML", RuntimeStatus.AVAILABLE_FOR_PREVIEW, "preview"),
                 RuntimeCheckResult("Python", RuntimeStatus.ADAPTER_PLANNED, "planned"),
                 RuntimeCheckResult("PHP", RuntimeStatus.NOT_CONFIGURED, "missing"),
                 RuntimeCheckResult("Unknown", RuntimeStatus.NOT_SUPPORTED, "unsupported")
             )
         )
-
-        assertEquals(5, overview.totalLanguages)
-        assertEquals(2, overview.previewAvailable)
+        assertEquals(6, overview.totalLanguages)
+        assertEquals(2, overview.executionAvailable)
+        assertEquals(1, overview.previewAvailable)
         assertEquals(1, overview.adapterPlanned)
         assertEquals(1, overview.notConfigured)
         assertEquals(1, overview.notSupported)

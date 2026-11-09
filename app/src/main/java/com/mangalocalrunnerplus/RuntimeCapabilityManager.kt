@@ -1,18 +1,11 @@
-
 package com.mangalocalrunnerplus
 
 enum class RuntimeType {
-    WEB_VIEW,
-    INTERPRETER,
-    COMPILER,
-    JVM,
-    DATABASE,
-    DOTNET,
-    EXTERNAL_RUNTIME,
-    NOT_SUPPORTED
+    WEB_VIEW, INTERPRETER, COMPILER, JVM, DATABASE, DOTNET, EXTERNAL_RUNTIME, NOT_SUPPORTED
 }
 
 enum class RuntimeStatus {
+    AVAILABLE_FOR_EXECUTION,
     AVAILABLE_FOR_PREVIEW,
     ADAPTER_PLANNED,
     NOT_CONFIGURED,
@@ -28,253 +21,51 @@ data class RuntimeCapability(
 )
 
 object RuntimeCapabilityManager {
+    private val capabilities = listOf(
+        RuntimeCapability("HTML", RuntimeType.WEB_VIEW, RuntimeStatus.AVAILABLE_FOR_PREVIEW, "HTML pages can be displayed in the native project preview.", true),
+        RuntimeCapability("CSS", RuntimeType.WEB_VIEW, RuntimeStatus.AVAILABLE_FOR_PREVIEW, "CSS stylesheets can be previewed with an HTML project.", true),
+        RuntimeCapability("SVG", RuntimeType.WEB_VIEW, RuntimeStatus.AVAILABLE_FOR_PREVIEW, "SVG vector assets can be served and previewed.", true),
+        RuntimeCapability("JavaScript", RuntimeType.INTERPRETER, RuntimeStatus.AVAILABLE_FOR_EXECUTION, "Browser JavaScript runs in project preview; standalone .js uses the bounded Rhino ES6 interpreter. This is not Node.js.", true),
+        RuntimeCapability("JavaScript JSX", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.ADAPTER_PLANNED, "Requires a JavaScript build tool to transform JSX."),
+        RuntimeCapability("Node.js", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.ADAPTER_PLANNED, "Not executable yet: no maintained, tested Android Node.js runtime is bundled. Rhino does not provide Node APIs or built-in modules."),
+        RuntimeCapability("npm", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.ADAPTER_PLANNED, "Not executable yet: requires a working Node.js runtime, package lifecycle consent, registry handling, storage quotas, and native-addon compatibility policy."),
+        RuntimeCapability("TypeScript", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.ADAPTER_PLANNED, "Requires a TypeScript compiler or build tool."),
+        RuntimeCapability("TypeScript JSX", RuntimeType.EXTERNAL_RUNTIME, RuntimeStatus.ADAPTER_PLANNED, "Requires a TypeScript and JSX build pipeline."),
+        RuntimeCapability("PHP", RuntimeType.INTERPRETER, RuntimeStatus.ADAPTER_PLANNED, "Not executable yet: requires a maintained PHP CLI build for supported Android ABIs and a tested process integration."),
+        RuntimeCapability("Python", RuntimeType.INTERPRETER, RuntimeStatus.AVAILABLE_FOR_EXECUTION, "Embedded CPython 3.11 via Chaquopy. Standard library support has Android-specific limitations."),
+        RuntimeCapability("Ruby", RuntimeType.INTERPRETER, RuntimeStatus.ADAPTER_PLANNED, "Requires a Ruby interpreter."),
+        RuntimeCapability("Java", RuntimeType.JVM, RuntimeStatus.ADAPTER_PLANNED, "Requires a Java compiler, JVM-bytecode-to-Dex conversion, dependency resolution, and controlled Android class loading."),
+        RuntimeCapability("Kotlin", RuntimeType.JVM, RuntimeStatus.ADAPTER_PLANNED, "Requires the Kotlin compiler, dependency resolution, JVM-bytecode-to-Dex conversion, and controlled Android class loading."),
+        RuntimeCapability("Kotlin Script", RuntimeType.JVM, RuntimeStatus.ADAPTER_PLANNED, "Requires a Kotlin scripting environment."),
+        RuntimeCapability("Go", RuntimeType.COMPILER, RuntimeStatus.ADAPTER_PLANNED, "Requires a compatible Go compiler."),
+        RuntimeCapability("C#", RuntimeType.DOTNET, RuntimeStatus.ADAPTER_PLANNED, "Requires a compatible .NET runtime or compiler."),
+        RuntimeCapability("Dart", RuntimeType.COMPILER, RuntimeStatus.ADAPTER_PLANNED, "Requires a Dart SDK or compatible runtime."),
+        RuntimeCapability("C", RuntimeType.COMPILER, RuntimeStatus.ADAPTER_PLANNED, "Requires an Android-hosted compiler, target sysroot, linker, and bounded execution environment."),
+        RuntimeCapability("C Header", RuntimeType.COMPILER, RuntimeStatus.ADAPTER_PLANNED, "Header files require a compatible C compiler."),
+        RuntimeCapability("C++", RuntimeType.COMPILER, RuntimeStatus.ADAPTER_PLANNED, "Requires an Android-hosted C++ compiler, standard library, target sysroot, linker, and bounded execution environment."),
+        RuntimeCapability("C++ Header", RuntimeType.COMPILER, RuntimeStatus.ADAPTER_PLANNED, "Header files require a compatible C++ compiler."),
+        RuntimeCapability("Rust", RuntimeType.COMPILER, RuntimeStatus.ADAPTER_PLANNED, "Requires the Rust compiler and target toolchain."),
+        RuntimeCapability("Swift", RuntimeType.COMPILER, RuntimeStatus.ADAPTER_PLANNED, "Requires a compatible Swift compiler and target toolchain."),
+        RuntimeCapability("Lua", RuntimeType.INTERPRETER, RuntimeStatus.ADAPTER_PLANNED, "Requires a Lua interpreter."),
+        RuntimeCapability("Perl", RuntimeType.INTERPRETER, RuntimeStatus.ADAPTER_PLANNED, "Requires a Perl interpreter."),
+        RuntimeCapability("Haskell", RuntimeType.COMPILER, RuntimeStatus.ADAPTER_PLANNED, "Requires a compatible Haskell compiler."),
+        RuntimeCapability("R", RuntimeType.INTERPRETER, RuntimeStatus.ADAPTER_PLANNED, "Requires an R runtime."),
+        RuntimeCapability("Julia", RuntimeType.INTERPRETER, RuntimeStatus.ADAPTER_PLANNED, "Requires a Julia runtime."),
+        RuntimeCapability("SQL", RuntimeType.DATABASE, RuntimeStatus.AVAILABLE_FOR_EXECUTION, "Project-isolated SQLite database; SQL scripts execute locally with statement and output limits."),
+        RuntimeCapability("Bash", RuntimeType.INTERPRETER, RuntimeStatus.ADAPTER_PLANNED, "Requires a compatible shell environment.")
+    ).associateBy { it.language }
 
-    private val capabilities = mapOf(
-        "HTML" to RuntimeCapability(
-            "HTML",
-            RuntimeType.WEB_VIEW,
-            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-            "HTML pages can be displayed in an Android WebView.",
-            true
-        ),
-
-        "CSS" to RuntimeCapability(
-            "CSS",
-            RuntimeType.WEB_VIEW,
-            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-            "CSS can be previewed with an HTML page.",
-            true
-        ),
-
-        "SVG" to RuntimeCapability(
-            "SVG",
-            RuntimeType.WEB_VIEW,
-            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-            "SVG vector assets can be served with image/svg+xml and previewed directly or inside HTML.",
-            true
-        ),
-
-        "JavaScript" to RuntimeCapability(
-            "JavaScript",
-            RuntimeType.WEB_VIEW,
-            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-            "Browser JavaScript can run in the web preview; standalone .js files can also run in the bounded Rhino ES6 interpreter. This is not Node.js.",
-            true
-        ),
-
-        "JavaScript JSX" to RuntimeCapability(
-            "JavaScript JSX",
-            RuntimeType.EXTERNAL_RUNTIME,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a JavaScript build tool to transform JSX."
-        ),
-
-        "Node.js" to RuntimeCapability(
-            "Node.js",
-            RuntimeType.EXTERNAL_RUNTIME,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Not executable yet: no maintained Android Node.js runtime is bundled. The legacy Node 18 mobile line is end-of-life; Node APIs and built-in modules are not provided by the Rhino JavaScript interpreter."
-        ),
-
-        "npm" to RuntimeCapability(
-            "npm",
-            RuntimeType.EXTERNAL_RUNTIME,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Not executable yet: npm requires a supported Node.js runtime, package lifecycle scripts, registry/network handling, storage quotas, and an Android-compatible native-addon policy."
-        ),
-
-        "TypeScript" to RuntimeCapability(
-            "TypeScript",
-            RuntimeType.EXTERNAL_RUNTIME,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a TypeScript compiler or build tool."
-        ),
-
-        "TypeScript JSX" to RuntimeCapability(
-            "TypeScript JSX",
-            RuntimeType.EXTERNAL_RUNTIME,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a TypeScript and JSX build pipeline."
-        ),
-
-        "PHP" to RuntimeCapability(
-            "PHP",
-            RuntimeType.INTERPRETER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Not executable yet: no PHP interpreter is bundled. PHP CLI must be cross-compiled for Android ABI and integrated with a maintained runtime/JNI bridge; a static library alone cannot run scripts."
-        ),
-
-        "Python" to RuntimeCapability(
-            "Python",
-            RuntimeType.INTERPRETER,
-            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-            "Embedded CPython 3.11 runtime (Chaquopy); standard library support with Android platform limitations."
-        ),
-
-        "Ruby" to RuntimeCapability(
-            "Ruby",
-            RuntimeType.INTERPRETER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a Ruby interpreter."
-        ),
-
-        "Java" to RuntimeCapability(
-            "Java",
-            RuntimeType.JVM,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Not executable yet: Android does not provide a general-purpose JVM for arbitrary Java source. A Java compiler plus JVM-bytecode-to-Dex conversion and isolated class loading are required."
-        ),
-
-        "Kotlin" to RuntimeCapability(
-            "Kotlin",
-            RuntimeType.JVM,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Not executable yet: Kotlin source compilation requires the Kotlin compiler, dependency resolution, JVM-bytecode-to-Dex conversion, and controlled Android class loading."
-        ),
-
-        "Kotlin Script" to RuntimeCapability(
-            "Kotlin Script",
-            RuntimeType.JVM,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a Kotlin scripting environment."
-        ),
-
-        "Go" to RuntimeCapability(
-            "Go",
-            RuntimeType.COMPILER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a compatible Go compiler."
-        ),
-
-        "C#" to RuntimeCapability(
-            "C#",
-            RuntimeType.DOTNET,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a compatible .NET runtime or compiler."
-        ),
-
-        "Dart" to RuntimeCapability(
-            "Dart",
-            RuntimeType.COMPILER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a Dart SDK or compatible runtime."
-        ),
-
-        "C" to RuntimeCapability(
-            "C",
-            RuntimeType.COMPILER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Not executable yet: no Android-hosted C compiler is bundled. A target-compatible compiler, sysroot, linker, and execution policy are required."
-        ),
-
-        "C Header" to RuntimeCapability(
-            "C Header",
-            RuntimeType.COMPILER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Header files require a compatible C compiler."
-        ),
-
-        "C++" to RuntimeCapability(
-            "C++",
-            RuntimeType.COMPILER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Not executable yet: no Android-hosted C++ compiler is bundled. A target-compatible compiler, C++ standard library, sysroot, linker, and execution policy are required."
-        ),
-
-        "C++ Header" to RuntimeCapability(
-            "C++ Header",
-            RuntimeType.COMPILER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Header files require a compatible C++ compiler."
-        ),
-
-        "Rust" to RuntimeCapability(
-            "Rust",
-            RuntimeType.COMPILER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires the Rust compiler and target toolchain."
-        ),
-
-        "Swift" to RuntimeCapability(
-            "Swift",
-            RuntimeType.COMPILER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a compatible Swift compiler and target toolchain."
-        ),
-
-        "Lua" to RuntimeCapability(
-            "Lua",
-            RuntimeType.INTERPRETER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a Lua interpreter."
-        ),
-
-        "Perl" to RuntimeCapability(
-            "Perl",
-            RuntimeType.INTERPRETER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a Perl interpreter."
-        ),
-
-        "Haskell" to RuntimeCapability(
-            "Haskell",
-            RuntimeType.COMPILER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a compatible Haskell compiler."
-        ),
-
-        "R" to RuntimeCapability(
-            "R",
-            RuntimeType.INTERPRETER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires an R runtime."
-        ),
-
-        "Julia" to RuntimeCapability(
-            "Julia",
-            RuntimeType.INTERPRETER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a Julia runtime."
-        ),
-
-        "SQL" to RuntimeCapability(
-            "SQL",
-            RuntimeType.DATABASE,
-            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-            "A registered SQLite adapter runs project SQL scripts against an isolated, persistent database on this device."
-        ),
-
-        "Bash" to RuntimeCapability(
-            "Bash",
-            RuntimeType.INTERPRETER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a compatible shell environment."
+    fun getCapability(language: String): RuntimeCapability =
+        capabilities[language] ?: RuntimeCapability(
+            language, RuntimeType.NOT_SUPPORTED, RuntimeStatus.NOT_SUPPORTED,
+            "No runtime adapter is registered for this language."
         )
-    )
 
-    fun getCapability(language: String): RuntimeCapability {
-        return capabilities[language]
-            ?: RuntimeCapability(
-                language = language,
-                runtimeType = RuntimeType.NOT_SUPPORTED,
-                status = RuntimeStatus.NOT_SUPPORTED,
-                description = "No runtime adapter is registered for this language."
-            )
-    }
+    fun getAllCapabilities(): List<RuntimeCapability> = capabilities.values.toList()
 
-    fun getAllCapabilities(): List<RuntimeCapability> {
-        return capabilities.values.toList()
-    }
+    fun getPreviewableLanguages(): List<RuntimeCapability> =
+        capabilities.values.filter { it.canPreviewInWebView }
 
-    fun getPreviewableLanguages(): List<RuntimeCapability> {
-        return capabilities.values.filter {
-            it.canPreviewInWebView
-        }
-    }
-
-    fun getPlannedAdapters(): List<RuntimeCapability> {
-        return capabilities.values.filter {
-            it.status == RuntimeStatus.ADAPTER_PLANNED
-        }
-    }
+    fun getPlannedAdapters(): List<RuntimeCapability> =
+        capabilities.values.filter { it.status == RuntimeStatus.ADAPTER_PLANNED }
 }

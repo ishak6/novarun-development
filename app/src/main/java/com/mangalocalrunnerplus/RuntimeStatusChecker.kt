@@ -1,4 +1,3 @@
-
 package com.mangalocalrunnerplus
 
 import android.content.Context
@@ -12,103 +11,59 @@ data class RuntimeCheckResult(
 )
 
 object RuntimeStatusChecker {
+    fun checkAll(context: Context): List<RuntimeCheckResult> =
+        RuntimeCapabilityManager.getAllCapabilities().map { checkRuntime(context, it.language) }
 
-    fun checkAll(context: Context): List<RuntimeCheckResult> {
-        return RuntimeCapabilityManager
-            .getAllCapabilities()
-            .map { capability ->
-                checkRuntime(context, capability.language)
-            }
-    }
-
-    fun checkRuntime(
-        context: Context,
-        language: String
-    ): RuntimeCheckResult {
-
-        val capability =
-            RuntimeCapabilityManager.getCapability(language)
+    fun checkRuntime(context: Context, language: String): RuntimeCheckResult {
+        val capability = RuntimeCapabilityManager.getCapability(language)
 
         if (capability.status == RuntimeStatus.NOT_SUPPORTED) {
+            return RuntimeCheckResult(language, RuntimeStatus.NOT_SUPPORTED, capability.description)
+        }
+
+        val adapter = RuntimeAdapterRegistry.getAdapter(language)
+        if (adapter != null) {
+            val available = runCatching { adapter.isAvailable(context) }.getOrDefault(false)
             return RuntimeCheckResult(
-                language = language,
-                status = RuntimeStatus.NOT_SUPPORTED,
-                message = capability.description
+                language,
+                if (available) RuntimeStatus.AVAILABLE_FOR_EXECUTION else RuntimeStatus.NOT_CONFIGURED,
+                if (available) "Runtime adapter is registered and reports ready for local execution."
+                else "Runtime adapter is registered, but its runtime is currently unavailable."
             )
         }
 
-        if (RuntimeAdapterRegistry.isRegistered(language)) {
-            val adapter = RuntimeAdapterRegistry.getAdapter(language)
-            val available = runCatching {
-                adapter?.isAvailable(context) == true
-            }.getOrDefault(false)
-
+        if (capability.status == RuntimeStatus.AVAILABLE_FOR_EXECUTION) {
             return RuntimeCheckResult(
-                language = language,
-                status = if (available) {
-                    RuntimeStatus.AVAILABLE_FOR_PREVIEW
-                } else {
-                    RuntimeStatus.NOT_CONFIGURED
-                },
-                message = if (available) {
-                    "Embedded runtime adapter is ready for local execution."
-                } else {
-                    "Runtime adapter is registered, but the runtime is unavailable."
-                }
+                language,
+                RuntimeStatus.NOT_CONFIGURED,
+                "Execution is expected, but no runtime adapter is registered in this app session."
             )
         }
 
-        if (capability.runtimeType == RuntimeType.WEB_VIEW) {
-            return RuntimeCheckResult(
-                language = language,
-                status = RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-                message = capability.description
-            )
+        if (capability.status == RuntimeStatus.AVAILABLE_FOR_PREVIEW) {
+            return RuntimeCheckResult(language, RuntimeStatus.AVAILABLE_FOR_PREVIEW, capability.description)
         }
 
         if (capability.status == RuntimeStatus.ADAPTER_PLANNED) {
-            return RuntimeCheckResult(
-                language = language,
-                status = RuntimeStatus.ADAPTER_PLANNED,
-                message = capability.description
-            )
+            return RuntimeCheckResult(language, RuntimeStatus.ADAPTER_PLANNED, capability.description)
         }
 
-        val runtimeDirectory = context.getDir(
-            "runtime",
-            Context.MODE_PRIVATE
-        )
-
-        val runtimeFile = File(
-            runtimeDirectory,
-            language.lowercase().replace(" ", "_")
-        )
-
+        val runtimeDirectory = context.getDir("runtime", Context.MODE_PRIVATE)
+        val runtimeFile = File(runtimeDirectory, language.lowercase().replace(" ", "_"))
         return RuntimeCheckResult(
-            language = language,
-            status = RuntimeStatus.NOT_CONFIGURED,
-            message = if (runtimeFile.exists()) {
-                "Runtime files exist, but executable verification and an adapter are still required."
-            } else {
-                "Runtime is not installed."
-            },
-            executablePath = runtimeFile.takeIf { it.exists() }?.absolutePath
+            language,
+            RuntimeStatus.NOT_CONFIGURED,
+            if (runtimeFile.exists()) "Runtime files exist, but executable verification and an adapter are still required."
+            else "Runtime is not installed.",
+            runtimeFile.takeIf { it.exists() }?.absolutePath
         )
     }
 
-    fun getStatusLabel(status: RuntimeStatus): String {
-        return when (status) {
-            RuntimeStatus.AVAILABLE_FOR_PREVIEW ->
-                "Available"
-
-            RuntimeStatus.ADAPTER_PLANNED ->
-                "Adapter Planned"
-
-            RuntimeStatus.NOT_CONFIGURED ->
-                "Not Configured"
-
-            RuntimeStatus.NOT_SUPPORTED ->
-                "Not Supported"
-        }
+    fun getStatusLabel(status: RuntimeStatus): String = when (status) {
+        RuntimeStatus.AVAILABLE_FOR_EXECUTION -> "Ready to Run"
+        RuntimeStatus.AVAILABLE_FOR_PREVIEW -> "Preview Only"
+        RuntimeStatus.ADAPTER_PLANNED -> "Planned"
+        RuntimeStatus.NOT_CONFIGURED -> "Not Configured"
+        RuntimeStatus.NOT_SUPPORTED -> "Not Supported"
     }
 }
