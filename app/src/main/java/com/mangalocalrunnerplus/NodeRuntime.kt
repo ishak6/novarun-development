@@ -92,10 +92,10 @@ internal data class NodeLaunchPlan(
             }
 
             val engineSource = if (packageFile.isFile) runCatching { packageFile.readText().take(256 * 1024) }.getOrDefault("") else ""
-            val engine = Regex(""""node"\s*:\s*"([^"]+)"""")
-                .find(Regex(""""engines"\s*:\s*\{([^}]*)\}""").find(engineSource)?.groupValues?.get(1).orEmpty())
-                ?.groupValues?.get(1).orEmpty())
-                ?.groupValues?.get(1)
+            val enginesBlock = Regex(""" "engines"\s*:\s*\{([^}]*)\} """.trim())
+                .find(engineSource)?.groupValues?.get(1).orEmpty()
+            val engine = Regex(""" "node"\s*:\s*"([^"]+)" """.trim())
+                .find(enginesBlock)?.groupValues?.get(1)
             val minimum = engine?.let { requirement ->
                 Regex("(?:>=|>)\\s*(\\d+)(?:\\.(\\d+))?(?:\\.(\\d+))?").find(requirement)
             }
