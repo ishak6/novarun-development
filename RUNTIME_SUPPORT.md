@@ -12,7 +12,7 @@ This document records only capabilities integrated into the current Android app.
 | .gitkeep | Project metadata | Preserved by ZIP import; hidden from public HTTP serving with other dotfiles |
 | SQL | Executable with limits | Project-isolated SQLite database |
 | Python | Executable with limits; CI bridge verified | CPython 3.11 via Chaquopy; Android-specific package limitations; physical-device verification remains required |
-| Node.js | Embedded runtime integrated; device verification pending | Node.js Mobile 18.20.4 is packaged for arm64-v8a and x86_64. User-selected server entry points can be started from the Node Backend Runner with visible foreground notification and Stop control. Physical-device compatibility remains unverified |
+| Node.js | Embedded runtime integrated; device verification pending | Node.js Mobile 18.20.4 is packaged for arm64-v8a and x86_64. User-selected server entry points can be started from the Node Backend Runner with visible foreground notification and Stop control. Projects requiring a newer Node engine are rejected with a clear compatibility error until a matching runtime is integrated |
 | npm / npx | Not integrated | package.json and lockfiles are inspected; no npm/npx CLI or dependency installation is bundled. Existing node_modules may be used by the Node server; lifecycle scripts are never auto-run |
 | PHP | Planned | Composer/PHP manifests are inspected; no PHP CLI runtime is bundled or executed |
 | Java | Planned | Requires compiler, DEX conversion, dependency resolution and constrained class loading |
@@ -65,7 +65,7 @@ This document records only capabilities integrated into the current Android app.
 
 - Embedded Node.js Mobile 18.20.4 is downloaded during CI and packaged for arm64-v8a and x86_64, together with a JNI bridge.
 - A user-selected Node entry point is started in a dedicated Android service process with an ongoing notification and explicit Stop action.
-- The runner checks common entry points, port range and the presence of `node_modules` when dependencies are declared. It reports compatibility warnings and captures server logs.
+- The runner detects nested ZIP wrapper folders containing a package manifest and server entry point, checks the requested Node engine against the bundled 18.20.4 version, validates the port and checks for `node_modules` when dependencies are declared. It reports compatibility warnings and captures server logs.
 - The runner currently expects dependencies to be installed already. It does not run npm, package lifecycle scripts, child processes or cluster workers. Native addons require Android ABI-compatible binaries.
 - CI verifies native compilation and JVM launch-plan tests; physical-device runtime verification remains outstanding.
 

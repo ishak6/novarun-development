@@ -17,7 +17,7 @@ class RuntimeCapabilityManagerTest {
 
     @Test
     fun unsupportedCompilerAndInterpreterIntegrationsRemainPlanned() {
-        listOf("PHP", "Node.js", "npm", "Java", "Kotlin", "C", "C++").forEach {
+        assertEquals("Node.js has an embedded runner", RuntimeStatus.AVAILABLE_FOR_EXECUTION, RuntimeCapabilityManager.getCapability("Node.js").status)\n        listOf("PHP", "npm", "Java", "Kotlin", "C", "C++").forEach {
             assertEquals("$it must not be reported as installed", RuntimeStatus.ADAPTER_PLANNED, RuntimeCapabilityManager.getCapability(it).status)
         }
     }

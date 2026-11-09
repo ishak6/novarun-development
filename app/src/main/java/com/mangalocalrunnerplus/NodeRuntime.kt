@@ -57,17 +57,31 @@ internal data class NodeLaunchPlan(
     val root: File, val entry: File, val port: Int, val warnings: List<String>
 ) {
     companion object {
+        const val BUNDLED_NODE_VERSION = "18.20.4"
+        private val entryNames = listOf("server.js", "index.js", "app.js", "src/server.js", "src/index.js", "backend/server.js")
+        private val ignoredDirectories = setOf(".git", ".gradle", ".idea", "node_modules", "vendor", ".next", ".nuxt", ".cache")
+
         fun create(project: File, port: Int): Result<NodeLaunchPlan> = runCatching {
             require(port in 1024..65535) { "Port must be between 1024 and 65535." }
-            val root = project.canonicalFile
-            require(root.isDirectory && root.canRead()) { "Project folder is missing or unreadable." }
-            val names = listOf("server.js", "index.js", "app.js", "src/server.js", "src/index.js", "backend/server.js")
-            val entry = names.asSequence().map { File(root, it) }.firstOrNull {
-                runCatching {
-                    val c = it.canonicalFile
-                    c.isFile && c.canRead() && c.path.startsWith(root.path + File.separator)
-                }.getOrDefault(false)
-            } ?: error("No Node server entry found (server.js, index.js, app.js or src/server.js).")
+            val selectedRoot = project.canonicalFile
+            require(selectedRoot.isDirectory && selectedRoot.canRead()) { "Project folder is missing or unreadable." }
+
+            // ZIP archives often wrap the real app in one or more folders.
+            // Select the nearest safe directory containing both package.json and a server entry.
+            val candidateDirectories = sequenceOf(selectedRoot) + selectedRoot.walkTopDown()
+                .onEnter { directory ->
+                    directory == selectedRoot || directory.name.lowercase() !in ignoredDirectories
+                }
+                .maxDepth(8)
+                .filter { it.isDirectory && it.canonicalFile.path.startsWith(selectedRoot.path + File.separator) }
+                .sortedBy { it.relativeTo(selectedRoot).invariantSeparatorsPath.count { ch -> ch == '/' } }
+            val projectRoot = candidateDirectories.firstOrNull { directory ->
+                File(directory, "package.json").isFile && findEntry(directory) != null
+            } ?: selectedRoot
+
+            val root = projectRoot.canonicalFile
+            val entry = findEntry(root)
+                ?: error("No Node server entry found (server.js, index.js, app.js, src/server.js or backend/server.js).")
             val packageFile = File(root, "package.json")
             val report = if (packageFile.isFile) {
                 NodeProjectInspector.inspect(packageFile, root.walkTopDown().maxDepth(2).filter { it.isFile }.map { it.name }.toSet())
@@ -76,13 +90,48 @@ internal data class NodeLaunchPlan(
             require(deps == 0 || File(root, "node_modules").isDirectory) {
                 "package.json declares $deps dependencies but node_modules is missing. npm install is not bundled in this build."
             }
+
+            val engineSource = if (packageFile.isFile) runCatching { packageFile.readText().take(256 * 1024) }.getOrDefault("") else ""
+            val engine = Regex("\\"node\\"\\s*:\\s*\\"([^\\"]+)\\"")
+                .find(Regex("\\"engines\\"\\s*:\\s*\\{([^}]*)\\}").find(engineSource)?.groupValues?.get(1).orEmpty())
+                ?.groupValues?.get(1)
+            val minimum = engine?.let { requirement ->
+                Regex("(?:>=|>)\\s*(\\d+)(?:\\.(\\d+))?(?:\\.(\\d+))?").find(requirement)
+            }
+            if (minimum != null) {
+                val required = listOf(1, 2, 3).map { minimum.groupValues[it].toIntOrNull() ?: 0 }
+                val bundled = BUNDLED_NODE_VERSION.split('.').map { it.toIntOrNull() ?: 0 }
+                val incompatible = (0..2).firstNotNullOfOrNull { index ->
+                    when {
+                        bundled[index] < required[index] -> true
+                        bundled[index] > required[index] -> false
+                        else -> null
+                    }
+                } ?: false
+                require(!incompatible) {
+                    "This project requires Node.js ${engine}; NovaRun currently bundles Node.js ${BUNDLED_NODE_VERSION}. This backend cannot start until a compatible Node.js runtime is integrated."
+                }
+            }
+
             val warnings = buildList {
                 if (report?.hasNativeAddonIndicators == true) add("Native addons need Android ABI-compatible prebuilt modules.")
                 if (report?.hasLifecycleScripts == true) add("Package lifecycle scripts are not run automatically.")
                 add("Node.js Mobile does not support child_process or cluster; scripts requiring spawned processes will not work.")
                 if (File(root, "public/index.html").isFile) add("Your server.js must serve the public/ directory to expose public/index.html.")
+                if (root != selectedRoot) add("Detected nested Node project root: ${root.relativeTo(selectedRoot).invariantSeparatorsPath}")
             }
             NodeLaunchPlan(root, entry.canonicalFile, port, warnings)
+        }
+
+        private fun findEntry(root: File): File? {
+            val canonicalRoot = root.canonicalFile
+            return entryNames.asSequence().map { File(canonicalRoot, it) }.firstOrNull { candidate ->
+                runCatching {
+                    val canonical = candidate.canonicalFile
+                    canonical.isFile && canonical.canRead() &&
+                        canonical.path.startsWith(canonicalRoot.path + File.separator)
+                }.getOrDefault(false)
+            }
         }
     }
 }
