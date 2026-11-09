@@ -299,6 +299,7 @@ fun NovaRunApp() {
                     ) {
                         CodeEditorScreen(
                             file = file,
+                            projectDirectory = selectedProject ?: file.parentFile ?: file,
                             onBack = {
                                 selectedTab = 9
                             }
