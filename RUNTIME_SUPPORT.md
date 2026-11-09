@@ -8,6 +8,9 @@ This document records only runtime capabilities which are actually integrated. A
 | CSS | Available for preview | Served as text/css; linked stylesheets load with the HTML project |
 | JavaScript | Available | Browser JavaScript in web preview plus bounded Rhino ES6 execution for standalone .js; not Node.js |
 | SVG | Available for preview | Served as image/svg+xml; usable as image assets or inline HTML SVG |
+| Markdown (.md) | Recognized as documentation | Detected in ZIP projects; not executed as code |
+| JavaScript (.js) | Available | Browser JavaScript in preview and bounded Rhino ES6 for standalone scripts; not Node.js |
+| .gitkeep | Recognized as project metadata | Preserved by ZIP import; hidden from public HTTP serving with other dotfiles |
 | SQL | Available | Android SQLite adapter; project-isolated private database |
 | Python | Integrated; CI/device verification pending | CPython 3.11 via Chaquopy; standard library with Android-specific limitations |
 | Node.js | Planned | The official nodejs-mobile Android release line is Node 18.20.4; Node 18 is end-of-life. Do not ship it as a new production runtime without a maintained supported build |
@@ -55,7 +58,7 @@ Do not silently route any of these languages to JavaScript, the browser, or an e
 
 ## Web project workflow
 
-- Import a project ZIP and keep its folder structure, including index.html, CSS, JavaScript, SVG, images, and fonts.
+- Import a project ZIP and keep its folder structure, including index.html, CSS, JavaScript (.js), Markdown (.md), .gitkeep placeholders, SVG, images, and fonts. `.gitkeep` is preserved for repository folder structure but is not exposed over HTTP.
 - Start the local server from the project root; extension MIME types include HTML, CSS, JavaScript modules, SVG, JSON, WASM, and common image/font formats.
 - Open the project preview at the local server URL. Relative asset paths should resolve from the HTML document.
 - Browser JavaScript uses browser APIs in the preview. The standalone JavaScript Run action uses Rhino ES6 with execution and output limits; browser DOM APIs, Node.js APIs, and npm are not available in that interpreter.
