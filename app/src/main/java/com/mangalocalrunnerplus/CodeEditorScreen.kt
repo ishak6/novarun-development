@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +35,7 @@ import kotlinx.coroutines.sync.withLock
 @Composable
 fun CodeEditorScreen(
     file: File,
+    projectDirectory: File,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -120,6 +122,22 @@ fun CodeEditorScreen(
 
     var isSaving by remember {
         mutableStateOf(false)
+    }
+
+    var isRunning by remember {
+        mutableStateOf(false)
+    }
+
+    var runDialogVisible by remember {
+        mutableStateOf(false)
+    }
+
+    var runSucceeded by remember {
+        mutableStateOf(false)
+    }
+
+    var runOutput by remember {
+        mutableStateOf("")
     }
 
     val saveMutex = remember(file.absolutePath) { Mutex() }
@@ -279,6 +297,56 @@ fun CodeEditorScreen(
                 )
             }
 
+            if (extension == "js" || extension == "mjs" || extension == "sql") {
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            val snapshot = code
+                            if (isModified && !saveSnapshot(snapshot)) {
+                                return@launch
+                            }
+
+                            isRunning = true
+                            runOutput = "Running..."
+                            val language = if (extension == "sql") "SQL" else "JavaScript"
+
+                            try {
+                                val result = RuntimeExecutionManager.execute(
+                                    context = context,
+                                    language = language,
+                                    request = RuntimeExecutionRequest(
+                                        projectDirectory = projectDirectory,
+                                        entryFile = file.absolutePath
+                                    )
+                                )
+                                runSucceeded = result.success
+                                runOutput = if (result.success) {
+                                    result.output
+                                } else {
+                                    result.error
+                                }
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (error: Exception) {
+                                runSucceeded = false
+                                runOutput = error.message ?: "Execution failed."
+                            } finally {
+                                isRunning = false
+                                runDialogVisible = true
+                            }
+                        }
+                    },
+                    enabled = !isSaving && !isRunning,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = NovaRunPalette.Cyan
+                    )
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (isRunning) "Running" else "Run")
+                }
+            }
+
             Button(
                 onClick = {
                     val snapshot = code
@@ -373,6 +441,33 @@ fun CodeEditorScreen(
                 )
             }
         }
+    }
+
+    if (runDialogVisible) {
+        AlertDialog(
+            onDismissRequest = { runDialogVisible = false },
+            containerColor = NovaRunPalette.Surface,
+            title = {
+                Text(
+                    if (runSucceeded) "Execution Complete" else "Execution Failed",
+                    color = NovaRunPalette.TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    runOutput,
+                    modifier = Modifier
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState()),
+                    color = NovaRunPalette.TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { runDialogVisible = false }) {
+                    Text("Close", color = NovaRunPalette.Cyan)
+                }
+            }
+        )
     }
 
     if (showLeaveDialog) {
