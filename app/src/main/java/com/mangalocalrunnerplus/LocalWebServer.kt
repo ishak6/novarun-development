@@ -11,6 +11,9 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLServerSocket
+import javax.net.ssl.SSLSocket
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -26,7 +29,8 @@ class LocalWebServer(
     private val port: Int = 8080,
     private val bindToLan: Boolean = false,
     private val accessToken: String? = null,
-    private val accessUsername: String = "novarun"
+    private val accessUsername: String = "novarun",
+    private val sslContext: SSLContext? = null
 ) {
 
     private val running = AtomicBoolean(false)
@@ -71,8 +75,18 @@ class LocalWebServer(
                 InetAddress.getLoopbackAddress()
             }
 
-            val socket = ServerSocket().apply {
+            val socket = (sslContext?.serverSocketFactory?.createServerSocket() ?: ServerSocket()).apply {
                 reuseAddress = true
+                if (this is SSLServerSocket) {
+                    val supported = supportedProtocols.toSet()
+                    enabledProtocols = listOf("TLSv1.3", "TLSv1.2")
+                        .filter { it in supported }
+                        .toTypedArray()
+                    if (enabledProtocols.isEmpty()) {
+                        throw IOException("No supported TLS protocol is available")
+                    }
+                    needClientAuth = false
+                }
                 // A bounded backlog prevents unbounded pending TCP connections.
                 bind(
                     InetSocketAddress(
@@ -152,6 +166,9 @@ class LocalWebServer(
         socket.use { client ->
 
             client.soTimeout = 10000
+            if (client is SSLSocket) {
+                client.startHandshake()
+            }
 
             val input = BufferedInputStream(
                 client.getInputStream()
