@@ -65,6 +65,12 @@ class LocalWebServer(
             return false
         }
 
+        // Never expose a project on the LAN over plaintext HTTP.
+        // Loopback-only preview may still use HTTP for local browser access.
+        if (bindToLan && sslContext == null) {
+            return false
+        }
+
         return try {
 
             // LAN mode listens on all network interfaces.
