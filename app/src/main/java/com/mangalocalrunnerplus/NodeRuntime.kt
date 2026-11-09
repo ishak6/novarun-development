@@ -278,7 +278,7 @@ fun NodeBackendRunnerCard(project: File?, onOpenPreview: (String) -> Unit = {}) 
     LaunchedEffect(project) {
         while (true) {
             state = NodeStateStore.read(context)
-            logText = state.logPath?.let { path -> runCatching { File(path).takeIf(File::isFile)?.readText()?.takeLast(2200).orEmpty() }.getOrDefault("") } ?: ""
+            logText = state.logPath?.let { path -> runCatching { File(path).takeIf(File::isFile)?.readText()?.takeLast(10000).orEmpty() }.getOrDefault("") } ?: ""
             delay(1000)
         }
     }
@@ -296,6 +296,7 @@ fun NodeBackendRunnerCard(project: File?, onOpenPreview: (String) -> Unit = {}) 
             OutlinedTextField(value = portText, onValueChange = { if (it.length <= 5 && it.all(Char::isDigit)) portText = it },
                 label = { Text("Node server port") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Text("Uses Node.js 24.22.1 full runtime with built-in SQLite. Both supplied store ZIPs have no npm dependencies. child_process/cluster are unsupported.", color = NovaRunPalette.TextSecondary, fontSize = 11.sp)
+            Text("First admin setup token appears in SERVER LOG on first launch. Keep it private.", color = NovaRunPalette.Warning, fontSize = 11.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = project != null && state.status !in setOf("STARTING", "RUNNING"),
                     onClick = {
@@ -316,7 +317,7 @@ fun NodeBackendRunnerCard(project: File?, onOpenPreview: (String) -> Unit = {}) 
             ) { Text("Open Website Preview") }
             if (logText.isNotBlank()) {
                 Text("SERVER LOG", color = NovaRunPalette.TextPrimary, fontSize = 11.sp)
-                Text(logText, color = NovaRunPalette.TextSecondary, fontSize = 10.sp, maxLines = 12)
+                Text(logText, color = NovaRunPalette.TextSecondary, fontSize = 10.sp, maxLines = 40)
             }
         }
     }
