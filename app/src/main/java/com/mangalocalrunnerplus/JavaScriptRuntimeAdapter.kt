@@ -14,6 +14,7 @@ import java.security.MessageDigest
 
 private const val MAX_SCRIPT_BYTES = 1_000_000L
 private const val MAX_SCRIPT_INSTRUCTIONS = 2_000_000L
+private const val MAX_SCRIPT_OUTPUT_CHARS = 48_000
 private const val MAX_EXECUTION_TIME_MS = 5_000L
 private const val INSTRUCTION_OBSERVER_THRESHOLD = 10_000
 
@@ -115,7 +116,11 @@ object JavaScriptRuntimeAdapter : RuntimeAdapter {
 
             RuntimeExecutionResult(
                 success = true,
-                output = output,
+                output = if (output.length > MAX_SCRIPT_OUTPUT_CHARS) {
+                    output.take(MAX_SCRIPT_OUTPUT_CHARS) + "\\nOutput truncated at 48,000 characters."
+                } else {
+                    output
+                },
                 exitCode = 0
             )
 
