@@ -82,6 +82,24 @@ class LocalWebServerAuthenticationTest {
         }
     }
 
+
+    @Test
+    fun lanRequestsAreAllowedWhenAuthenticationIsExplicitlyDisabled() {
+        val root = Files.createTempDirectory("novarun-no-auth").toFile()
+        File(root, "index.html").writeText("public project")
+        val port = ServerSocket(0).use { it.localPort }
+        val server = LocalWebServer(root, port, bindToLan = true, accessToken = null)
+        try {
+            assertTrue(server.start())
+            val response = request(port)
+            assertTrue(response.startsWith("HTTP/1.1 200 OK"))
+            assertTrue(response.contains("public project"))
+        } finally {
+            server.stop()
+            root.deleteRecursively()
+        }
+    }
+
     @Test
     fun lanRequestsWithCorrectCredentialsAreAllowed() {
         val root = Files.createTempDirectory("novarun-auth").toFile()
