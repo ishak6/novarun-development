@@ -78,7 +78,7 @@ class LocalWebServer(
             val bindAddress = if (bindToLan) {
                 InetAddress.getByName("0.0.0.0")
             } else {
-                InetAddress.getLoopbackAddress()
+                InetAddress.getByName("127.0.0.1")
             }
 
             val socket = (sslContext?.serverSocketFactory?.createServerSocket() ?: ServerSocket()).apply {
