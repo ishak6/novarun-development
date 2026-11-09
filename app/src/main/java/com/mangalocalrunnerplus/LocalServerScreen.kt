@@ -60,12 +60,22 @@ fun LocalServerScreen(
         mutableStateOf("1h")
     }
 
-    var portInput by remember {
-        mutableStateOf("8080")
+    val preferences = remember(context) {
+        context.getSharedPreferences("novarun_settings", Context.MODE_PRIVATE)
+    }
+
+    var portInput by remember(preferences) {
+        mutableStateOf(preferences.getString("server_port", "8080") ?: "8080")
     }
 
     val selectedPort = portInput.toIntOrNull() ?: -1
     val portValid = selectedPort in 1024..65535
+
+    LaunchedEffect(portInput) {
+        if (portValid) {
+            preferences.edit().putString("server_port", portInput).apply()
+        }
+    }
 
     var days by remember {
         mutableStateOf("0")
