@@ -89,7 +89,8 @@ fun WebPreviewScreen(
                 val candidate = LocalWebServer(
                     projectDirectory = projectRoot,
                     port = port,
-                    bindToLan = false
+                    bindToLan = false,
+                    defaultDocument = validation.entryFile?.name ?: "index.html"
                 )
                 if (candidate.start()) {
                     active = candidate to port
