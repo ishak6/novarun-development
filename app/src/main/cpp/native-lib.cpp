@@ -34,6 +34,8 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
         setenv("TMPDIR", temp, 1);
         setenv("HOME", cwd, 1);
         setenv("PORT", port, 1);
+        setenv("HOST", "127.0.0.1", 1);
+        setenv("NODE_ENV", "development", 1);
         logFd = open(log, O_WRONLY | O_CREAT | O_APPEND, 0600);
     }
 
