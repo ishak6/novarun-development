@@ -76,6 +76,7 @@ fun NovaRunApp() {
     var importMessage by remember { mutableStateOf<String?>(null) }
     var importSucceeded by remember { mutableStateOf(false) }
     var selectedProject by remember { mutableStateOf<File?>(null) }
+    var nodePreviewUrl by remember { mutableStateOf<String?>(null) }
     var selectedFile by remember { mutableStateOf<File?>(null) }
     var showProjectDialog by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
@@ -167,6 +168,7 @@ fun NovaRunApp() {
                     NavigationBarItem(
                         selected = selectedTab == index,
                         onClick = {
+                            nodePreviewUrl = null
                             selectedTab = index
                         },
                         icon = {
@@ -225,8 +227,11 @@ fun NovaRunApp() {
                     if (project != null) {
                         WebPreviewScreen(
                             projectDirectory = project,
+                            nodeServerUrl = nodePreviewUrl,
                             onBack = {
-                                selectedTab = 1
+                                val returnToLocalhost = nodePreviewUrl != null
+                                nodePreviewUrl = null
+                                selectedTab = if (returnToLocalhost) 3 else 1
                             }
                         )
                     } else {
@@ -241,7 +246,11 @@ fun NovaRunApp() {
 
                 3 -> {
                     NovaRunLocalhostScreen(
-                        project = selectedProject
+                        project = selectedProject,
+                        onOpenNodePreview = { url ->
+                            nodePreviewUrl = url
+                            selectedTab = 2
+                        }
                     )
                 }
 

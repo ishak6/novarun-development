@@ -45,7 +45,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun WebPreviewScreen(
     projectDirectory: File,
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    nodeServerUrl: String? = null
 ) {
     val validation = remember(projectDirectory) {
         ProjectPreviewValidator.validate(projectDirectory)
@@ -80,7 +81,8 @@ fun WebPreviewScreen(
     // Use loopback HTTP instead of file:// so ES modules, fetch, relative
     // assets and client-side routes run in a normal same-origin context.
     // The preview listener is bound to loopback only and is not LAN-visible.
-    LaunchedEffect(projectRoot) {
+    LaunchedEffect(projectRoot, nodeServerUrl) {
+        if (nodeServerUrl != null) return@LaunchedEffect
         if (projectRoot == null || !validation.isValid) return@LaunchedEffect
 
         val started = withContext(Dispatchers.IO) {
@@ -126,7 +128,9 @@ fun WebPreviewScreen(
         }
     }
 
-    val previewUrl = if (previewServer != null && previewPort > 0) {
+    val backendUri = remember(nodeServerUrl) { nodeServerUrl?.let(Uri::parse) }
+    val allowedPort = backendUri?.port ?: previewPort
+    val previewUrl = nodeServerUrl ?: if (previewServer != null && previewPort > 0) {
         "http://127.0.0.1:$previewPort/"
     } else {
         null
@@ -262,7 +266,7 @@ fun WebPreviewScreen(
                                     request: WebResourceRequest?
                                 ): Boolean {
                                     val uri = request?.url ?: return true
-                                    return !isAllowedPreviewUrl(uri, previewPort)
+                                    return !isAllowedPreviewUrl(uri, allowedPort)
                                 }
 
                                 override fun onReceivedError(
@@ -306,8 +310,8 @@ fun WebPreviewScreen(
     }
 }
 
-private fun isAllowedPreviewUrl(uri: Uri, previewPort: Int): Boolean {
-    if (previewPort !in 18080..18100 || uri.scheme != "http") return false
+private fun isAllowedPreviewUrl(uri: Uri, allowedPort: Int): Boolean {
+    if (allowedPort !in 1..65535 || uri.scheme != "http") return false
     val hostAllowed = uri.host == "127.0.0.1" || uri.host == "localhost"
-    return hostAllowed && uri.port == previewPort
+    return hostAllowed && uri.port == allowedPort
 }

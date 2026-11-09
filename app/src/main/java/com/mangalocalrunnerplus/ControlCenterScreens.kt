@@ -404,7 +404,7 @@ private fun SettingsSwitch(
 }
 
 @Composable
-fun NovaRunLocalhostScreen(project: File?) {
+fun NovaRunLocalhostScreen(project: File?, onOpenNodePreview: (String) -> Unit = {}) {
     val context = LocalContext.current
 
     val state by LocalServerServiceStateStore.state.collectAsState()
@@ -543,7 +543,7 @@ fun NovaRunLocalhostScreen(project: File?) {
             }
         }
 
-        NodeBackendRunnerCard(project)
+        NodeBackendRunnerCard(project, onOpenPreview = onOpenNodePreview)
 
         LanCredentialsSettingsCard()
 
