@@ -18,7 +18,7 @@ class RuntimeCapabilityManagerTest {
     @Test
     fun runtimesWithoutAdaptersRemainPlanned() {
         assertEquals(
-            RuntimeStatus.ADAPTER_PLANNED,
+            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
             RuntimeCapabilityManager.getCapability("Python").status
         )
         assertEquals(
