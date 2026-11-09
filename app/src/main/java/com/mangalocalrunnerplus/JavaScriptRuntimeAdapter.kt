@@ -212,7 +212,7 @@ object SqliteRuntimeAdapter : RuntimeAdapter {
                         }
                     } else {
                         database.execSQL(sql)
-                        output.append("Statement ").append(index + 1).append(": executed.\\n")
+                        output.append("Statement ").append(index + 1).append(": executed.\n")
                     }
                     if (output.length > 48_000) {
                         throw IllegalStateException("SQL output limit reached (48,000 characters).")
@@ -233,18 +233,18 @@ object SqliteRuntimeAdapter : RuntimeAdapter {
     }
 
     private fun appendSqlRows(output: StringBuilder, cursor: Cursor, number: Int) {
-        output.append("Statement ").append(number).append(" (").append(cursor.count).append(" rows)\\n")
+        output.append("Statement ").append(number).append(" (").append(cursor.count).append(" rows)\n")
         val columns = (0 until cursor.columnCount).take(20)
-        output.append(columns.joinToString(" | ") { cursor.getColumnName(it) }).append('\\n')
+        output.append(columns.joinToString(" | ") { cursor.getColumnName(it) }).append('\n')
         var rows = 0
         while (cursor.moveToNext() && rows < 100) {
             output.append(columns.joinToString(" | ") { column ->
                 if (cursor.isNull(column)) "NULL" else cursor.getString(column).orEmpty().take(500)
-            }).append('\\n')
+            }).append('\n')
             rows++
             if (output.length > 48_000) throw IllegalStateException("SQL output limit reached.")
         }
-        if (cursor.count > 100) output.append("Only the first 100 rows are shown.\\n")
+        if (cursor.count > 100) output.append("Only the first 100 rows are shown.\n")
     }
 
     private fun splitSqlStatements(source: String): List<String> {
@@ -259,7 +259,7 @@ object SqliteRuntimeAdapter : RuntimeAdapter {
             val ch = source[i]
             val next = source.getOrNull(i + 1)
             if (lineComment) {
-                if (ch == '\\n') {
+                if (ch == '\n') {
                     lineComment = false
                     current.append(ch)
                 }
