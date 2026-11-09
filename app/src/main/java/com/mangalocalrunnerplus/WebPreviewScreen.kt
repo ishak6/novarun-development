@@ -166,16 +166,6 @@ fun WebPreviewScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A84FF)),
                     enabled = previewUrl != null
                 ) { Text("Refresh") }
-                if (nodeServerUrl != null) {
-                    val adminLoginUrl = remember(nodeServerUrl) {
-                        Uri.parse(nodeServerUrl).buildUpon().path("/admin/login").build().toString()
-                    }
-                    Button(
-                        onClick = { webView?.loadUrl(adminLoginUrl) },
-                        enabled = webView != null,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF30D158))
-                    ) { Text("Admin Login") }
-                }
             }
         }
 
@@ -186,6 +176,23 @@ fun WebPreviewScreen(
             color = Color(0xFF9AA6B5),
             fontSize = 12.sp
         )
+
+        if (nodeServerUrl != null) {
+            Button(
+                onClick = {
+                    val adminLoginUrl = Uri.parse(nodeServerUrl)
+                        .buildUpon()
+                        .path("/admin/login")
+                        .build()
+                        .toString()
+                    webView?.loadUrl(adminLoginUrl)
+                },
+                enabled = webView != null,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF30D158))
+            ) { Text("Open Admin Login") }
+            Spacer(Modifier.height(8.dp))
+        }
 
         if (isLoading) {
             Spacer(Modifier.height(10.dp))
