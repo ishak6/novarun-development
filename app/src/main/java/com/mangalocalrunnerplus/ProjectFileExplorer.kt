@@ -75,7 +75,7 @@ fun ProjectFileExplorer(
             }
 
             files = currentDirectory.listFiles()
-                ?.filter { it.exists() }
+                ?.filter { it.exists() && isInsideProject(it) }
                 ?.sortedWith(
                     compareBy<File> { !it.isDirectory }
                         .thenBy { it.name.lowercase() }
