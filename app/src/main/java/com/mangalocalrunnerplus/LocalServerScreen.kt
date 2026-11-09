@@ -324,6 +324,40 @@ fun LocalServerScreen(
 
                 Spacer(Modifier.height(10.dp))
 
+                Text(
+                    text = "LAN ACCESS PASSWORD",
+                    color = Color(0xFF9AA6B5),
+                    fontSize = 11.sp
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    text = serverState.accessPassword ?: "Generated when server starts",
+                    color = Color(0xFFFFD166),
+                    fontSize = 14.sp
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        serverState.accessPassword?.let { copyAddress(it) }
+                    },
+                    enabled = isRunning && serverState.accessPassword != null,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Copy Access Password", color = Color.White)
+                }
+
+                Text(
+                    text = "Browser login username: novarun",
+                    color = Color(0xFF9AA6B5),
+                    fontSize = 12.sp
+                )
+
+                Spacer(Modifier.height(12.dp))
+
                 OutlinedButton(
                     onClick = {
                         serverState.lanUrl?.let {
@@ -383,7 +417,7 @@ fun LocalServerScreen(
                 Spacer(Modifier.height(8.dp))
 
                 Text(
-                    text = "Security: Other devices on the same network may access files in this selected project. Use trusted networks only.",
+                    text = "Security: LAN access is protected by a random per-session password. Use trusted networks only and share the password only with people you trust.",
                     color = Color(0xFFFF9F0A),
                     fontSize = 12.sp
                 )
