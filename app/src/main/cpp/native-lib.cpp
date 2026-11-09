@@ -88,5 +88,7 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
         dup2(logFd, STDERR_FILENO);
         close(logFd);
     }
-    return node::Start(static_cast<int>(argv.size()), argv.data());
+    const int argc = static_cast<int>(argv.size());
+    argv.push_back(nullptr); // Node's embedder entry point expects argv[argc] to be null.
+    return node::Start(argc, argv.data());
 }
