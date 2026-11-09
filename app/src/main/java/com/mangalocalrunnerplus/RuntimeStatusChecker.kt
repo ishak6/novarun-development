@@ -99,7 +99,7 @@ object RuntimeStatusChecker {
     fun getStatusLabel(status: RuntimeStatus): String {
         return when (status) {
             RuntimeStatus.AVAILABLE_FOR_PREVIEW ->
-                "Available for Preview"
+                "Available"
 
             RuntimeStatus.ADAPTER_PLANNED ->
                 "Adapter Planned"
