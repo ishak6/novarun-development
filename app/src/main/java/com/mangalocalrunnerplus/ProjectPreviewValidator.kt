@@ -1,4 +1,3 @@
-
 package com.mangalocalrunnerplus
 
 import java.io.File
@@ -12,13 +11,12 @@ data class PreviewValidationResult(
 
 object ProjectPreviewValidator {
 
+    private val webOutputDirectories = listOf("dist", "build", "out")
+
     fun validate(
         projectDirectory: File
     ): PreviewValidationResult {
-
         return try {
-
-            // Check whether project directory exists.
             if (!projectDirectory.exists()) {
                 return PreviewValidationResult(
                     isValid = false,
@@ -26,7 +24,6 @@ object ProjectPreviewValidator {
                 )
             }
 
-            // Check whether the selected path is a directory.
             if (!projectDirectory.isDirectory) {
                 return PreviewValidationResult(
                     isValid = false,
@@ -34,7 +31,6 @@ object ProjectPreviewValidator {
                 )
             }
 
-            // Resolve canonical project root.
             val root = projectDirectory.canonicalFile
 
             if (!root.canRead()) {
@@ -44,65 +40,61 @@ object ProjectPreviewValidator {
                 )
             }
 
-            // Locate the main HTML entry file.
-            val indexFile = File(
-                root,
-                "index.html"
-            ).canonicalFile
+            // Prefer compiled static output for common frontend build tools.
+            // Vite/React projects commonly place their deployable site in dist;
+            // Create React App commonly uses build; static exports may use out.
+            val candidateRoots = webOutputDirectories
+                .map { File(root, it) } + root
 
-            // Prevent paths outside the project directory.
-            val isInsideProject =
-                indexFile.path.startsWith(
-                    root.path + File.separator
+            for (candidate in candidateRoots) {
+                if (!candidate.exists() || !candidate.isDirectory || !candidate.canRead()) {
+                    continue
+                }
+
+                val previewRoot = candidate.canonicalFile
+                val isInsideProject = previewRoot == root ||
+                    previewRoot.path.startsWith(root.path + File.separator)
+
+                if (!isInsideProject) {
+                    continue
+                }
+
+                val indexFile = File(previewRoot, "index.html").canonicalFile
+                val isInsidePreviewRoot = indexFile.path.startsWith(
+                    previewRoot.path + File.separator
                 )
 
-            if (!isInsideProject) {
-                return PreviewValidationResult(
-                    isValid = false,
-                    message = "Entry file is outside the project directory."
-                )
-            }
+                if (
+                    isInsidePreviewRoot &&
+                    indexFile.isFile &&
+                    indexFile.canRead()
+                ) {
+                    val outputLabel = if (previewRoot == root) {
+                        "project root"
+                    } else {
+                        previewRoot.name
+                    }
 
-            // Check whether index.html exists.
-            if (!indexFile.exists()) {
-                return PreviewValidationResult(
-                    isValid = false,
-                    message = "index.html was not found."
-                )
-            }
-
-            // Check whether the entry is a regular file.
-            if (!indexFile.isFile) {
-                return PreviewValidationResult(
-                    isValid = false,
-                    message = "index.html is not a regular file."
-                )
-            }
-
-            // Check file readability.
-            if (!indexFile.canRead()) {
-                return PreviewValidationResult(
-                    isValid = false,
-                    message = "index.html cannot be read."
-                )
+                    return PreviewValidationResult(
+                        isValid = true,
+                        message = "Static web output found in $outputLabel.",
+                        projectRoot = previewRoot,
+                        entryFile = indexFile
+                    )
+                }
             }
 
             PreviewValidationResult(
-                isValid = true,
-                message = "Project is ready for web preview.",
-                projectRoot = root,
-                entryFile = indexFile
+                isValid = false,
+                message = "index.html was not found in the project root or dist/build/out. Build the frontend first, then preview its static output."
             )
 
         } catch (exception: SecurityException) {
-
             PreviewValidationResult(
                 isValid = false,
                 message = "Permission denied while checking project files."
             )
-
         } catch (exception: Exception) {
-
             PreviewValidationResult(
                 isValid = false,
                 message = exception.message
