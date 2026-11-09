@@ -2,6 +2,7 @@ package com.mangalocalrunnerplus
 
 import java.io.File
 import java.net.ServerSocket
+import java.net.Socket
 import java.security.KeyFactory
 import java.security.KeyStore
 import java.security.SecureRandom
@@ -95,6 +96,61 @@ class LocalWebServerTlsTest {
             val allowed = request("Basic $encoded")
             assertTrue(allowed.startsWith("HTTP/1.1 200 OK"))
             assertTrue(allowed.contains("tls-private-project"))
+        } finally {
+            server.stop()
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun loopbackPreviewServesWebsiteAssetsAndSpaRoutes() {
+        val root = Files.createTempDirectory("novarun-web-preview").toFile()
+        File(root, "index.html").writeText("<html><body>website-home</body></html>")
+        val assets = File(root, "assets").apply { mkdirs() }
+        File(assets, "app.js").writeText("console.log('website-js')")
+        File(assets, "site.css").writeText("body { color: black; }")
+        val port = ServerSocket(0).use { it.localPort }
+        val server = LocalWebServer(
+            projectDirectory = root,
+            port = port,
+            bindToLan = false
+        )
+
+        fun request(path: String): String {
+            return Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 5000
+                socket.getOutputStream().write(
+                    "GET $path HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n"
+                        .toByteArray(Charsets.US_ASCII)
+                )
+                socket.getOutputStream().flush()
+                socket.getInputStream().readBytes().toString(Charsets.UTF_8)
+            }
+        }
+
+        try {
+            assertTrue(server.start())
+
+            val home = request("/")
+            assertTrue(home.startsWith("HTTP/1.1 200 OK"))
+            assertTrue(home.contains("website-home"))
+
+            val javascript = request("/assets/app.js")
+            assertTrue(javascript.startsWith("HTTP/1.1 200 OK"))
+            assertTrue(javascript.contains("application/javascript"))
+            assertTrue(javascript.contains("website-js"))
+
+            val stylesheet = request("/assets/site.css")
+            assertTrue(stylesheet.startsWith("HTTP/1.1 200 OK"))
+            assertTrue(stylesheet.contains("text/css"))
+            assertTrue(stylesheet.contains("color: black"))
+
+            val spaRoute = request("/account/settings")
+            assertTrue(spaRoute.startsWith("HTTP/1.1 200 OK"))
+            assertTrue(spaRoute.contains("website-home"))
+
+            val privatePath = request("/.git/config")
+            assertTrue(privatePath.startsWith("HTTP/1.1 404 Not Found"))
         } finally {
             server.stop()
             root.deleteRecursively()
