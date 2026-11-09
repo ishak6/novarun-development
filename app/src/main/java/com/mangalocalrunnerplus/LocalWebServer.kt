@@ -429,7 +429,12 @@ class LocalWebServer(
             "pfx",
             "jks",
             "keystore",
-            "mobileprovision"
+            "mobileprovision",
+            "db",
+            "sqlite",
+            "sqlite3",
+            "sqlite-wal",
+            "sqlite-shm"
         )
 
         return segments.any { segment ->
