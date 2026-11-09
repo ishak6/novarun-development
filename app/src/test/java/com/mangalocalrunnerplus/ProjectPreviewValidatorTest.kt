@@ -15,15 +15,11 @@ class ProjectPreviewValidatorTest {
         try {
             val index = File(root, "index.html")
             index.writeText("<html>root</html>")
-
             val result = ProjectPreviewValidator.validate(root)
-
             assertTrue(result.isValid)
             assertEquals(root.canonicalFile, result.projectRoot)
             assertEquals(index.canonicalFile, result.entryFile)
-        } finally {
-            root.deleteRecursively()
-        }
+        } finally { root.deleteRecursively() }
     }
 
     @Test
@@ -35,16 +31,42 @@ class ProjectPreviewValidatorTest {
             dist.mkdirs()
             val builtIndex = File(dist, "index.html")
             builtIndex.writeText("<html>built</html>")
-
             val result = ProjectPreviewValidator.validate(root)
-
             assertTrue(result.isValid)
             assertEquals(dist.canonicalFile, result.projectRoot)
             assertEquals(builtIndex.canonicalFile, result.entryFile)
             assertTrue(result.message.contains("dist"))
-        } finally {
-            root.deleteRecursively()
-        }
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
+    fun findsWebsiteInsideUnstructuredNestedFolder() {
+        val root = Files.createTempDirectory("novarun-preview-nested").toFile()
+        try {
+            val site = File(root, "downloaded/source/site")
+            site.mkdirs()
+            val index = File(site, "index.html")
+            index.writeText("<html><link rel='stylesheet' href='assets/site.css'></html>")
+            File(site, "assets").mkdirs()
+            File(site, "assets/site.css").writeText("body{}")
+            File(root, ".gitkeep").writeText("")
+            val result = ProjectPreviewValidator.validate(root)
+            assertTrue(result.isValid)
+            assertEquals(site.canonicalFile, result.projectRoot)
+            assertEquals(index.canonicalFile, result.entryFile)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
+    fun ignoresDependencyFoldersWhenFindingEntryPoint() {
+        val root = Files.createTempDirectory("novarun-preview-deps").toFile()
+        try {
+            val dependency = File(root, "node_modules/example")
+            dependency.mkdirs()
+            File(dependency, "index.html").writeText("<html>dependency</html>")
+            val result = ProjectPreviewValidator.validate(root)
+            assertFalse(result.isValid)
+        } finally { root.deleteRecursively() }
     }
 
     @Test
@@ -55,14 +77,10 @@ class ProjectPreviewValidatorTest {
                 val output = File(root, outputName)
                 output.mkdirs()
                 File(output, "index.html").writeText("<html></html>")
-
                 val result = ProjectPreviewValidator.validate(root)
-
                 assertTrue("$outputName should be previewable", result.isValid)
                 assertEquals(output.canonicalFile, result.projectRoot)
-            } finally {
-                root.deleteRecursively()
-            }
+            } finally { root.deleteRecursively() }
         }
     }
 
@@ -71,14 +89,10 @@ class ProjectPreviewValidatorTest {
         val root = Files.createTempDirectory("novarun-preview-missing").toFile()
         try {
             File(root, "README.md").writeText("# project")
-
             val result = ProjectPreviewValidator.validate(root)
-
             assertFalse(result.isValid)
             assertTrue(result.message.contains("index.html"))
-        } finally {
-            root.deleteRecursively()
-        }
+        } finally { root.deleteRecursively() }
     }
 
     @Test
@@ -88,14 +102,11 @@ class ProjectPreviewValidatorTest {
             val file = File(parent, "project.zip")
             file.writeText("not a directory")
             assertFalse(ProjectPreviewValidator.validate(file).isValid)
-
             val missing = File(parent, "missing")
             val result = ProjectPreviewValidator.validate(missing)
             assertFalse(result.isValid)
             assertTrue(result.message.contains("does not exist"))
-        } finally {
-            parent.deleteRecursively()
-        }
+        } finally { parent.deleteRecursively() }
     }
 
     @Test
@@ -103,20 +114,10 @@ class ProjectPreviewValidatorTest {
         val parent = Files.createTempDirectory("novarun-preview-symlink").toFile()
         try {
             val root = File(parent, "project").apply { mkdirs() }
-            val outsideIndex = File(parent, "outside.html").apply {
-                writeText("<html>outside</html>")
-            }
-            Files.createSymbolicLink(
-                File(root, "index.html").toPath(),
-                outsideIndex.toPath()
-            )
-
-            val result = ProjectPreviewValidator.validate(root)
-
-            assertFalse(result.isValid)
-        } finally {
-            parent.deleteRecursively()
-        }
+            val outsideIndex = File(parent, "outside.html").apply { writeText("<html>outside</html>") }
+            Files.createSymbolicLink(File(root, "index.html").toPath(), outsideIndex.toPath())
+            assertFalse(ProjectPreviewValidator.validate(root).isValid)
+        } finally { parent.deleteRecursively() }
     }
 
     @Test
@@ -126,16 +127,8 @@ class ProjectPreviewValidatorTest {
             val root = File(parent, "project").apply { mkdirs() }
             val outside = File(parent, "outside").apply { mkdirs() }
             File(outside, "index.html").writeText("<html>outside</html>")
-            Files.createSymbolicLink(
-                File(root, "dist").toPath(),
-                outside.toPath()
-            )
-
-            val result = ProjectPreviewValidator.validate(root)
-
-            assertFalse(result.isValid)
-        } finally {
-            parent.deleteRecursively()
-        }
+            Files.createSymbolicLink(File(root, "dist").toPath(), outside.toPath())
+            assertFalse(ProjectPreviewValidator.validate(root).isValid)
+        } finally { parent.deleteRecursively() }
     }
 }

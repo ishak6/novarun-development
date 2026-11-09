@@ -11,95 +11,49 @@ data class PreviewValidationResult(
 
 object ProjectPreviewValidator {
 
-    private val webOutputDirectories = listOf("dist", "build", "out")
-
-    fun validate(
-        projectDirectory: File
-    ): PreviewValidationResult {
+    fun validate(projectDirectory: File): PreviewValidationResult {
         return try {
             if (!projectDirectory.exists()) {
-                return PreviewValidationResult(
-                    isValid = false,
-                    message = "Project directory does not exist."
-                )
+                return PreviewValidationResult(false, "Project directory does not exist.")
             }
-
             if (!projectDirectory.isDirectory) {
-                return PreviewValidationResult(
-                    isValid = false,
-                    message = "Selected project path is not a directory."
-                )
+                return PreviewValidationResult(false, "Selected project path is not a directory.")
             }
 
             val root = projectDirectory.canonicalFile
-
             if (!root.canRead()) {
-                return PreviewValidationResult(
-                    isValid = false,
-                    message = "Project directory is not readable."
-                )
+                return PreviewValidationResult(false, "Project directory is not readable.")
             }
 
-            // Prefer compiled static output for common frontend build tools.
-            // Vite/React projects commonly place their deployable site in dist;
-            // Create React App commonly uses build; static exports may use out.
-            val candidateRoots = webOutputDirectories
-                .map { File(root, it) } + root
-
-            for (candidate in candidateRoots) {
-                if (!candidate.exists() || !candidate.isDirectory || !candidate.canRead()) {
-                    continue
-                }
-
-                val previewRoot = candidate.canonicalFile
-                val isInsideProject = previewRoot == root ||
-                    previewRoot.path.startsWith(root.path + File.separator)
-
-                if (!isInsideProject) {
-                    continue
-                }
-
-                val indexFile = File(previewRoot, "index.html").canonicalFile
-                val isInsidePreviewRoot = indexFile.path.startsWith(
-                    previewRoot.path + File.separator
+            val entry = ProjectEntryPointFinder.find(root)
+                ?: return PreviewValidationResult(
+                    false,
+                    "No readable index.html was found within the project scan limits. Add a website entry point or build the frontend first."
                 )
-
-                if (
-                    isInsidePreviewRoot &&
-                    indexFile.isFile &&
-                    indexFile.canRead()
-                ) {
-                    val outputLabel = if (previewRoot == root) {
-                        "project root"
-                    } else {
-                        previewRoot.name
-                    }
-
-                    return PreviewValidationResult(
-                        isValid = true,
-                        message = "Static web output found in $outputLabel.",
-                        projectRoot = previewRoot,
-                        entryFile = indexFile
-                    )
-                }
+            val previewRoot = entry.parentFile?.canonicalFile
+                ?: return PreviewValidationResult(false, "Website entry point has no parent directory.")
+            val rootPrefix = root.path + File.separator
+            if (previewRoot != root && !previewRoot.path.startsWith(rootPrefix)) {
+                return PreviewValidationResult(false, "Website entry point is outside the project directory.")
+            }
+            val canonicalEntry = entry.canonicalFile
+            if (!canonicalEntry.isFile || !canonicalEntry.canRead() ||
+                !canonicalEntry.path.startsWith(previewRoot.path + File.separator)
+            ) {
+                return PreviewValidationResult(false, "Website entry point is not a safe readable file.")
             }
 
+            val relative = canonicalEntry.relativeTo(root).invariantSeparatorsPath
             PreviewValidationResult(
-                isValid = false,
-                message = "index.html was not found in the project root or dist/build/out. Build the frontend first, then preview its static output."
+                isValid = true,
+                message = "Website entry point found: $relative",
+                projectRoot = previewRoot,
+                entryFile = canonicalEntry
             )
-
-        } catch (exception: SecurityException) {
-            PreviewValidationResult(
-                isValid = false,
-                message = "Permission denied while checking project files."
-            )
+        } catch (_: SecurityException) {
+            PreviewValidationResult(false, "Permission denied while checking project files.")
         } catch (exception: Exception) {
-            PreviewValidationResult(
-                isValid = false,
-                message = exception.message
-                    ?: "Unknown project validation error."
-            )
+            PreviewValidationResult(false, exception.message ?: "Unknown project validation error.")
         }
     }
 }
