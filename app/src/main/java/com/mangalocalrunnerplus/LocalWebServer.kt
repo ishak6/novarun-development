@@ -269,6 +269,12 @@ class LocalWebServer(
                     .removePrefix("/")
                     .ifEmpty { "index.html" }
 
+                if (isSensitivePath(requestedPath)) {
+                    // Never publish VCS metadata, dotfiles, credentials or private keys.
+                    sendError(output, 404, "Not Found")
+                    return
+                }
+
                 val requestedFile = try {
                     File(root, requestedPath).canonicalFile
                 } catch (exception: Exception) {
@@ -398,6 +404,39 @@ class LocalWebServer(
         return bytes.toString(
             StandardCharsets.ISO_8859_1.name()
         )
+    }
+
+    private fun isSensitivePath(path: String): Boolean {
+        val segments = path.split('/').filter { it.isNotBlank() }
+        if (segments.any { it.startsWith(".") && it != ".well-known" }) {
+            return true
+        }
+
+        val blockedNames = setOf(
+            "id_rsa",
+            "id_ed25519",
+            "credentials.json",
+            "service-account.json",
+            "secrets.json",
+            "secrets.yaml",
+            "secrets.yml"
+        )
+
+        val blockedExtensions = setOf(
+            "pem",
+            "key",
+            "p12",
+            "pfx",
+            "jks",
+            "keystore",
+            "mobileprovision"
+        )
+
+        return segments.any { segment ->
+            val name = segment.lowercase()
+            val extension = name.substringAfterLast('.', "")
+            name in blockedNames || extension in blockedExtensions
+        }
     }
 
     private fun isInsideRoot(
