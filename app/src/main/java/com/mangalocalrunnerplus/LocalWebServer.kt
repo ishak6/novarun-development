@@ -25,7 +25,8 @@ class LocalWebServer(
     private val projectDirectory: File,
     private val port: Int = 8080,
     private val bindToLan: Boolean = false,
-    private val accessToken: String? = null
+    private val accessToken: String? = null,
+    private val accessUsername: String = "novarun"
 ) {
 
     private val running = AtomicBoolean(false)
@@ -423,7 +424,7 @@ class LocalWebServer(
         return try {
             val decoded = String(java.util.Base64.getDecoder().decode(authorization.substringAfter(" ").trim()), StandardCharsets.UTF_8)
             val separator = decoded.indexOf(58.toChar())
-            if (separator <= 0 || decoded.substring(0, separator) != "novarun") false
+            if (separator <= 0 || decoded.substring(0, separator) != accessUsername) false
             else java.security.MessageDigest.isEqual(decoded.substring(separator + 1).toByteArray(StandardCharsets.UTF_8), expectedToken.toByteArray(StandardCharsets.UTF_8))
         } catch (_: Exception) { false }
     }
