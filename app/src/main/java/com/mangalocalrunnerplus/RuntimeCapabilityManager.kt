@@ -65,14 +65,14 @@ object RuntimeCapabilityManager {
             "Node.js",
             RuntimeType.EXTERNAL_RUNTIME,
             RuntimeStatus.ADAPTER_PLANNED,
-            "A current, maintained Android Node.js binary and native bridge are required; the available official mobile release line is Node 18, which is end-of-life."
+            "Not executable yet: no maintained Android Node.js runtime is bundled. The legacy Node 18 mobile line is end-of-life; Node APIs and built-in modules are not provided by the Rhino JavaScript interpreter."
         ),
 
         "npm" to RuntimeCapability(
             "npm",
             RuntimeType.EXTERNAL_RUNTIME,
             RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a supported Node.js runtime and an on-device package installation workflow."
+            "Not executable yet: npm requires a supported Node.js runtime, package lifecycle scripts, registry/network handling, storage quotas, and an Android-compatible native-addon policy."
         ),
 
         "TypeScript" to RuntimeCapability(
@@ -93,7 +93,7 @@ object RuntimeCapabilityManager {
             "PHP",
             RuntimeType.INTERPRETER,
             RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a compatible PHP runtime."
+            "Not executable yet: no PHP interpreter is bundled. PHP CLI must be cross-compiled for Android ABI and integrated with a maintained runtime/JNI bridge; a static library alone cannot run scripts."
         ),
 
         "Python" to RuntimeCapability(
@@ -114,14 +114,14 @@ object RuntimeCapabilityManager {
             "Java",
             RuntimeType.JVM,
             RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a compatible JVM runtime and execution environment."
+            "Not executable yet: Android does not provide a general-purpose JVM for arbitrary Java source. A Java compiler plus JVM-bytecode-to-Dex conversion and isolated class loading are required."
         ),
 
         "Kotlin" to RuntimeCapability(
             "Kotlin",
             RuntimeType.JVM,
             RuntimeStatus.ADAPTER_PLANNED,
-            "Requires Kotlin compilation and a compatible JVM."
+            "Not executable yet: Kotlin source compilation requires the Kotlin compiler, dependency resolution, JVM-bytecode-to-Dex conversion, and controlled Android class loading."
         ),
 
         "Kotlin Script" to RuntimeCapability(
@@ -156,7 +156,7 @@ object RuntimeCapabilityManager {
             "C",
             RuntimeType.COMPILER,
             RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a compatible native C compiler."
+            "Not executable yet: no Android-hosted C compiler is bundled. A target-compatible compiler, sysroot, linker, and execution policy are required."
         ),
 
         "C Header" to RuntimeCapability(
@@ -170,7 +170,7 @@ object RuntimeCapabilityManager {
             "C++",
             RuntimeType.COMPILER,
             RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a compatible native C++ compiler."
+            "Not executable yet: no Android-hosted C++ compiler is bundled. A target-compatible compiler, C++ standard library, sysroot, linker, and execution policy are required."
         ),
 
         "C++ Header" to RuntimeCapability(
