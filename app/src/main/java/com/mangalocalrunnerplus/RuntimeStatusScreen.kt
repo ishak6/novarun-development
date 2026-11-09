@@ -67,7 +67,7 @@ fun RuntimeStatusScreen(
 
             item {
                 SummaryCard(
-                    title = "Preview Available",
+                    title = "Available",
                     value = overview.previewAvailable.toString(),
                     color = Color(0xFF30D158)
                 )
