@@ -137,12 +137,12 @@ internal data class NodeLaunchPlan(
     }
 }
 
-private data class NodeState(
+internal data class NodeState(
     val status: String = "STOPPED", val message: String = "Node.js backend stopped",
     val url: String? = null, val logPath: String? = null
 )
 
-private object NodeStateStore {
+internal object NodeStateStore {
     private fun file(context: Context) = File(context.filesDir, "node-backend-state.properties")
     fun read(context: Context): NodeState = runCatching {
         val p = Properties(); file(context).inputStream().use(p::load)

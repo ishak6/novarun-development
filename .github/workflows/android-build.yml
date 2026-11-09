@@ -79,6 +79,15 @@ jobs:
           cp -R "$(dirname "$header")/." app/src/main/cpp/node-include/
           test -f app/src/main/cpp/node-include/node.h
 
+      - name: Download target clothing-store ZIP fixtures
+        run: |
+          mkdir -p app/src/androidTest/assets
+          TEST_FILE_COMMIT="5211030586fe6cf12dc3e1c74b40b9c4a49f66f6"
+          curl -fL --retry 3 "https://raw.githubusercontent.com/ishak6/Test-file/${TEST_FILE_COMMIT}/clothing_store_secure_fullstack.zip" -o app/src/androidTest/assets/clothing_store_secure_fullstack.zip
+          curl -fL --retry 3 "https://raw.githubusercontent.com/ishak6/Test-file/${TEST_FILE_COMMIT}/clothing_store_nokshi_v1.5.3_professional.zip" -o app/src/androidTest/assets/clothing_store_nokshi_v1.5.3_professional.zip
+          unzip -t app/src/androidTest/assets/clothing_store_secure_fullstack.zip
+          unzip -t app/src/androidTest/assets/clothing_store_nokshi_v1.5.3_professional.zip
+
       - name: Verify Gradle
         run: gradle --version
 
