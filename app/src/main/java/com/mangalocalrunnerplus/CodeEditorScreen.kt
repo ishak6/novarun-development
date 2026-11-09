@@ -297,7 +297,7 @@ fun CodeEditorScreen(
                 )
             }
 
-            if (extension == "js" || extension == "sql") {
+            if (extension == "js" || extension == "sql" || extension == "py") {
                 OutlinedButton(
                     onClick = {
                         scope.launch {
@@ -308,7 +308,7 @@ fun CodeEditorScreen(
 
                             isRunning = true
                             runOutput = "Running..."
-                            val language = if (extension == "sql") "SQL" else "JavaScript"
+                            val language = when (extension) { "sql" -> "SQL"; "py" -> "Python"; else -> "JavaScript" }
 
                             try {
                                 val result = RuntimeExecutionManager.execute(
