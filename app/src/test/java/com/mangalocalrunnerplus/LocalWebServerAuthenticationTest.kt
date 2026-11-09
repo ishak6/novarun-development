@@ -6,6 +6,7 @@ import java.net.Socket
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.Base64
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -65,17 +66,12 @@ class LocalWebServerAuthenticationTest {
     }
 
     @Test
-    fun lanRequestsWithoutCredentialsAreRejected() {
+    fun lanServerRefusesPlaintextEvenWhenPasswordIsConfigured() {
         val root = Files.createTempDirectory("novarun-auth").toFile()
-        File(root, "index.html").writeText("private project")
         val port = ServerSocket(0).use { it.localPort }
         val server = LocalWebServer(root, port, bindToLan = true, accessToken = "test-token")
         try {
-            assertTrue(server.start())
-            val response = request(port)
-            assertTrue(response.startsWith("HTTP/1.1 401 Unauthorized"))
-            assertTrue(response.contains("WWW-Authenticate: Basic"))
-            assertTrue(!response.contains("private project"))
+            assertFalse(server.start())
         } finally {
             server.stop()
             root.deleteRecursively()
@@ -84,16 +80,12 @@ class LocalWebServerAuthenticationTest {
 
 
     @Test
-    fun lanRequestsAreAllowedWhenAuthenticationIsExplicitlyDisabled() {
+    fun lanServerRefusesPlaintextWhenPasswordProtectionIsDisabled() {
         val root = Files.createTempDirectory("novarun-no-auth").toFile()
-        File(root, "index.html").writeText("public project")
         val port = ServerSocket(0).use { it.localPort }
         val server = LocalWebServer(root, port, bindToLan = true, accessToken = null)
         try {
-            assertTrue(server.start())
-            val response = request(port)
-            assertTrue(response.startsWith("HTTP/1.1 200 OK"))
-            assertTrue(response.contains("public project"))
+            assertFalse(server.start())
         } finally {
             server.stop()
             root.deleteRecursively()
@@ -101,28 +93,20 @@ class LocalWebServerAuthenticationTest {
     }
 
     @Test
-    fun lanRequestsWithCorrectCredentialsAreAllowed() {
+    fun lanServerRefusesPlaintextEvenWithValidCredentials() {
         val root = Files.createTempDirectory("novarun-auth").toFile()
-        File(root, "index.html").writeText("private project")
         val port = ServerSocket(0).use { it.localPort }
         val server = LocalWebServer(root, port, bindToLan = true, accessToken = "test-token")
         try {
-            assertTrue(server.start())
-            val encoded = Base64.getEncoder().encodeToString(
-                "novarun:test-token".toByteArray(StandardCharsets.UTF_8)
-            )
-            val response = request(port, "Basic $encoded")
-            assertTrue(response.startsWith("HTTP/1.1 200 OK"))
-            assertTrue(response.contains("private project"))
+            assertFalse(server.start())
         } finally {
             server.stop()
             root.deleteRecursively()
         }
     }
     @Test
-    fun lanRequestsAcceptConfiguredCustomUsername() {
+    fun lanServerRefusesPlaintextWithCustomCredentials() {
         val root = Files.createTempDirectory("novarun-custom-auth").toFile()
-        File(root, "index.html").writeText("custom private project")
         val port = ServerSocket(0).use { it.localPort }
         val server = LocalWebServer(
             root,
@@ -132,17 +116,7 @@ class LocalWebServerAuthenticationTest {
             accessUsername = "ishak-dev"
         )
         try {
-            assertTrue(server.start())
-            val wrongUser = Base64.getEncoder().encodeToString(
-                "novarun:custom-secret".toByteArray(StandardCharsets.UTF_8)
-            )
-            assertTrue(request(port, "Basic $wrongUser").startsWith("HTTP/1.1 401 Unauthorized"))
-            val correct = Base64.getEncoder().encodeToString(
-                "ishak-dev:custom-secret".toByteArray(StandardCharsets.UTF_8)
-            )
-            val response = request(port, "Basic $correct")
-            assertTrue(response.startsWith("HTTP/1.1 200 OK"))
-            assertTrue(response.contains("custom private project"))
+            assertFalse(server.start())
         } finally {
             server.stop()
             root.deleteRecursively()
