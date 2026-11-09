@@ -166,6 +166,16 @@ fun WebPreviewScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A84FF)),
                     enabled = previewUrl != null
                 ) { Text("Refresh") }
+                if (nodeServerUrl != null) {
+                    val adminLoginUrl = remember(nodeServerUrl) {
+                        Uri.parse(nodeServerUrl).buildUpon().path("/admin/login").build().toString()
+                    }
+                    Button(
+                        onClick = { webView?.loadUrl(adminLoginUrl) },
+                        enabled = webView != null,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF30D158))
+                    ) { Text("Admin Login") }
+                }
             }
         }
 
