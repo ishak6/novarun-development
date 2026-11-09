@@ -145,8 +145,7 @@ class LocalWebServerService : Service() {
                     port = port,
                     accessToken = accessToken,
                     accessUsername = accessUsername,
-                    authenticationEnabled = authenticationEnabled,
-                    tlsFingerprint = tlsIdentity.sha256Fingerprint
+                    authenticationEnabled = authenticationEnabled
                 )
             }
 
@@ -281,15 +280,16 @@ class LocalWebServerService : Service() {
                     port = port,
                     accessPassword = accessToken,
                     accessUsername = accessUsername,
-                    authenticationEnabled = authenticationEnabled
+                    authenticationEnabled = authenticationEnabled,
+                    tlsFingerprint = tlsIdentity.sha256Fingerprint
                 )
             )
 
             showForegroundNotification(
                 if (lanAddressUrl != null) {
-                    "LAN server running on port $port"
+                    "HTTPS LAN server running on port $port"
                 } else {
-                    "Server running. LAN IP unavailable."
+                    "HTTPS server running. LAN IP unavailable."
                 }
             )
 
@@ -309,7 +309,7 @@ class LocalWebServerService : Service() {
                         LocalServerServiceState(
                             status = LocalServerServiceStatus.RUNNING,
                             message = if (lanAddressUrl != null) {
-                                "LAN server running"
+                                "HTTPS LAN server running"
                             } else {
                                 "Server running. LAN IP unavailable."
                             },
