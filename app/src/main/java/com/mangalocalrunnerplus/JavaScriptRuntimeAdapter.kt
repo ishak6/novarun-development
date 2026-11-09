@@ -297,7 +297,7 @@ object SqliteRuntimeAdapter : RuntimeAdapter {
                 i += 2
                 continue
             }
-            if (ch == '\\'' || ch == '"' || ch == '`' || ch == '[') {
+            if (ch == 39.toChar() || ch == '"' || ch == '`' || ch == '[') {
                 quote = ch
                 current.append(ch)
                 i++
