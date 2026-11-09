@@ -168,7 +168,7 @@ fun NovaRunSettingsScreen() {
 
         SettingsSwitch(
             title = "Keep server running in background",
-            detail = "The server uses an Android foreground service while running.",
+            detail = "When off, an active server stops as soon as NovaRun leaves the foreground.",
             checked = keepServer
         ) {
             keepServer = it
@@ -181,8 +181,8 @@ fun NovaRunSettingsScreen() {
         SettingsSectionTitle("CODE EDITOR PREFERENCES")
 
         SettingsSwitch(
-            title = "Auto Save preference",
-            detail = "Saved preference. The editor must read this setting to change its behavior.",
+            title = "Auto Save",
+            detail = "Automatically save edits after a short pause.",
             checked = autoSave
         ) {
             autoSave = it
@@ -193,8 +193,8 @@ fun NovaRunSettingsScreen() {
         }
 
         SettingsSwitch(
-            title = "Word Wrap preference",
-            detail = "Saved preference. The editor must read this setting to apply line wrapping.",
+            title = "Word Wrap",
+            detail = "Wrap long source-code lines inside the editor.",
             checked = wordWrap
         ) {
             wordWrap = it
@@ -264,7 +264,7 @@ fun NovaRunSettingsScreen() {
             )
 
             Text(
-                "Some saved preferences need their related editor or theme implementation before they affect every screen.",
+                "Theme and editor preferences are stored locally on this device.",
                 color = ControlMuted,
                 fontSize = 11.sp
             )
