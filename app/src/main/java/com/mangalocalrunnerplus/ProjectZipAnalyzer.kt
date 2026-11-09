@@ -58,7 +58,7 @@ object ProjectZipAnalyzer {
         val packageText = packageFile?.let {
             runCatching { it.readText().take(256 * 1024) }.getOrNull()
         }.orEmpty()
-        val hasBuildScript = Regex("""["']build["']\\s*:""").containsMatchIn(packageText)
+        val hasBuildScript = Regex("""["']build["']\s*:""").containsMatchIn(packageText)
         val hasVite = "vite.config.js" in names || "vite.config.ts" in names ||
             packageText.contains("\"vite\"") || packageText.contains("\"vite\":")
         val hasReact = packageText.contains("\"react\"") ||
