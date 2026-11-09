@@ -142,7 +142,7 @@ object ZipProjectImporter {
     }
 
     private fun validateEntryName(name: String): String {
-        if (name.isBlank() || name.length > MAX_ENTRY_NAME_LENGTH || name.contains('\u0000')) {
+        if (name.isBlank() || name.length > MAX_ENTRY_NAME_LENGTH || name.any { it.code == 0 }) {
             throw IOException("ZIP contains an invalid file path.")
         }
 
