@@ -53,6 +53,54 @@ class LocalWebServerTlsTest {
         }
     }
 
+    @Test
+    fun lanAuthenticationIsEnforcedInsideTlsSession() {
+        val root = Files.createTempDirectory("novarun-tls-auth").toFile()
+        File(root, "index.html").writeText("tls-private-project")
+        val port = ServerSocket(0).use { it.localPort }
+        val server = LocalWebServer(
+            projectDirectory = root,
+            port = port,
+            bindToLan = true,
+            accessToken = "tls-test-secret",
+            sslContext = testServerContext()
+        )
+        val clientContext = testClientContext()
+
+        fun request(authorization: String? = null): String {
+            return (clientContext.socketFactory
+                .createSocket("127.0.0.1", port) as SSLSocket).use { socket ->
+                socket.soTimeout = 5000
+                socket.startHandshake()
+                val headers = buildString {
+                    append("GET /index.html HTTP/1.1\\r\\n")
+                    append("Host: localhost\\r\\n")
+                    if (authorization != null) append("Authorization: $authorization\\r\\n")
+                    append("Connection: close\\r\\n\\r\\n")
+                }
+                socket.getOutputStream().write(headers.toByteArray(Charsets.US_ASCII))
+                socket.getInputStream().bufferedReader().readText()
+            }
+        }
+
+        try {
+            assertTrue(server.start())
+            val denied = request()
+            assertTrue(denied.startsWith("HTTP/1.1 401 Unauthorized"))
+            assertTrue(!denied.contains("tls-private-project"))
+
+            val encoded = Base64.getEncoder().encodeToString(
+                "novarun:tls-test-secret".toByteArray(Charsets.UTF_8)
+            )
+            val allowed = request("Basic $encoded")
+            assertTrue(allowed.startsWith("HTTP/1.1 200 OK"))
+            assertTrue(allowed.contains("tls-private-project"))
+        } finally {
+            server.stop()
+            root.deleteRecursively()
+        }
+    }
+
     private fun testServerContext(): SSLContext {
         val certificateBytes = Base64.getDecoder().decode(TEST_CERTIFICATE)
         val certificate = CertificateFactory.getInstance("X.509")
