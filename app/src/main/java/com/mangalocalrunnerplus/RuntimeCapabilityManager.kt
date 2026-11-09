@@ -85,8 +85,8 @@ object RuntimeCapabilityManager {
         "Python" to RuntimeCapability(
             "Python",
             RuntimeType.INTERPRETER,
-            RuntimeStatus.ADAPTER_PLANNED,
-            "Requires an embedded or packaged Python runtime."
+            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
+            "Embedded CPython 3.11 runtime (Chaquopy); standard library support with Android platform limitations."
         ),
 
         "Ruby" to RuntimeCapability(
