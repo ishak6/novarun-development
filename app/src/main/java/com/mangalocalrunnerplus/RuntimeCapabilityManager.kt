@@ -46,11 +46,19 @@ object RuntimeCapabilityManager {
             true
         ),
 
+        "SVG" to RuntimeCapability(
+            "SVG",
+            RuntimeType.WEB_VIEW,
+            RuntimeStatus.AVAILABLE_FOR_PREVIEW,
+            "SVG vector assets can be served with image/svg+xml and previewed directly or inside HTML.",
+            true
+        ),
+
         "JavaScript" to RuntimeCapability(
             "JavaScript",
             RuntimeType.WEB_VIEW,
             RuntimeStatus.AVAILABLE_FOR_PREVIEW,
-            "JavaScript files can run with the embedded interpreter; browser scripts can also be previewed in WebView.",
+            "Browser JavaScript can run in the web preview; standalone .js files can also run in the bounded Rhino ES6 interpreter. This is not Node.js.",
             true
         ),
 
