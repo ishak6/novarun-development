@@ -1,7 +1,7 @@
 package com.mangalocalrunnerplus
 
 import android.content.Context
-import com.chaquo.python.AndroidPlatform
+import com.chaquo.python.android.AndroidPlatform
 import com.chaquo.python.Python
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
