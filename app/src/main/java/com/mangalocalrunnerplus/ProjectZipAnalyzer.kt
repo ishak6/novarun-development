@@ -10,12 +10,11 @@ data class ProjectZipAnalysis(
     val previewReady: Boolean,
     val requiresBuild: Boolean,
     val missingRuntimes: List<String>,
-    val totalFiles: Int
+    val totalFiles: Int,
+    val nodeProject: NodeProjectReport? = null
 )
 
-/**
- * Read-only inspection of an extracted ZIP project. This never executes project code.
- */
+/** Read-only inspection of an extracted ZIP project. This never executes project code. */
 object ProjectZipAnalyzer {
     private val ignored = setOf(
         ".git", ".gradle", ".idea", "node_modules", "build",
@@ -23,10 +22,7 @@ object ProjectZipAnalyzer {
     )
 
     fun analyze(root: File): ProjectZipAnalysis {
-        if (!root.exists() || !root.isDirectory) {
-            return result("Invalid project", "Project folder is unavailable.")
-        }
-
+        if (!root.exists() || !root.isDirectory) return result("Invalid project", "Project folder is unavailable.")
         val files = mutableListOf<File>()
         val rootCanonical = runCatching { root.canonicalFile }.getOrNull()
             ?: return result("Invalid project", "Could not inspect project folder.")
@@ -37,8 +33,7 @@ object ProjectZipAnalyzer {
         while (stack.isNotEmpty() && files.size < 10000) {
             val (dir, depth) = stack.removeLast()
             if (depth > 8) continue
-            val children = dir.listFiles() ?: continue
-            for (child in children) {
+            for (child in dir.listFiles() ?: continue) {
                 val canonical = runCatching { child.canonicalFile }.getOrNull() ?: continue
                 if (canonical != rootCanonical && !canonical.path.startsWith(prefix)) continue
                 if (child.isDirectory) {
@@ -52,17 +47,14 @@ object ProjectZipAnalyzer {
 
         val names = files.map { it.name.lowercase() }.toSet()
         val extensions = files.map { it.extension.lowercase() }.toSet()
-        val languages = ProjectLanguageScanner.scan(rootCanonical).languages
-            .map { it.name }.distinct().sorted()
+        val languages = ProjectLanguageScanner.scan(rootCanonical).languages.map { it.name }.distinct().sorted()
         val packageFile = files.firstOrNull { it.name.equals("package.json", true) }
-        val packageText = packageFile?.let {
-            runCatching { it.readText().take(256 * 1024) }.getOrNull()
-        }.orEmpty()
-        val hasBuildScript = Regex("""["']build["']\s*:""").containsMatchIn(packageText)
+        val packageText = packageFile?.let { runCatching { it.readText().take(256 * 1024) }.getOrNull() }.orEmpty()
+        val nodeProject = packageFile?.let { NodeProjectInspector.inspect(it, names) }
+        val hasBuildScript = nodeProject?.scripts?.containsKey("build") == true
         val hasVite = "vite.config.js" in names || "vite.config.ts" in names ||
             packageText.contains("\"vite\"") || packageText.contains("\"vite\":")
-        val hasReact = packageText.contains("\"react\"") ||
-            packageText.contains("\"react-dom\"")
+        val hasReact = packageText.contains("\"react\"") || packageText.contains("\"react-dom\"")
         val hasVue = packageText.contains("\"vue\"")
         val hasAngular = packageText.contains("\"@angular/core\"")
         val hasPhp = "php" in extensions
@@ -72,17 +64,14 @@ object ProjectZipAnalyzer {
         val hasGo = "go" in extensions
         val hasRust = "rs" in extensions
         val staticEntry = listOf(
-            File(rootCanonical, "index.html"),
-            File(rootCanonical, "dist/index.html"),
-            File(rootCanonical, "build/index.html"),
-            File(rootCanonical, "out/index.html")
+            File(rootCanonical, "index.html"), File(rootCanonical, "dist/index.html"),
+            File(rootCanonical, "build/index.html"), File(rootCanonical, "out/index.html")
         ).firstOrNull { it.isFile && runCatching { it.canonicalPath.startsWith(prefix) || it.canonicalFile == rootCanonical }.getOrDefault(false) }
         val previewReady = staticEntry != null
         val missing = mutableListOf<String>()
         if (packageFile != null && !previewReady) missing += "Node.js + npm (install dependencies and build)"
         if (hasPhp) missing += "PHP runtime"
-        if (hasPython && (names.any { it == "requirements.txt" } ||
-                    files.any { it.name == "manage.py" || it.name == "pyproject.toml" })) {
+        if (hasPython && (names.any { it == "requirements.txt" } || files.any { it.name == "manage.py" || it.name == "pyproject.toml" })) {
             missing += "Python web dependencies/framework runtime"
         }
         if (hasJava) missing += "Java/Kotlin compiler + Android/JVM build toolchain"
@@ -107,27 +96,26 @@ object ProjectZipAnalyzer {
             hasRust -> "Rust project"
             else -> "Mixed / general project"
         }
-
-        val summary = "$kind • ${languages.take(4).joinToString().ifBlank { "file types unknown" }}"
+        val languageSummary = languages.take(4).joinToString().ifBlank { "file types unknown" }
+        val summary = kind + " • " + languageSummary
         val next = when {
+            previewReady && packageFile != null -> "Existing static output found — preview ready. Node.js build tooling is not run by NovaRun yet."
             previewReady -> "Static output found — ready for preview."
             packageFile != null && hasBuildScript ->
-                "Build script detected. Node.js/npm is required; build output not found."
+                "Build script detected (" + (nodeProject?.buildCommand ?: "npm run build") + "). Node.js/npm runtime is required; build output not found."
             packageFile != null ->
-                "package.json found. Check scripts/dependencies; Node.js/npm runtime is required."
+                "package.json found. " + (nodeProject?.installCommand ?: "Install dependencies") + " and configure a build script; Node.js/npm runtime is required."
             hasPhp -> "PHP files detected. PHP runtime is not installed in NovaRun yet."
-            hasJava || hasNative || hasGo || hasRust ->
-                "Source detected. Required compiler/toolchain is not installed in NovaRun yet."
+            hasJava || hasNative || hasGo || hasRust -> "Source detected. Required compiler/toolchain is not installed in NovaRun yet."
             hasPython -> "Python source detected. Run supported .py scripts; web frameworks may need extra packages."
             else -> "No ready web entry point found. Add index.html or build static output first."
         }
         return ProjectZipAnalysis(
             summary, next, languages, kind, previewReady,
-            packageFile != null && !previewReady, missing.distinct(), files.size
+            packageFile != null && !previewReady, missing.distinct(), files.size, nodeProject
         )
     }
 
-    private fun result(kind: String, next: String) = ProjectZipAnalysis(
-        kind, next, emptyList(), kind, false, false, emptyList(), 0
-    )
+    private fun result(kind: String, next: String) =
+        ProjectZipAnalysis(kind, next, emptyList(), kind, false, false, emptyList(), 0)
 }

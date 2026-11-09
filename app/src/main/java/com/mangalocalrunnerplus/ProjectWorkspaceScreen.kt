@@ -420,6 +420,20 @@ private fun ProjectCard(
                     fontSize = 10.sp,
                     maxLines = 2
                 )
+                analysis.nodeProject?.let { node ->
+                    Text(
+                        node.packageManager + " • " + node.dependencyCount + " dependencies • lock: " + (node.lockfileName ?: "missing"),
+                        color = WorkspaceMuted,
+                        fontSize = 10.sp,
+                        maxLines = 1
+                    )
+                    node.buildCommand?.let { command ->
+                        Text("Build script: " + command, color = WorkspaceBlue, fontSize = 10.sp, maxLines = 1)
+                    }
+                    node.warnings.firstOrNull()?.let { warning ->
+                        Text(warning, color = NovaRunPalette.Warning, fontSize = 9.sp, maxLines = 2)
+                    }
+                }
             }
 
             IconButton(onClick = onDelete) {
