@@ -146,7 +146,7 @@ object ZipProjectImporter {
             throw IOException("ZIP contains an invalid file path.")
         }
 
-        val normalized = name.replace('\\\\', '/')
+        val normalized = name.replace(92.toChar(), '/')
 
         if (
             normalized.startsWith("/") ||
