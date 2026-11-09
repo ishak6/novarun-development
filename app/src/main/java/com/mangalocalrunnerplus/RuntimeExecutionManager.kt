@@ -2,6 +2,7 @@
 package com.mangalocalrunnerplus
 
 import android.content.Context
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -55,6 +56,8 @@ object RuntimeExecutionManager {
 
             val available = try {
                 adapter.isAvailable(context)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 val message = error.message
                     ?: "Could not check runtime availability."
@@ -114,6 +117,8 @@ object RuntimeExecutionManager {
 
                 result
 
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 val message = error.message
                     ?: "Runtime execution failed."
