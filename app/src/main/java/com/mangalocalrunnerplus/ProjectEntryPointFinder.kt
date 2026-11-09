@@ -60,7 +60,7 @@ object ProjectEntryPointFinder {
 
         return candidates.minWithOrNull(
             compareBy<File> { candidatePriority(root, it) }
-                .thenBy { it.relativeTo(root).nameCount }
+                .thenBy { it.relativeTo(root).invariantSeparatorsPath.split('/').size }
                 .thenBy { it.relativeTo(root).invariantSeparatorsPath.lowercase() }
         )
     }
