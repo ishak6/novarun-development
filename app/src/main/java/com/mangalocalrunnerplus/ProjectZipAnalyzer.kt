@@ -67,10 +67,7 @@ object ProjectZipAnalyzer {
         val hasNative = extensions.any { it in setOf("c", "cc", "cpp", "h", "hpp") }
         val hasGo = "go" in extensions
         val hasRust = "rs" in extensions
-        val staticEntry = listOf(
-            File(rootCanonical, "index.html"), File(rootCanonical, "dist/index.html"),
-            File(rootCanonical, "build/index.html"), File(rootCanonical, "out/index.html")
-        ).firstOrNull { it.isFile && runCatching { it.canonicalPath.startsWith(prefix) || it.canonicalFile == rootCanonical }.getOrDefault(false) }
+        val staticEntry = ProjectEntryPointFinder.find(rootCanonical)
         val previewReady = staticEntry != null
         val missing = mutableListOf<String>()
         if (packageFile != null && !previewReady) missing += "Node.js + npm (install dependencies and build)"

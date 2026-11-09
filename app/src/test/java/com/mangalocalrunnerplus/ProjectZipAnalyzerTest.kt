@@ -23,6 +23,26 @@ class ProjectZipAnalyzerTest {
         }
     }
 
+
+    @Test
+    fun detectsWebsiteWhenIndexIsNestedInUnstructuredZipLayout() {
+        val root = Files.createTempDirectory("novarun-nested-site").toFile()
+        try {
+            val site = File(root, "downloaded/project/site")
+            site.mkdirs()
+            File(site, "index.html").writeText("<html></html>")
+            File(site, "style.css").writeText("body {}")
+            File(root, ".gitkeep").writeText("")
+            val result = ProjectZipAnalyzer.analyze(root)
+            assertTrue(result.previewReady)
+            assertEquals("Static website", result.projectKind)
+            assertTrue(result.detectedLanguages.contains("HTML"))
+            assertTrue(result.detectedLanguages.contains("CSS"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test
     fun detectsReactViteAndReportsMissingNodeRuntimeWhenNoBuildOutput() {
         val root = Files.createTempDirectory("novarun-vite").toFile()
