@@ -43,7 +43,7 @@ class ZipProjectImporterPathTest {
     fun normalizesCurrentDirectorySegmentsAndBackslashes() {
         assertEquals(
             "src${java.io.File.separator}Main.kt",
-            ZipProjectImporter.validateEntryName(".\\\\src\\\\Main.kt")
+            ZipProjectImporter.validateEntryName(".\\src\\Main.kt")
         )
     }
 
