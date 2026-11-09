@@ -11,6 +11,7 @@ def run_script(script_path, project_root):
     output = io.StringIO()
     errors = io.StringIO()
     previous_cwd = os.getcwd()
+    previous_path = list(sys.path)
     root = os.path.realpath(project_root)
     script = os.path.realpath(script_path)
 
@@ -40,3 +41,4 @@ def run_script(script_path, project_root):
         })
     finally:
         os.chdir(previous_cwd)
+        sys.path[:] = previous_path
