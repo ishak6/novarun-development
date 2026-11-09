@@ -11,7 +11,8 @@ data class ProjectZipAnalysis(
     val requiresBuild: Boolean,
     val missingRuntimes: List<String>,
     val totalFiles: Int,
-    val nodeProject: NodeProjectReport? = null
+    val nodeProject: NodeProjectReport? = null,
+    val phpProject: PhpProjectReport? = null
 )
 
 /** Read-only inspection of an extracted ZIP project. This never executes project code. */
@@ -57,7 +58,9 @@ object ProjectZipAnalyzer {
         val hasReact = packageText.contains("\"react\"") || packageText.contains("\"react-dom\"")
         val hasVue = packageText.contains("\"vue\"")
         val hasAngular = packageText.contains("\"@angular/core\"")
-        val hasPhp = "php" in extensions
+        val composerFile = files.firstOrNull { it.name.equals("composer.json", true) }
+        val phpProject = composerFile?.let { PhpProjectInspector.inspect(it, names) }
+        val hasPhp = "php" in extensions || composerFile != null
         val hasPython = "py" in extensions
         val hasJava = "java" in extensions || "kt" in extensions || "kts" in extensions
         val hasNative = extensions.any { it in setOf("c", "cc", "cpp", "h", "hpp") }
@@ -88,6 +91,7 @@ object ProjectZipAnalyzer {
             hasVue -> "Vue web app"
             packageFile != null -> "Node.js web/project"
             previewReady -> "Static website"
+            phpProject?.framework != null -> phpProject.framework + " PHP project"
             hasPhp -> "PHP website/backend"
             hasPython -> "Python project"
             hasJava -> "Java/Kotlin project"
@@ -105,14 +109,14 @@ object ProjectZipAnalyzer {
                 "Build script detected. Command: " + (nodeProject?.buildCommand ?: "npm run build") + ". Node.js/npm runtime is required; build output not found."
             packageFile != null ->
                 "package.json found. " + (nodeProject?.installCommand ?: "Install dependencies") + " and configure a build script; Node.js/npm runtime is required."
-            hasPhp -> "PHP files detected. PHP runtime is not installed in NovaRun yet."
+            hasPhp -> "PHP project detected" + (phpProject?.entryPoint?.let { " • entry: $it" } ?: "") + ". PHP CLI runtime is not installed in NovaRun yet."
             hasJava || hasNative || hasGo || hasRust -> "Source detected. Required compiler/toolchain is not installed in NovaRun yet."
             hasPython -> "Python source detected. Run supported .py scripts; web frameworks may need extra packages."
             else -> "No ready web entry point found. Add index.html or build static output first."
         }
         return ProjectZipAnalysis(
             summary, next, languages, kind, previewReady,
-            packageFile != null && !previewReady, missing.distinct(), files.size, nodeProject
+            packageFile != null && !previewReady, missing.distinct(), files.size, nodeProject, phpProject
         )
     }
 

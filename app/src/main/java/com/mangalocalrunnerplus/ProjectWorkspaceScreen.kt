@@ -434,6 +434,23 @@ private fun ProjectCard(
                         Text(warning, color = NovaRunPalette.Warning, fontSize = 9.sp, maxLines = 2)
                     }
                 }
+                analysis.phpProject?.let { php ->
+                    Text(
+                        "Composer • " + (php.framework ?: "PHP") + " • " + php.dependencyCount + " dependencies • lock: " + (php.lockfileName ?: "missing"),
+                        color = WorkspaceMuted,
+                        fontSize = 10.sp,
+                        maxLines = 1
+                    )
+                    php.phpVersionConstraint?.let { version ->
+                        Text("PHP requirement: " + version, color = WorkspaceBlue, fontSize = 10.sp, maxLines = 1)
+                    }
+                    php.entryPoint?.let { entry ->
+                        Text("Entry point: " + entry, color = WorkspaceBlue, fontSize = 10.sp, maxLines = 1)
+                    }
+                    php.warnings.firstOrNull()?.let { warning ->
+                        Text(warning, color = NovaRunPalette.Warning, fontSize = 9.sp, maxLines = 2)
+                    }
+                }
             }
 
             IconButton(onClick = onDelete) {

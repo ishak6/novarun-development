@@ -14,7 +14,7 @@ This document records only capabilities integrated into the current Android app.
 | Python | Executable with limits; CI bridge verified | CPython 3.11 via Chaquopy; Android-specific package limitations; physical-device verification remains required |
 | Node.js | Planned | Not bundled; Android support is experimental. Project package metadata is inspected, but Node code is not executed |
 | npm / npx | Planned | Requires a working Node runtime and package lifecycle / native-addon controls |
-| PHP | Planned | Requires maintained PHP CLI binaries for supported Android ABIs |
+| PHP | Planned | Composer/PHP manifests are inspected; no PHP CLI runtime is bundled or executed |
 | Java | Planned | Requires compiler, DEX conversion, dependency resolution and constrained class loading |
 | Kotlin | Planned | Requires compiler, DEX conversion, dependency resolution and constrained class loading |
 | C / C++ | Planned | Requires Android-hosted compiler, target sysroot, linker and bounded native execution |
@@ -53,6 +53,12 @@ This document records only capabilities integrated into the current Android app.
 - **Java:** bundle a compiler, convert class files to DEX, resolve dependencies and execute through a constrained class-loading boundary.
 - **Kotlin:** integrate a compatible Kotlin compiler, convert output to DEX and verify Android API compatibility.
 - **C/C++:** package an Android-hosted compiler and sysroot, define target ABIs and C++ runtime, compile Android ELF binaries and execute with strict resource/file-access limits.
+
+## PHP project inspection
+
+- Reads `composer.json` and detects Laravel, Symfony, Slim, CakePHP and CodeIgniter 4 dependencies.
+- Reports PHP version constraints, required `ext-*` extensions, production/development dependency counts, `composer.lock`, conventional entry points and Composer scripts.
+- Composer scripts are diagnostics only; NovaRun does not run Composer or PHP code until a maintained Android CLI build is integrated and explicit execution controls are in place.
 
 ## Node project inspection
 
