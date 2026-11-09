@@ -30,7 +30,7 @@ class BoundedStringIO(io.StringIO):
     def bounded_value(self):
         value = super().getvalue()
         if self.truncated:
-            return value + "\\n[output truncated at 48,000 characters]"
+            return value + "\n[output truncated at 48,000 characters]"
         return value
 
 
