@@ -245,7 +245,7 @@ class LocalWebServer(
                     if (headerName.isNotEmpty()) headers[headerName] = headerValue
                 }
 
-                if (bindToLan && !isAuthorized(headers["authorization"])) {
+                if (bindToLan && accessToken != null && !isAuthorized(headers["authorization"])) {
                     sendUnauthorized(output, method == "HEAD")
                     return
                 }
