@@ -38,4 +38,27 @@ class ZipProjectImporterPathTest {
     fun rejectsEmptyPath() {
         ZipProjectImporter.validateEntryName("///")
     }
+
+    @Test
+    fun normalizesCurrentDirectorySegmentsAndBackslashes() {
+        assertEquals(
+            "src${java.io.File.separator}Main.kt",
+            ZipProjectImporter.validateEntryName(".\\\\src\\\\Main.kt")
+        )
+    }
+
+    @Test(expected = IOException::class)
+    fun rejectsNullCharacter() {
+        ZipProjectImporter.validateEntryName("src/Bad\u0000Name.kt")
+    }
+
+    @Test(expected = IOException::class)
+    fun rejectsOverlongEntryName() {
+        ZipProjectImporter.validateEntryName("a".repeat(1025))
+    }
+
+    @Test(expected = IOException::class)
+    fun rejectsPathWithOnlyCurrentDirectorySegments() {
+        ZipProjectImporter.validateEntryName("././")
+    }
 }
