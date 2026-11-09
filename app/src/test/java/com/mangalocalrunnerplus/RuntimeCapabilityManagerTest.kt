@@ -25,6 +25,30 @@ class RuntimeCapabilityManagerTest {
             RuntimeStatus.ADAPTER_PLANNED,
             RuntimeCapabilityManager.getCapability("PHP").status
         )
+        assertEquals(
+            RuntimeStatus.ADAPTER_PLANNED,
+            RuntimeCapabilityManager.getCapability("Node.js").status
+        )
+        assertEquals(
+            RuntimeStatus.ADAPTER_PLANNED,
+            RuntimeCapabilityManager.getCapability("npm").status
+        )
+        assertEquals(
+            RuntimeStatus.ADAPTER_PLANNED,
+            RuntimeCapabilityManager.getCapability("Java").status
+        )
+        assertEquals(
+            RuntimeStatus.ADAPTER_PLANNED,
+            RuntimeCapabilityManager.getCapability("Kotlin").status
+        )
+        assertEquals(
+            RuntimeStatus.ADAPTER_PLANNED,
+            RuntimeCapabilityManager.getCapability("C").status
+        )
+        assertEquals(
+            RuntimeStatus.ADAPTER_PLANNED,
+            RuntimeCapabilityManager.getCapability("C++").status
+        )
     }
 
     @Test
