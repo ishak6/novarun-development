@@ -15,13 +15,7 @@ private const val MAX_PYTHON_OUTPUT_CHARS = 48_000
 object PythonRuntimeAdapter : RuntimeAdapter {
     override val language: String = "Python"
 
-    override fun isAvailable(context: Context): Boolean = try {
-        ensureStarted(context)
-        Python.getInstance().getModule("sys")
-            .get("version_info").asList().first().toInt() == 3
-    } catch (_: Exception) {
-        false
-    }
+    override fun isAvailable(context: Context): Boolean = true
 
     override suspend fun execute(
         context: Context,
