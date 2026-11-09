@@ -6,6 +6,7 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
@@ -115,6 +116,18 @@ fun LanCredentialsSettingsCard() {
                 visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation()
             )
             TextButton(onClick = { visible = !visible }) { Text(if (visible) "Hide password" else "Show password") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("NovaRun username", username))
+                    message = "Username copied."
+                }) { Text("Copy username") }
+                TextButton(onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("NovaRun password", password))
+                    message = "Password copied."
+                }) { Text("Copy password") }
+            }
             Button(
                 onClick = {
                     runCatching { LanCredentialsStore.save(context, username.trim(), password) }
