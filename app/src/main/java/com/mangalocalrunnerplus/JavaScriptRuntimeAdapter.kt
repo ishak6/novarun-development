@@ -186,18 +186,19 @@ object SqliteRuntimeAdapter : RuntimeAdapter {
         var db: SQLiteDatabase? = null
 
         try {
-            db = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
-            db.setForeignKeyConstraintsEnabled(true)
-            db.setMaximumSize(50L * 1024L * 1024L)
+            val database = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
+            db = database
+            database.setForeignKeyConstraintsEnabled(true)
+            database.setMaximumSize(50L * 1024L * 1024L)
             val output = StringBuilder()
-            db.beginTransaction()
+            database.beginTransaction()
             try {
                 statements.forEachIndexed { index, statement ->
                     if (Thread.currentThread().isInterrupted) {
                         throw CancellationException("SQL execution cancelled.")
                     }
                     val sql = statement.trim()
-                    val keyword = sql.substringBefore(Regex("\\s")).uppercase()
+                    val keyword = sql.split(Regex("\\s+"), limit = 2).first().uppercase()
                     if (keyword in setOf("ATTACH", "DETACH", "VACUUM", "BEGIN", "COMMIT", "ROLLBACK")) {
                         throw IllegalArgumentException("$keyword is disabled to isolate project databases.")
                     }
@@ -206,20 +207,20 @@ object SqliteRuntimeAdapter : RuntimeAdapter {
                     }
 
                     if (keyword in setOf("SELECT", "PRAGMA", "EXPLAIN", "WITH")) {
-                        db.rawQuery(sql, null).use { cursor ->
+                        database.rawQuery(sql, null).use { cursor ->
                             appendSqlRows(output, cursor, index + 1)
                         }
                     } else {
-                        db.execSQL(sql)
+                        database.execSQL(sql)
                         output.append("Statement ").append(index + 1).append(": executed.\\n")
                     }
                     if (output.length > 48_000) {
                         throw IllegalStateException("SQL output limit reached (48,000 characters).")
                     }
                 }
-                db.setTransactionSuccessful()
+                database.setTransactionSuccessful()
             } finally {
-                db.endTransaction()
+                database.endTransaction()
             }
             RuntimeExecutionResult(true, output.toString().ifBlank { "SQL executed successfully." }, exitCode = 0)
         } catch (error: CancellationException) {
