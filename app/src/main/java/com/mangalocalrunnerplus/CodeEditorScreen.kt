@@ -297,7 +297,7 @@ fun CodeEditorScreen(
                 )
             }
 
-            if (extension == "js" || extension == "mjs" || extension == "sql") {
+            if (extension == "js" || extension == "sql") {
                 OutlinedButton(
                     onClick = {
                         scope.launch {
