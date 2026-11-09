@@ -219,7 +219,7 @@ object RuntimeCapabilityManager {
             "SQL",
             RuntimeType.DATABASE,
             RuntimeStatus.ADAPTER_PLANNED,
-            "Requires a configured database engine such as SQLite, MySQL or PostgreSQL."
+            "Runs project SQL scripts against an isolated, persistent SQLite database on this device."
         ),
 
         "Bash" to RuntimeCapability(
