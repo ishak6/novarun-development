@@ -55,7 +55,7 @@ class LocalWebServerAuthenticationTest {
         val server = LocalWebServer(root, port, defaultDocument = "home.html")
         try {
             assertTrue(server.start())
-            val response = request(port)
+            val response = request(port, path = "/")
             assertTrue(response.startsWith("HTTP/1.1 200 OK"))
             assertTrue(response.contains("home-page"))
         } finally {
