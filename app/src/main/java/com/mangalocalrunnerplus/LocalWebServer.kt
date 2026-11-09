@@ -281,7 +281,7 @@ class LocalWebServer(
                     return
                 }
 
-                val target = try {
+                var target = try {
                     if (requestedFile.isDirectory) {
                         File(
                             requestedFile,
@@ -295,13 +295,34 @@ class LocalWebServer(
                     return
                 }
 
-                if (
-                    !isInsideRoot(target, root) ||
-                    !target.isFile ||
-                    !target.canRead()
-                ) {
-                    sendError(output, 404, "Not Found")
+                if (!isInsideRoot(target, root)) {
+                    sendError(output, 403, "Forbidden")
                     return
+                }
+
+                if (!target.isFile || !target.canRead()) {
+                    // Support client-side routes in React/Vite and other SPAs.
+                    // Keep missing asset requests as 404s instead of returning HTML.
+                    val lastSegment = requestedPath.substringAfterLast('/')
+                    val isExtensionlessRoute = !lastSegment.contains('.')
+                    val fallbackIndex = try {
+                        File(root, "index.html").canonicalFile
+                    } catch (exception: Exception) {
+                        sendError(output, 403, "Forbidden")
+                        return
+                    }
+
+                    if (
+                        isExtensionlessRoute &&
+                        isInsideRoot(fallbackIndex, root) &&
+                        fallbackIndex.isFile &&
+                        fallbackIndex.canRead()
+                    ) {
+                        target = fallbackIndex
+                    } else {
+                        sendError(output, 404, "Not Found")
+                        return
+                    }
                 }
 
                 val mimeType = getMimeType(target.extension)
@@ -313,6 +334,8 @@ class LocalWebServer(
                         "Content-Type: $mimeType\r\n" +
                         "Content-Length: $fileLength\r\n" +
                         "Connection: close\r\n" +
+                        "Cache-Control: no-store\r\n" +
+                        "Referrer-Policy: no-referrer\r\n" +
                         "X-Content-Type-Options: nosniff\r\n" +
                         "\r\n"
                     ).toByteArray(StandardCharsets.UTF_8)
@@ -433,6 +456,14 @@ class LocalWebServer(
             "ico" -> "image/x-icon"
             "pdf" -> "application/pdf"
             "wasm" -> "application/wasm"
+            "woff" -> "font/woff"
+            "woff2" -> "font/woff2"
+            "ttf" -> "font/ttf"
+            "otf" -> "font/otf"
+            "eot" -> "application/vnd.ms-fontobject"
+            "avif" -> "image/avif"
+            "webmanifest" -> "application/manifest+json"
+            "map" -> "application/json; charset=utf-8"
             "mp3" -> "audio/mpeg"
             "mp4" -> "video/mp4"
 
