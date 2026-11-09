@@ -173,8 +173,13 @@ class LocalWebServerService : Service() {
                 return@launch
             }
 
+            // Serve compiled frontend output when present (dist/build/out),
+            // otherwise serve the selected project root as a static directory.
+            val webRoot = ProjectPreviewValidator.validate(project).projectRoot
+                ?: project
+
             val newServer = LocalWebServer(
-                projectDirectory = project,
+                projectDirectory = webRoot,
                 port = port,
                 bindToLan = true
             )
