@@ -65,14 +65,21 @@ object ProjectEntryPointFinder {
         )
     }
 
+    /**
+     * Build output folders can be nested under arbitrary ZIP wrapper folders
+     * (for example download/site/dist/index.html). Rank the nearest matching
+     * output ancestor, case-insensitively, rather than checking only path[0].
+     */
     private fun candidatePriority(root: File, entry: File): Int {
-        val relative = entry.relativeTo(root).invariantSeparatorsPath
-        val firstSegment = relative.substringBefore('/')
-        return when {
-            firstSegment in preferredOutputDirectories -> preferredOutputDirectories.indexOf(firstSegment)
-            entry.parentFile == root -> 3
-            else -> 4
+        val segments = entry.relativeTo(root).invariantSeparatorsPath
+            .split('/')
+            .dropLast(1)
+            .map { it.lowercase() }
+        val outputIndex = segments.indexOfLast { it in preferredOutputDirectories }
+        if (outputIndex >= 0) {
+            return preferredOutputDirectories.indexOf(segments[outputIndex])
         }
+        return if (entry.parentFile == root) 3 else 4
     }
 
     private const val MAX_DEPTH = 8
