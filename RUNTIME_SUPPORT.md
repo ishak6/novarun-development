@@ -12,7 +12,7 @@ This document records only capabilities integrated into the current Android app.
 | .gitkeep | Project metadata | Preserved by ZIP import; hidden from public HTTP serving with other dotfiles |
 | SQL | Executable with limits | Project-isolated SQLite database |
 | Python | Executable with limits; CI bridge verified | CPython 3.11 via Chaquopy; Android-specific package limitations; physical-device verification remains required |
-| Node.js | Planned | Not bundled; Android is not an officially supported Node.js platform |
+| Node.js | Planned | Not bundled; Android support is experimental. Project package metadata is inspected, but Node code is not executed |
 | npm / npx | Planned | Requires a working Node runtime and package lifecycle / native-addon controls |
 | PHP | Planned | Requires maintained PHP CLI binaries for supported Android ABIs |
 | Java | Planned | Requires compiler, DEX conversion, dependency resolution and constrained class loading |
@@ -53,6 +53,13 @@ This document records only capabilities integrated into the current Android app.
 - **Java:** bundle a compiler, convert class files to DEX, resolve dependencies and execute through a constrained class-loading boundary.
 - **Kotlin:** integrate a compatible Kotlin compiler, convert output to DEX and verify Android API compatibility.
 - **C/C++:** package an Android-hosted compiler and sysroot, define target ABIs and C++ runtime, compile Android ELF binaries and execute with strict resource/file-access limits.
+
+## Node project inspection
+
+- Reads `package.json` without executing project code.
+- Detects npm, pnpm, Yarn and Bun lockfiles and suggests a reproducible install command (`npm ci`, `pnpm install --frozen-lockfile`, `yarn install --immutable`, or `bun install --frozen-lockfile`).
+- Reports scripts, dependency counts, build command, native-addon indicators and lifecycle-script warnings in the Workspace.
+- These are diagnostics only: NovaRun does not yet install dependencies or run Node/npm commands.
 
 ## Web project workflow
 

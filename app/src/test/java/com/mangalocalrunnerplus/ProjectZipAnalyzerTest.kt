@@ -37,6 +37,7 @@ class ProjectZipAnalyzerTest {
             assertFalse(result.previewReady)
             assertTrue(result.requiresBuild)
             assertTrue(result.missingRuntimes.any { it.startsWith("Node.js + npm") })
+            assertEquals("npm run build", result.nodeProject?.buildCommand)
         } finally {
             root.deleteRecursively()
         }

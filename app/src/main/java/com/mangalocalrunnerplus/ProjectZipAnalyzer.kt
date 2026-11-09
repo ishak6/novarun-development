@@ -102,7 +102,7 @@ object ProjectZipAnalyzer {
             previewReady && packageFile != null -> "Existing static output found — preview ready. Node.js build tooling is not run by NovaRun yet."
             previewReady -> "Static output found — ready for preview."
             packageFile != null && hasBuildScript ->
-                "Build script detected (" + (nodeProject?.buildCommand ?: "npm run build") + "). Node.js/npm runtime is required; build output not found."
+                "Build script detected. Command: " + (nodeProject?.buildCommand ?: "npm run build") + ". Node.js/npm runtime is required; build output not found."
             packageFile != null ->
                 "package.json found. " + (nodeProject?.installCommand ?: "Install dependencies") + " and configure a build script; Node.js/npm runtime is required."
             hasPhp -> "PHP files detected. PHP runtime is not installed in NovaRun yet."
