@@ -41,7 +41,8 @@ data class LocalServerServiceState(
     val lanUrl: String? = null,
     val localUrl: String? = null,
     val durationMillis: Long = 0L,
-    val remainingMillis: Long = 0L
+    val remainingMillis: Long = 0L,
+    val port: Int = 8080
 )
 
 object LocalServerServiceStateStore {
@@ -116,7 +117,8 @@ class LocalWebServerService : Service() {
                 LocalServerServiceStateStore.update(
                     LocalServerServiceState(
                         status = LocalServerServiceStatus.STARTING,
-                        message = "Starting LAN server..."
+                        message = "Starting LAN server...",
+                        port = port
                     )
                 )
 
@@ -237,7 +239,8 @@ class LocalWebServerService : Service() {
                     lanUrl = lanAddressUrl,
                     localUrl = localAddress,
                     durationMillis = durationMillis,
-                    remainingMillis = durationMillis
+                    remainingMillis = durationMillis,
+                    port = port
                 )
             )
 
@@ -274,7 +277,8 @@ class LocalWebServerService : Service() {
                             lanUrl = lanAddressUrl,
                             localUrl = localAddress,
                             durationMillis = durationMillis,
-                            remainingMillis = remaining
+                            remainingMillis = remaining,
+                            port = port
                         )
                     )
 
