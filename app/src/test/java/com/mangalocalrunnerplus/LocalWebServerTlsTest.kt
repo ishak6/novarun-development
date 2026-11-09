@@ -120,7 +120,7 @@ class LocalWebServerTlsTest {
             return Socket("127.0.0.1", port).use { socket ->
                 socket.soTimeout = 5000
                 socket.getOutputStream().write(
-                    "GET $path HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n"
+                    "GET $path HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
                         .toByteArray(Charsets.US_ASCII)
                 )
                 socket.getOutputStream().flush()
