@@ -27,17 +27,15 @@ data class LanTlsIdentity(
 ) {
     companion object {
         private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
-        private const val KEY_ALIAS = "novarun_lan_tls_identity_v1"
         private const val VALIDITY_DAYS = 3650L
 
         fun create(context: Context): LanTlsIdentity {
-            // Access context deliberately: the identity belongs to this app/device.
-            context.applicationContext
+            val keyAlias = "novarun_${context.packageName}_lan_tls_identity_v1"
             val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply {
                 load(null)
             }
 
-            if (!keyStore.containsAlias(KEY_ALIAS)) {
+            if (!keyStore.containsAlias(keyAlias)) {
                 val now = System.currentTimeMillis()
                 val generator = KeyPairGenerator.getInstance(
                     KeyProperties.KEY_ALGORITHM_RSA,
@@ -45,7 +43,7 @@ data class LanTlsIdentity(
                 )
                 generator.initialize(
                     KeyGenParameterSpec.Builder(
-                        KEY_ALIAS,
+                        keyAlias,
                         KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
                     )
                         .setKeySize(2048)
@@ -60,7 +58,7 @@ data class LanTlsIdentity(
                 generator.generateKeyPair()
             }
 
-            val certificate = keyStore.getCertificate(KEY_ALIAS) as? X509Certificate
+            val certificate = keyStore.getCertificate(keyAlias) as? X509Certificate
                 ?: error("NovaRun TLS certificate is unavailable")
             certificate.checkValidity()
 
