@@ -53,7 +53,7 @@ internal class NodeNativeBridge {
     ): Int
 }
 
-private data class NodeLaunchPlan(
+internal data class NodeLaunchPlan(
     val root: File, val entry: File, val port: Int, val warnings: List<String>
 ) {
     companion object {
@@ -155,7 +155,7 @@ class NodeProjectService : Service() {
             try {
                 val code = NodeNativeBridge().startNodeWithArguments(
                     arrayOf("node", p.entry.absolutePath), p.root.absolutePath,
-                    File(p.root, "node_modules").absolutePath, cacheDir.absolutePath, log.absolutePath
+                    File(p.root, "node_modules").absolutePath, cacheDir.absolutePath, log.absolutePath, p.port.toString()
                 )
                 NodeStateStore.write(this, NodeState(if (code == 0) "STOPPED" else "ERROR", "Node.js exited with code $code", url, log.absolutePath))
             } catch (e: Throwable) {

@@ -10,24 +10,24 @@
 extern "C" JNIEXPORT jint JNICALL
 Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
     JNIEnv* env, jobject, jobjectArray arguments, jstring workingDirectory,
-    jstring modulesPath, jstring tempDirectory, jstring logPath) {
-    if (!arguments || !workingDirectory || !modulesPath || !tempDirectory || !logPath) return 2;
+    jstring modulesPath, jstring tempDirectory, jstring logPath, jstring portValue) {
+    if (!arguments || !workingDirectory || !modulesPath || !tempDirectory || !logPath || !portValue) return 2;
     const char* cwd = env->GetStringUTFChars(workingDirectory, nullptr);
     const char* modules = env->GetStringUTFChars(modulesPath, nullptr);
     const char* temp = env->GetStringUTFChars(tempDirectory, nullptr);
-    const char* log = env->GetStringUTFChars(logPath, nullptr);
-    if (!cwd || !modules || !temp || !log) return 2;
+    const char* log = env->GetStringUTFChars(logPath, nullptr);\n    const char* port = env->GetStringUTFChars(portValue, nullptr);
+    if (!cwd || !modules || !temp || !log || !port) return 2;
     const bool changed = chdir(cwd) == 0;
     if (changed) {
         setenv("NODE_PATH", modules, 1);
         setenv("TMPDIR", temp, 1);
-        setenv("HOME", cwd, 1);
+        setenv("HOME", cwd, 1);\n        setenv("PORT", port, 1);
     }
     const int logFd = open(log, O_WRONLY | O_CREAT | O_APPEND, 0600);
     env->ReleaseStringUTFChars(workingDirectory, cwd);
     env->ReleaseStringUTFChars(modulesPath, modules);
     env->ReleaseStringUTFChars(tempDirectory, temp);
-    env->ReleaseStringUTFChars(logPath, log);
+    env->ReleaseStringUTFChars(logPath, log);\n    env->ReleaseStringUTFChars(portValue, port);
     if (!changed) { if (logFd >= 0) close(logFd); return 3; }
 
     const jsize count = env->GetArrayLength(arguments);
