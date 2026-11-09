@@ -43,7 +43,8 @@ data class LocalServerServiceState(
     val durationMillis: Long = 0L,
     val remainingMillis: Long = 0L,
     val port: Int = 8080,
-    val accessPassword: String? = null
+    val accessPassword: String? = null,
+    val authenticationEnabled: Boolean = true
 )
 
 object LocalServerServiceStateStore {
@@ -104,7 +105,8 @@ class LocalWebServerService : Service() {
                     EXTRA_PORT,
                     DEFAULT_PORT
                 )
-                val accessToken = intent.getStringExtra(EXTRA_ACCESS_TOKEN)
+                val authenticationEnabled = intent.getBooleanExtra(EXTRA_AUTH_ENABLED, true)
+                val accessToken = if (authenticationEnabled) intent.getStringExtra(EXTRA_ACCESS_TOKEN) else null
 
                 if (projectPath.isNullOrBlank()) {
                     setError("No project selected")
@@ -112,7 +114,7 @@ class LocalWebServerService : Service() {
                     return START_NOT_STICKY
                 }
 
-                if (accessToken.isNullOrBlank()) {
+                if (authenticationEnabled && accessToken.isNullOrBlank()) {
                     setError("LAN access token is missing")
                     stopSelf()
                     return START_NOT_STICKY
@@ -127,7 +129,8 @@ class LocalWebServerService : Service() {
                         status = LocalServerServiceStatus.STARTING,
                         message = "Starting LAN server...",
                         port = port,
-                        accessPassword = accessToken
+                        accessPassword = accessToken,
+                        authenticationEnabled = authenticationEnabled
                     )
                 )
 
@@ -135,7 +138,8 @@ class LocalWebServerService : Service() {
                     projectPath = projectPath,
                     durationMillis = durationMillis,
                     port = port,
-                    accessToken = accessToken
+                    accessToken = accessToken,
+                    authenticationEnabled = authenticationEnabled
                 )
             }
 
@@ -152,7 +156,8 @@ class LocalWebServerService : Service() {
         projectPath: String,
         durationMillis: Long,
         port: Int,
-        accessToken: String
+        accessToken: String?,
+        authenticationEnabled: Boolean
     ) {
 
         startJob?.cancel()
@@ -253,7 +258,8 @@ class LocalWebServerService : Service() {
                     durationMillis = durationMillis,
                     remainingMillis = durationMillis,
                     port = port,
-                    accessPassword = accessToken
+                    accessPassword = accessToken,
+                    authenticationEnabled = authenticationEnabled
                 )
             )
 
@@ -292,7 +298,8 @@ class LocalWebServerService : Service() {
                             durationMillis = durationMillis,
                             remainingMillis = remaining,
                             port = port,
-                            accessPassword = accessToken
+                            accessPassword = accessToken,
+                            authenticationEnabled = authenticationEnabled
                         )
                     )
 
@@ -488,6 +495,9 @@ class LocalWebServerService : Service() {
         private const val EXTRA_ACCESS_TOKEN =
             "server_access_token"
 
+        private const val EXTRA_AUTH_ENABLED =
+            "server_authentication_enabled"
+
         private const val DEFAULT_PORT = 8080
 
         private fun createAccessToken(): String {
@@ -505,10 +515,11 @@ class LocalWebServerService : Service() {
             context: Context,
             projectDirectory: File,
             durationMillis: Long = 0L,
-            port: Int = DEFAULT_PORT
+            port: Int = DEFAULT_PORT,
+            authenticationEnabled: Boolean = true
         ) {
 
-            val accessToken = createAccessToken()
+            val accessToken = if (authenticationEnabled) createAccessToken() else null
             LocalServerServiceStateStore.update(
                 LocalServerServiceState(
                     status = LocalServerServiceStatus.STARTING,
@@ -543,6 +554,7 @@ class LocalWebServerService : Service() {
                     EXTRA_ACCESS_TOKEN,
                     accessToken
                 )
+                putExtra(EXTRA_AUTH_ENABLED, authenticationEnabled)
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
