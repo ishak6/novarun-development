@@ -24,7 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 class LocalWebServer(
     private val projectDirectory: File,
     private val port: Int = 8080,
-    private val bindToLan: Boolean = true
+    private val bindToLan: Boolean = false,
+    private val accessToken: String? = null
 ) {
 
     private val running = AtomicBoolean(false)
@@ -194,6 +195,7 @@ class LocalWebServer(
                 }
 
                 // Read headers with size and count limits.
+                val headers = mutableMapOf<String, String>()
                 var headerCount = 0
                 var totalHeaderBytes = 0
 
@@ -233,10 +235,19 @@ class LocalWebServer(
                         return
                     }
 
-                    if (!header.contains(":")) {
+                    val separator = header.indexOf(":")
+                    if (separator <= 0) {
                         sendError(output, 400, "Bad Request")
                         return
                     }
+                    val headerName = header.substring(0, separator).trim().lowercase()
+                    val headerValue = header.substring(separator + 1).trim()
+                    if (headerName.isNotEmpty()) headers[headerName] = headerValue
+                }
+
+                if (bindToLan && !isAuthorized(headers["authorization"])) {
+                    sendUnauthorized(output, method == "HEAD")
+                    return
                 }
 
                 val rawPath = try {
@@ -406,6 +417,29 @@ class LocalWebServer(
         )
     }
 
+    private fun isAuthorized(authorization: String?): Boolean {
+        val expectedToken = accessToken ?: return false
+        if (authorization.isNullOrBlank() || !authorization.startsWith("Basic ", ignoreCase = true)) return false
+        return try {
+            val decoded = String(java.util.Base64.getDecoder().decode(authorization.substringAfter(" ").trim()), StandardCharsets.UTF_8)
+            val separator = decoded.indexOf(58)
+            if (separator <= 0 || decoded.substring(0, separator) != "novarun") false
+            else java.security.MessageDigest.isEqual(decoded.substring(separator + 1).toByteArray(StandardCharsets.UTF_8), expectedToken.toByteArray(StandardCharsets.UTF_8))
+        } catch (_: Exception) { false }
+    }
+
+    private fun sendUnauthorized(output: BufferedOutputStream, headOnly: Boolean) {
+        val body = "Authentication required".toByteArray(StandardCharsets.UTF_8)
+        val response = "HTTP/1.1 401 Unauthorized\\r\\n" +
+            "WWW-Authenticate: Basic realm=NovaRun\\r\\n" +
+            "Content-Type: text/plain; charset=utf-8\\r\\n" +
+            "Content-Length: ${body.size}\\r\\n" +
+            "Cache-Control: no-store\\r\\n" +
+            "Connection: close\\r\\n\\r\\n"
+        output.write(response.toByteArray(StandardCharsets.UTF_8))
+        if (!headOnly) output.write(body)
+        output.flush()
+    }
     private fun isSensitivePath(path: String): Boolean {
         val segments = path.split('/').filter { it.isNotBlank() }
         if (segments.any { it.startsWith(".") && it != ".well-known" }) {
