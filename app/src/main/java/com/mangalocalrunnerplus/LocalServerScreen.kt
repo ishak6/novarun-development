@@ -69,6 +69,10 @@ fun LocalServerScreen(
         context.getSharedPreferences("novarun_settings", Context.MODE_PRIVATE)
     }
 
+    var lanPasswordEnabled by remember(preferences) {
+        mutableStateOf(preferences.getBoolean("lan_password_enabled", true))
+    }
+
     var portInput by remember(preferences) {
         mutableStateOf(preferences.getString("server_port", "8080") ?: "8080")
     }
@@ -476,6 +480,37 @@ fun LocalServerScreen(
                 modifier = Modifier.padding(18.dp)
             ) {
                 Text(
+                    text = "LAN PASSWORD PROTECTION",
+                    color = Color.White,
+                    fontSize = 14.sp
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = lanPasswordEnabled,
+                        onClick = {
+                            lanPasswordEnabled = true
+                            preferences.edit().putBoolean("lan_password_enabled", true).apply()
+                        },
+                        enabled = !isRunning && !isStarting,
+                        label = { Text("Password ON") }
+                    )
+                    FilterChip(
+                        selected = !lanPasswordEnabled,
+                        onClick = {
+                            lanPasswordEnabled = false
+                            preferences.edit().putBoolean("lan_password_enabled", false).apply()
+                        },
+                        enabled = !isRunning && !isStarting,
+                        label = { Text("Password OFF") }
+                    )
+                }
+                Text(
+                    text = if (lanPasswordEnabled) "Password required for LAN visitors." else "WARNING: Anyone on the same network can access this project.",
+                    color = if (lanPasswordEnabled) Color(0xFF30D158) else Color(0xFFFF9F0A),
+                    fontSize = 12.sp
+                )
+
+                Text(
                     text = "SERVER PORT",
                     color = Color.White,
                     fontSize = 16.sp
@@ -773,7 +808,8 @@ fun LocalServerScreen(
                         context = context,
                         projectDirectory = project,
                         durationMillis = duration,
-                        port = selectedPort
+                        port = selectedPort,
+                        authenticationEnabled = lanPasswordEnabled
                     )
                 }
             },
