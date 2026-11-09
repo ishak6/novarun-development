@@ -119,4 +119,34 @@ class LocalWebServerAuthenticationTest {
             root.deleteRecursively()
         }
     }
+    @Test
+    fun lanRequestsAcceptConfiguredCustomUsername() {
+        val root = Files.createTempDirectory("novarun-custom-auth").toFile()
+        File(root, "index.html").writeText("custom private project")
+        val port = ServerSocket(0).use { it.localPort }
+        val server = LocalWebServer(
+            root,
+            port,
+            bindToLan = true,
+            accessToken = "custom-secret",
+            accessUsername = "ishak-dev"
+        )
+        try {
+            assertTrue(server.start())
+            val wrongUser = Base64.getEncoder().encodeToString(
+                "novarun:custom-secret".toByteArray(StandardCharsets.UTF_8)
+            )
+            assertTrue(request(port, "Basic $wrongUser").startsWith("HTTP/1.1 401 Unauthorized"))
+            val correct = Base64.getEncoder().encodeToString(
+                "ishak-dev:custom-secret".toByteArray(StandardCharsets.UTF_8)
+            )
+            val response = request(port, "Basic $correct")
+            assertTrue(response.startsWith("HTTP/1.1 200 OK"))
+            assertTrue(response.contains("custom private project"))
+        } finally {
+            server.stop()
+            root.deleteRecursively()
+        }
+    }
+
 }
