@@ -60,6 +60,13 @@ fun LocalServerScreen(
         mutableStateOf("1h")
     }
 
+    var portInput by remember {
+        mutableStateOf("8080")
+    }
+
+    val selectedPort = portInput.toIntOrNull() ?: -1
+    val portValid = selectedPort in 1024..65535
+
     var days by remember {
         mutableStateOf("0")
     }
@@ -349,7 +356,7 @@ fun LocalServerScreen(
                 Spacer(Modifier.height(6.dp))
 
                 Text(
-                    text = if (isRunning) "8080" else "Not active",
+                    text = if (isRunning) serverState.port.toString() else portInput,
                     color = Color.White,
                     fontSize = 16.sp
                 )
@@ -369,6 +376,63 @@ fun LocalServerScreen(
                     color = Color(0xFFFF9F0A),
                     fontSize = 12.sp
                 )
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // SERVER PORT SETTINGS
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF171D28)
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp)
+            ) {
+                Text(
+                    text = "SERVER PORT",
+                    color = Color.White,
+                    fontSize = 16.sp
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = portInput,
+                    onValueChange = { value ->
+                        portInput = value.filter { it.isDigit() }.take(5)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isRunning && !isStarting,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
+                    label = { Text("Port (1024–65535)") },
+                    isError = !portValid,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF0A84FF),
+                        unfocusedBorderColor = Color(0xFF667085),
+                        focusedLabelColor = Color(0xFF0A84FF),
+                        unfocusedLabelColor = Color(0xFF9AA6B5),
+                        cursorColor = Color(0xFF0A84FF)
+                    )
+                )
+
+                if (!portValid) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Enter a port between 1024 and 65535.",
+                        color = Color(0xFFFF453A),
+                        fontSize = 12.sp
+                    )
+                }
             }
         }
 
@@ -626,13 +690,15 @@ fun LocalServerScreen(
                     LocalWebServerService.start(
                         context = context,
                         projectDirectory = project,
-                        durationMillis = duration
+                        durationMillis = duration,
+                        port = selectedPort
                     )
                 }
             },
             enabled = projectDirectory != null &&
                 !isRunning &&
                 !isStarting &&
+                portValid &&
                 (
                     isUnlimited ||
                     customTimerValid
