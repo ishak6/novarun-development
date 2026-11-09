@@ -15,8 +15,10 @@ import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.Collections
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class LocalWebServer(
@@ -69,15 +71,26 @@ class LocalWebServer(
 
             val socket = ServerSocket().apply {
                 reuseAddress = true
+                // A bounded backlog prevents unbounded pending TCP connections.
                 bind(
                     InetSocketAddress(
                         bindAddress,
                         port
-                    )
+                    ),
+                    64
                 )
             }
 
-            val pool = Executors.newCachedThreadPool()
+            // Bound both worker threads and queued clients. If saturated,
+            // the accept loop handles one client itself, applying backpressure.
+            val pool: ExecutorService = ThreadPoolExecutor(
+                4,
+                8,
+                60L,
+                TimeUnit.SECONDS,
+                ArrayBlockingQueue<Runnable>(64),
+                ThreadPoolExecutor.CallerRunsPolicy()
+            )
 
             serverSocket = socket
             executor = pool
