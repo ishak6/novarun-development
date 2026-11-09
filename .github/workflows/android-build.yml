@@ -30,6 +30,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Test Python runtime bridge
+        run: python -m unittest discover -s app/src/test/python -p 'test_*.py'
+
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
