@@ -422,7 +422,7 @@ class LocalWebServer(
         if (authorization.isNullOrBlank() || !authorization.startsWith("Basic ", ignoreCase = true)) return false
         return try {
             val decoded = String(java.util.Base64.getDecoder().decode(authorization.substringAfter(" ").trim()), StandardCharsets.UTF_8)
-            val separator = decoded.indexOf(58)
+            val separator = decoded.indexOf(58.toChar())
             if (separator <= 0 || decoded.substring(0, separator) != "novarun") false
             else java.security.MessageDigest.isEqual(decoded.substring(separator + 1).toByteArray(StandardCharsets.UTF_8), expectedToken.toByteArray(StandardCharsets.UTF_8))
         } catch (_: Exception) { false }
