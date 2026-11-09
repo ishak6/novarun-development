@@ -42,6 +42,31 @@ class ProjectZipAnalyzerTest {
         }
     }
 
+
+    @Test
+    fun detectsBuildScriptWhenPackageJsonUsesWhitespaceFormatting() {
+        val root = Files.createTempDirectory("novarun-build-script").toFile()
+        try {
+            File(root, "package.json").writeText(
+                """
+                {
+                  "scripts": {
+                    "build" : "vite build"
+                  },
+                  "devDependencies": {
+                    "vite": "^5.0.0"
+                  }
+                }
+                """.trimIndent()
+            )
+            val result = ProjectZipAnalyzer.analyze(root)
+            assertTrue(result.requiresBuild)
+            assertTrue(result.nextStep.startsWith("Build script detected."))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test
     fun recognizesExistingViteDistOutputAsPreviewReady() {
         val root = Files.createTempDirectory("novarun-dist").toFile()
