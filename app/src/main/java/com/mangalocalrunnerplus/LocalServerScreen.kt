@@ -399,6 +399,34 @@ fun LocalServerScreen(
 
                 Spacer(Modifier.height(12.dp))
 
+                Text(
+                    text = "HTTPS CERTIFICATE SHA-256",
+                    color = Color(0xFF9AA6B5),
+                    fontSize = 11.sp
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    text = serverState.tlsFingerprint ?: "Created when HTTPS server starts",
+                    color = Color(0xFF30D158),
+                    fontSize = 11.sp
+                )
+
+                OutlinedButton(
+                    onClick = {
+                        serverState.tlsFingerprint?.let {
+                            copyToClipboard(it, "TLS certificate fingerprint")
+                        }
+                    },
+                    enabled = isRunning && serverState.tlsFingerprint != null,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Copy certificate fingerprint", color = Color.White)
+                }
+
+                Spacer(Modifier.height(12.dp))
+
                 OutlinedButton(
                     onClick = {
                         serverState.lanUrl?.let {
@@ -458,7 +486,7 @@ fun LocalServerScreen(
                 Spacer(Modifier.height(8.dp))
 
                 Text(
-                    text = "Security: LAN access is protected by a random per-session password. Use trusted networks only and share the password only with people you trust.",
+                    text = "Security: HTTPS encrypts LAN traffic and the session password protects access. The certificate is self-signed, so browsers may show a trust warning. Verify the SHA-256 fingerprint above before trusting it. Use trusted private networks only.",
                     color = Color(0xFFFF9F0A),
                     fontSize = 12.sp
                 )
