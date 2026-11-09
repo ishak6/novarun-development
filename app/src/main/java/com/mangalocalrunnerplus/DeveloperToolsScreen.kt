@@ -46,7 +46,7 @@ fun DeveloperToolsScreen() {
             containerColor = ToolBackground,
             contentColor = ToolBlue
         ) {
-            listOf("JavaScript", "SQLite", "API Tester").forEachIndexed { index, title ->
+            listOf("JavaScript", "SQLite", "API Tester", "Test Center").forEachIndexed { index, title ->
                 Tab(
                     selected = selectedTool == index,
                     onClick = { selectedTool = index },
@@ -60,7 +60,8 @@ fun DeveloperToolsScreen() {
         when (selectedTool) {
             0 -> JavaScriptTool()
             1 -> SQLiteTool()
-            else -> ApiTesterTool()
+            2 -> ApiTesterTool()
+            else -> HarnessTestCenter()
         }
     }
 }
@@ -494,3 +495,142 @@ private fun toolFieldColors() = OutlinedTextFieldDefaults.colors(
     unfocusedLabelColor = ToolMuted,
     cursorColor = ToolBlue
 )
+
+
+@Composable
+private fun HarnessTestCenter() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val projects = remember { ProjectRepository.getProjects(context) }
+    var selectedProject by remember { mutableStateOf<File?>(projects.firstOrNull()) }
+    var projectMenuExpanded by remember { mutableStateOf(false) }
+    var running by remember { mutableStateOf(false) }
+    var report by remember { mutableStateOf<HarnessReport?>(null) }
+    var runtimeResults by remember { mutableStateOf<List<RuntimeCheckResult>>(emptyList()) }
+    var failure by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Automated Test Center", color = Color.White, style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Run read-only project diagnostics and verify which runtimes are genuinely available. Imported scripts are not executed.",
+            color = ToolMuted
+        )
+        Box {
+            OutlinedButton(onClick = { projectMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(selectedProject?.name ?: "Device checks only — no project selected")
+            }
+            DropdownMenu(expanded = projectMenuExpanded, onDismissRequest = { projectMenuExpanded = false }) {
+                DropdownMenuItem(text = { Text("Device checks only") }, onClick = {
+                    selectedProject = null
+                    projectMenuExpanded = false
+                })
+                projects.forEach { project ->
+                    DropdownMenuItem(text = { Text(project.name) }, onClick = {
+                        selectedProject = project
+                        projectMenuExpanded = false
+                    })
+                }
+            }
+        }
+        Button(
+            onClick = {
+                scope.launch {
+                    running = true
+                    failure = null
+                    report = null
+                    runtimeResults = emptyList()
+                    try {
+                        val result = withContext(Dispatchers.IO) {
+                            val projectReport = selectedProject?.let { NovaRunTestHarness.inspectProject(it) }
+                            val runtimes = RuntimeStatusChecker.checkAll(context)
+                            projectReport to runtimes
+                        }
+                        report = result.first
+                        runtimeResults = result.second
+                    } catch (error: Exception) {
+                        failure = error.message ?: "Diagnostics failed."
+                    } finally {
+                        running = false
+                    }
+                }
+            },
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (running) "Running diagnostics..." else "Run Diagnostics")
+        }
+        if (running) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        failure?.let { HarnessResultCard("Diagnostics error", HarnessStatus.FAIL, it) }
+        report?.let { result ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = ToolCard),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("PROJECT TEST SUMMARY", color = ToolBlue, style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Text("PASS \${result.passed}", color = Color(0xFF35C98A))
+                        Text("FAIL \${result.failed}", color = Color(0xFFFF6B6B))
+                        Text("SKIP \${result.skipped}", color = ToolMuted)
+                    }
+                    Text(if (result.successful) "No failed project checks." else "One or more project checks failed.", color = Color.White)
+                    result.checks.forEach { check -> HarnessResultCard(check.name, check.status, check.details) }
+                }
+            }
+        }
+        if (runtimeResults.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = ToolCard),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("RUNTIME AVAILABILITY", color = ToolBlue, style = MaterialTheme.typography.labelMedium)
+                    runtimeResults.forEach { result ->
+                        val status = when (result.status) {
+                            RuntimeStatus.AVAILABLE_FOR_EXECUTION, RuntimeStatus.AVAILABLE_FOR_PREVIEW -> HarnessStatus.PASS
+                            RuntimeStatus.ADAPTER_PLANNED -> HarnessStatus.SKIPPED
+                            RuntimeStatus.NOT_CONFIGURED, RuntimeStatus.NOT_SUPPORTED -> HarnessStatus.FAIL
+                        }
+                        HarnessResultCard(
+                            result.language + " · " + RuntimeStatusChecker.getStatusLabel(result.status),
+                            status,
+                            result.message
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            "PASS means the diagnostic check passed, not that every language runtime is installed. Planned runtimes remain unavailable until a real adapter and engine are integrated.",
+            color = ToolMuted,
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Composable
+private fun HarnessResultCard(name: String, status: HarnessStatus, details: String) {
+    val statusColor = when (status) {
+        HarnessStatus.PASS -> Color(0xFF35C98A)
+        HarnessStatus.FAIL -> Color(0xFFFF6B6B)
+        HarnessStatus.SKIPPED -> ToolMuted
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF202938)),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(name, color = Color.White, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Text(status.name, color = statusColor, style = MaterialTheme.typography.labelSmall)
+            }
+            Text(details, color = ToolMuted, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
