@@ -37,19 +37,32 @@ object RuntimeStatusChecker {
             )
         }
 
+        if (RuntimeAdapterRegistry.isRegistered(language)) {
+            val adapter = RuntimeAdapterRegistry.getAdapter(language)
+            val available = runCatching {
+                adapter?.isAvailable(context) == true
+            }.getOrDefault(false)
+
+            return RuntimeCheckResult(
+                language = language,
+                status = if (available) {
+                    RuntimeStatus.AVAILABLE_FOR_PREVIEW
+                } else {
+                    RuntimeStatus.NOT_CONFIGURED
+                },
+                message = if (available) {
+                    "Embedded runtime adapter is ready for local execution."
+                } else {
+                    "Runtime adapter is registered, but the runtime is unavailable."
+                }
+            )
+        }
+
         if (capability.runtimeType == RuntimeType.WEB_VIEW) {
             return RuntimeCheckResult(
                 language = language,
                 status = RuntimeStatus.AVAILABLE_FOR_PREVIEW,
                 message = capability.description
-            )
-        }
-
-        if (RuntimeAdapterRegistry.isRegistered(language)) {
-            return RuntimeCheckResult(
-                language = language,
-                status = RuntimeStatus.NOT_CONFIGURED,
-                message = "Adapter registered. Check whether its runtime is executable on this device."
             )
         }
 
