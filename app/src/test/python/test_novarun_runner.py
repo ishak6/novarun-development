@@ -21,6 +21,15 @@ class PythonRunnerTests(unittest.TestCase):
             self.assertTrue(result["success"])
             self.assertIn("NovaRun Python OK", result["output"])
 
+    def test_bounds_large_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script = pathlib.Path(directory) / "large.py"
+            script.write_text("print('x' * 60000)\\n", encoding="utf-8")
+            result = json.loads(runner.run_script(str(script), directory))
+            self.assertTrue(result["success"])
+            self.assertLessEqual(len(result["output"]), 48_100)
+            self.assertIn("output truncated", result["output"])
+
     def test_captures_script_exception(self):
         with tempfile.TemporaryDirectory() as directory:
             script = pathlib.Path(directory) / "failure.py"
