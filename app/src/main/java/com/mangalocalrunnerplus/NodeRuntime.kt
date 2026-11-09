@@ -49,7 +49,7 @@ internal class NodeNativeBridge {
     }
     external fun startNodeWithArguments(
         arguments: Array<String>, workingDirectory: String, modulesPath: String,
-        tempDirectory: String, logPath: String
+        tempDirectory: String, logPath: String, port: String
     ): Int
 }
 
