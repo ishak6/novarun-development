@@ -61,6 +61,20 @@ object RuntimeCapabilityManager {
             "Requires a JavaScript build tool to transform JSX."
         ),
 
+        "Node.js" to RuntimeCapability(
+            "Node.js",
+            RuntimeType.EXTERNAL_RUNTIME,
+            RuntimeStatus.ADAPTER_PLANNED,
+            "A current, maintained Android Node.js binary and native bridge are required; the available official mobile release line is Node 18, which is end-of-life."
+        ),
+
+        "npm" to RuntimeCapability(
+            "npm",
+            RuntimeType.EXTERNAL_RUNTIME,
+            RuntimeStatus.ADAPTER_PLANNED,
+            "Requires a supported Node.js runtime and an on-device package installation workflow."
+        ),
+
         "TypeScript" to RuntimeCapability(
             "TypeScript",
             RuntimeType.EXTERNAL_RUNTIME,
