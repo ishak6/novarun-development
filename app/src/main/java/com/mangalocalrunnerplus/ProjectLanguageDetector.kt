@@ -115,22 +115,39 @@ object ProjectLanguageDetector {
             return emptyList()
         }
 
+        val root = runCatching { projectDirectory.canonicalFile }.getOrNull()
+            ?: return emptyList()
+        val rootPrefix = root.path + File.separator
+        val visitedDirectories = HashSet<String>()
         val foundLanguages = linkedMapOf<String, LanguageInfo>()
 
         fun scan(directory: File, depth: Int) {
             if (depth > 5 || foundLanguages.size >= 30) return
+            val canonicalDirectory = runCatching { directory.canonicalFile }.getOrNull()
+                ?: return
+            if (
+                canonicalDirectory.path != root.path &&
+                !canonicalDirectory.path.startsWith(rootPrefix)
+            ) return
+            if (!visitedDirectories.add(canonicalDirectory.path)) return
 
-            val children = directory.listFiles() ?: return
+            val children = canonicalDirectory.listFiles() ?: return
 
             for (child in children) {
+                val canonicalChild = runCatching { child.canonicalFile }.getOrNull()
+                    ?: continue
+                if (
+                    canonicalChild.path != root.path &&
+                    !canonicalChild.path.startsWith(rootPrefix)
+                ) continue
                 if (foundLanguages.size >= 30) return
 
                 if (child.isDirectory) {
                     if (child.name !in ignoredDirectories) {
-                        scan(child, depth + 1)
+                        scan(canonicalChild, depth + 1)
                     }
-                } else if (child.isFile) {
-                    val language = detectFile(child)
+                } else if (canonicalChild.isFile) {
+                    val language = detectFile(canonicalChild)
 
                     if (language.name != "Unknown") {
                         foundLanguages.putIfAbsent(
