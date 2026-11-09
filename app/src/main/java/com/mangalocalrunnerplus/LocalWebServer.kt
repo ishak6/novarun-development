@@ -430,12 +430,12 @@ class LocalWebServer(
 
     private fun sendUnauthorized(output: BufferedOutputStream, headOnly: Boolean) {
         val body = "Authentication required".toByteArray(StandardCharsets.UTF_8)
-        val response = "HTTP/1.1 401 Unauthorized\\r\\n" +
-            "WWW-Authenticate: Basic realm=NovaRun\\r\\n" +
-            "Content-Type: text/plain; charset=utf-8\\r\\n" +
-            "Content-Length: ${body.size}\\r\\n" +
-            "Cache-Control: no-store\\r\\n" +
-            "Connection: close\\r\\n\\r\\n"
+        val response = "HTTP/1.1 401 Unauthorized\r\n" +
+            "WWW-Authenticate: Basic realm=NovaRun\r\n" +
+            "Content-Type: text/plain; charset=utf-8\r\n" +
+            "Content-Length: ${body.size}\r\n" +
+            "Cache-Control: no-store\r\n" +
+            "Connection: close\r\n\r\n"
         output.write(response.toByteArray(StandardCharsets.UTF_8))
         if (!headOnly) output.write(body)
         output.flush()
