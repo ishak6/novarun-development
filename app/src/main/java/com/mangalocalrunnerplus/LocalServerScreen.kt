@@ -392,7 +392,7 @@ fun LocalServerScreen(
                 }
 
                 Text(
-                    text = "Browser login username: novarun",
+                    text = "Browser login username: ${serverState.accessUsername ?: \"not available\"}",
                     color = Color(0xFF9AA6B5),
                     fontSize = 12.sp
                 )
@@ -466,6 +466,8 @@ fun LocalServerScreen(
         }
 
         Spacer(Modifier.height(20.dp))
+
+        LanCredentialsSettingsCard()
 
         // SERVER PORT SETTINGS
 
