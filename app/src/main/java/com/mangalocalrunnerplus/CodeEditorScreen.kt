@@ -23,6 +23,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.UUID
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 @Composable
 fun CodeEditorScreen(
@@ -115,6 +122,8 @@ fun CodeEditorScreen(
         mutableStateOf(false)
     }
 
+    val saveMutex = remember(file.absolutePath) { Mutex() }
+
     var showLeaveDialog by remember {
         mutableStateOf(false)
     }
@@ -126,12 +135,10 @@ fun CodeEditorScreen(
         code.count { it == '\n' } + 1
     }
 
-    suspend fun saveSnapshot(snapshot: String): Boolean {
-        if (isSaving) return false
-
+    suspend fun saveSnapshot(snapshot: String): Boolean = saveMutex.withLock {
         isSaving = true
 
-        return try {
+        try {
             withContext(Dispatchers.IO) {
                 if (!file.exists() || !file.isFile) {
                     throw IllegalStateException(
@@ -150,13 +157,44 @@ fun CodeEditorScreen(
                         "File location is unavailable."
                     )
 
-                if (!parent.exists() || !parent.isDirectory) {
+                if (!parent.exists() || !parent.isDirectory || !parent.canWrite()) {
                     throw IllegalStateException(
-                        "Parent directory is unavailable."
+                        "Parent directory is unavailable or read-only."
                     )
                 }
 
-                file.writeText(snapshot)
+                // Write to a sibling temporary file first so an interrupted save
+                // does not leave the user's source file partially overwritten.
+                val tempFile = File(
+                    parent,
+                    ".${file.name}.${UUID.randomUUID()}.tmp"
+                )
+
+                try {
+                    FileOutputStream(tempFile).use { output ->
+                        output.write(snapshot.toByteArray(Charsets.UTF_8))
+                        output.fd.sync()
+                    }
+
+                    try {
+                        Files.move(
+                            tempFile.toPath(),
+                            file.toPath(),
+                            StandardCopyOption.ATOMIC_MOVE,
+                            StandardCopyOption.REPLACE_EXISTING
+                        )
+                    } catch (exception: AtomicMoveNotSupportedException) {
+                        Files.move(
+                            tempFile.toPath(),
+                            file.toPath(),
+                            StandardCopyOption.REPLACE_EXISTING
+                        )
+                    }
+                } finally {
+                    if (tempFile.exists()) {
+                        tempFile.delete()
+                    }
+                }
             }
 
             savedCode = snapshot
