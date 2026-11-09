@@ -543,6 +543,8 @@ fun NovaRunLocalhostScreen(project: File?) {
             }
         }
 
+        NodeBackendRunnerCard(project)
+
         LanCredentialsSettingsCard()
 
         SettingsCard {

@@ -42,6 +42,28 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Install Android native toolchain
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "ndk;27.2.12479018" "cmake;3.22.1"
+
+      - name: Download pinned Node.js Mobile runtime
+        run: |
+          mkdir -p app/src/main/jniLibs
+          curl -fL --retry 3 "https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.20.4/nodejs-mobile-v18.20.4-android.zip" -o /tmp/node-mobile.zip
+          unzip -q /tmp/node-mobile.zip -d /tmp/node-mobile
+          for abi in arm64-v8a x86_64; do
+            library="$(find /tmp/node-mobile -type f -path "*/$abi/libnode.so" -print -quit)"
+            test -n "$library"
+            mkdir -p "app/src/main/jniLibs/$abi"
+            cp "$library" "app/src/main/jniLibs/$abi/libnode.so"
+          done
+          header="$(find /tmp/node-mobile -type f -path "*/include/node/node.h" -print -quit)"
+          test -n "$header"
+          mkdir -p app/src/main/cpp/node-include
+          cp -R "$(dirname "$header")/." app/src/main/cpp/node-include/
+          test -f app/src/main/cpp/node-include/node.h
+
       - name: Verify Gradle
         run: gradle --version
 
