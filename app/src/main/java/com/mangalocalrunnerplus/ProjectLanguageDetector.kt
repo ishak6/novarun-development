@@ -99,6 +99,9 @@ object ProjectLanguageDetector {
     )
 
     fun detectFile(file: File): LanguageInfo {
+        if (file.name.equals(".gitkeep", ignoreCase = true)) {
+            return LanguageInfo("Git Keep", "gitkeep", "Project Metadata", isProgrammingLanguage = false)
+        }
         val extension = file.extension.lowercase()
 
         return languages[extension]
