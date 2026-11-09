@@ -20,7 +20,7 @@ object NovaRunTestHarness {
         val checks = mutableListOf<HarnessCheck>()
         fun check(name: String, action: () -> String) {
             checks += try {
-                HarnessCheck(name, HarnessStatus.PASS, action())
+                action().let { details -> HarnessCheck(name, if (details.startsWith("SKIP:")) HarnessStatus.SKIPPED else HarnessStatus.PASS, details) }
             } catch (error: Throwable) {
                 HarnessCheck(name, HarnessStatus.FAIL, error.message ?: error.javaClass.simpleName)
             }
