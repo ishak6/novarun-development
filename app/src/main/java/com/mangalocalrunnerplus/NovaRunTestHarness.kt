@@ -40,7 +40,7 @@ object NovaRunTestHarness {
             check("Website preview") {
                 val result = ProjectPreviewValidator.validate(projectRoot)
                 if (result.isValid) "Preview ready: ${result.entryFile?.name}."
-                else "Preview not ready: ${result.message}"
+                else "SKIP: preview not applicable or not ready: ${result.message}"
             }
             check("Path traversal protection") {
                 val result = RuntimeExecutionValidator.validate(projectRoot, "../outside.txt")
