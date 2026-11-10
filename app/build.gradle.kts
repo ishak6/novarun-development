@@ -1,11 +1,11 @@
-val runtimeTestAbi = providers.gradleProperty("novarun.testAbi").orNull
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.chaquo.python")
 }
+
+val runtimeTestAbi = providers.gradleProperty("novarun.testAbi").orNull
 
 android {
     namespace = "com.mangalocalrunnerplus"
