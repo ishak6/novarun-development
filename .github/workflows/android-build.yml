@@ -7,7 +7,9 @@ on:
       - main
 
 concurrency:
-  group: novarun-${{ github.ref }}
+  # Isolate commits so a wedged emulator job from an older commit cannot block
+  # verification of the current source revision.
+  group: novarun-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 permissions:
