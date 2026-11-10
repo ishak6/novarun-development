@@ -55,16 +55,25 @@ class ClothingStoreZipRuntimeTest {
             )
             started = true
 
-            val connection = URL("http://127.0.0.1:$port/healthz").openConnection() as HttpURLConnection
-            connection.connectTimeout = 5_000
-            connection.readTimeout = 5_000
-            try {
-                assertEquals("Health endpoint must return HTTP 200 for $assetName", 200, connection.responseCode)
-                val body = connection.inputStream.bufferedReader().use { it.readText() }
-                assertTrue("Health endpoint response must not be empty", body.isNotBlank())
-            } finally {
-                connection.disconnect()
-            }
+            val health = get("http://127.0.0.1:$port/healthz")
+            assertEquals("Health endpoint must return HTTP 200 for $assetName", 200, health.first)
+            assertTrue("Health response must identify a healthy clothing-store service", health.second.contains("\\"ok\\":true"))
+            assertTrue("Health response must identify the expected service", health.second.contains("\\"service\\":\\"clothing-store\\""))
+
+            // The health route is registered only after the server initializes
+            // its built-in node:sqlite database. Verify the persistent file too.
+            val database = File(launchPlan.root, "data/store.sqlite")
+            assertTrue("SQLite database must be created for $assetName", database.isFile && database.length() > 0L)
+
+            // A listening API is not enough: verify the actual storefront and
+            // a referenced CSS asset are served over HTTP from the imported ZIP.
+            val storefront = get("http://127.0.0.1:$port/")
+            assertEquals("Storefront must return HTTP 200 for $assetName", 200, storefront.first)
+            assertTrue("Storefront response must contain HTML", storefront.second.contains("<html", ignoreCase = true))
+
+            val stylesheet = get("http://127.0.0.1:$port/css/styles.css")
+            assertEquals("Storefront stylesheet must return HTTP 200 for $assetName", 200, stylesheet.first)
+            assertTrue("Storefront stylesheet must not be empty", stylesheet.second.isNotBlank())
         } finally {
             NodeProjectService.stop(context)
             if (started) {
@@ -75,6 +84,19 @@ class ClothingStoreZipRuntimeTest {
             }
             activity.close()
             projectRoot.deleteRecursively()
+        }
+    }
+
+    private fun get(url: String): Pair<Int, String> {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        connection.connectTimeout = 5_000
+        connection.readTimeout = 5_000
+        return try {
+            val status = connection.responseCode
+            val stream = if (status >= 400) connection.errorStream else connection.inputStream
+            status to (stream?.bufferedReader()?.use { it.readText() }.orEmpty())
+        } finally {
+            connection.disconnect()
         }
     }
 
