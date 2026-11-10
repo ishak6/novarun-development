@@ -35,8 +35,11 @@ class ClothingStoreZipRuntimeTest {
         val port = ServerSocket(0).use { it.localPort }
         var started = false
         try {
-            assertTrue("ZIP must contain the nested clothing_store_secure folder",
-                File(projectRoot, "clothing_store_secure").isDirectory)
+            val launchPlan = NodeLaunchPlan.create(projectRoot, port).getOrElse { cause ->
+                throw AssertionError("Could not discover a runnable Node.js project in $assetName: ${cause.message}", cause)
+            }
+            assertTrue("Detected Node.js project root must exist for $assetName", launchPlan.root.isDirectory)
+            assertTrue("Detected Node.js entry point must exist for $assetName", launchPlan.entry.isFile)
             NodeProjectService.start(context, projectRoot, port)
 
             val deadline = System.currentTimeMillis() + 45_000L
