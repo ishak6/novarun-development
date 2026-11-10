@@ -1,3 +1,5 @@
+val runtimeTestAbi = providers.gradleProperty("novarun.testAbi").orNull
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -18,7 +20,7 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += (runtimeTestAbi?.let { listOf(it) } ?: listOf("arm64-v8a", "x86_64"))
         }
         externalNativeBuild {
             cmake {

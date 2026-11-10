@@ -179,7 +179,7 @@ jobs:
           emulator-boot-timeout-minutes: 30
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none -memory 4096 -cores 4
           disable-animations: true
-          script: gradle connectedDebugAndroidTest --stacktrace
+          script: gradle -Pnovarun.testAbi=x86_64 connectedDebugAndroidTest --stacktrace
 
       - name: Upload Android runtime test reports
         if: always()
