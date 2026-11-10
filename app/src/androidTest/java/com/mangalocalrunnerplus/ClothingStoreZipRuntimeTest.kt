@@ -57,8 +57,9 @@ class ClothingStoreZipRuntimeTest {
 
             val health = get("http://127.0.0.1:$port/healthz")
             assertEquals("Health endpoint must return HTTP 200 for $assetName", 200, health.first)
-            assertTrue("Health response must identify a healthy clothing-store service", health.second.contains("\\"ok\\":true"))
-            assertTrue("Health response must identify the expected service", health.second.contains("\\"service\\":\\"clothing-store\\""))
+            val healthJson = org.json.JSONObject(health.second)
+            assertTrue("Health response must report ok=true", healthJson.optBoolean("ok"))
+            assertEquals("clothing-store", healthJson.optString("service"))
 
             // The health route is registered only after the server initializes
             // its built-in node:sqlite database. Verify the persistent file too.
