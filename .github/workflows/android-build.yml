@@ -179,7 +179,41 @@ jobs:
           emulator-boot-timeout-minutes: 30
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none -memory 4096 -cores 4
           disable-animations: true
-          script: gradle -Pnovarun.testAbi=x86_64 connectedDebugAndroidTest --stacktrace
+          script: |
+            set -euo pipefail
+            mkdir -p app/build/reports/novarun-runtime
+            APK="app/build/outputs/apk/debug/app-debug.apk"
+            TEST_APK="app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+
+            gradle -Pnovarun.testAbi=x86_64 assembleDebug assembleDebugAndroidTest --stacktrace
+            test -s "$APK"
+            test -s "$TEST_APK"
+            ls -lh "$APK" "$TEST_APK"
+
+            adb wait-for-device
+            adb shell getprop sys.boot_completed
+            adb shell settings put global package_verifier_enable 0 || true
+
+            echo "Installing app APK with non-streaming ADB to avoid ddmlib split-installer timeout..."
+            timeout 20m adb install --no-streaming -r "$APK"
+            echo "Installing instrumentation APK..."
+            timeout 10m adb install --no-streaming -r "$TEST_APK"
+
+            TEST_PACKAGE="$(aapt dump badging "$TEST_APK" | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p")"
+            test -n "$TEST_PACKAGE"
+            echo "Instrumentation package: $TEST_PACKAGE"
+
+            set +e
+            adb shell am instrument -w -r "$TEST_PACKAGE/androidx.test.runner.AndroidJUnitRunner" 2>&1 | tee app/build/reports/novarun-runtime/instrumentation.txt
+            TEST_EXIT=${PIPESTATUS[0]}
+            set -e
+            adb logcat -d -t 5000 > app/build/reports/novarun-runtime/logcat.txt || true
+
+            if [ "$TEST_EXIT" -ne 0 ] || ! grep -Eq 'OK \\([0-9]+ tests?\\)' app/build/reports/novarun-runtime/instrumentation.txt || grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|shortMsg=' app/build/reports/novarun-runtime/instrumentation.txt; then
+              echo "Android instrumentation tests did not pass."
+              exit 1
+            fi
+            echo "All NovaRun ZIP runtime instrumentation tests passed."
 
       - name: Upload Android runtime test reports
         if: always()
@@ -189,5 +223,6 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+            app/build/reports/novarun-runtime/
           if-no-files-found: ignore
           retention-days: 7
