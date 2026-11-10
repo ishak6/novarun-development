@@ -199,7 +199,7 @@ jobs:
             echo "Installing instrumentation APK..."
             timeout 10m adb install --no-streaming -r "$TEST_APK"
 
-            TEST_PACKAGE="$(aapt dump badging "$TEST_APK" | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p")"
+            TEST_PACKAGE="com.mangalocalrunnerplus.test"
             test -n "$TEST_PACKAGE"
             echo "Instrumentation package: $TEST_PACKAGE"
 
@@ -209,7 +209,7 @@ jobs:
             set -e
             adb logcat -d -t 5000 > app/build/reports/novarun-runtime/logcat.txt || true
 
-            if [ "$TEST_EXIT" -ne 0 ] || ! grep -Eq 'OK \\([0-9]+ tests?\\)' app/build/reports/novarun-runtime/instrumentation.txt || grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|shortMsg=' app/build/reports/novarun-runtime/instrumentation.txt; then
+            if [ "$TEST_EXIT" -ne 0 ] || ! grep -Eq 'OK.*[0-9]+ tests?' app/build/reports/novarun-runtime/instrumentation.txt || grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|shortMsg=' app/build/reports/novarun-runtime/instrumentation.txt; then
               echo "Android instrumentation tests did not pass."
               exit 1
             fi
