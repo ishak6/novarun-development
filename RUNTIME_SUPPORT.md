@@ -12,7 +12,7 @@ This document records only capabilities integrated into the current Android app.
 | .gitkeep | Project metadata | Preserved by ZIP import; hidden from public HTTP serving with other dotfiles |
 | SQL | Executable with limits | Project-isolated SQLite database |
 | Python | Executable with limits; CI bridge verified | CPython 3.11 via Chaquopy; Android-specific package limitations; physical-device verification remains required |
-| Node.js | Embedded runtime integrated; device verification pending | Node.js Mobile 24.22.1 full build is packaged for arm64-v8a and x86_64. The release archive SHA-256 is pinned and verified in CI; the full build retains built-in `node:sqlite`. User-selected server entry points can be started from the Node Backend Runner with visible foreground notification and Stop control. Projects requiring a newer Node engine are rejected with a clear compatibility error |
+| Node.js | Embedded runtime integrated; emulator verified | Node.js Mobile 24.22.1 full build is packaged for arm64-v8a and x86_64. The release archive SHA-256 is pinned and verified in CI; the full build retains built-in `node:sqlite`. The x86_64 Android emulator starts both supplied ZIP backends and verifies HTTP, SQLite, logs and Stop behavior. Physical-device ABI and lifecycle validation remain required |
 | npm / npx | Not integrated | package.json and lockfiles are inspected; no npm/npx CLI or dependency installation is bundled. Existing node_modules may be used by the Node server; lifecycle scripts are never auto-run |
 | PHP | Planned | Composer/PHP manifests are inspected; no PHP CLI runtime is bundled or executed |
 | Java | Planned | Requires compiler, DEX conversion, dependency resolution and constrained class loading |
@@ -48,7 +48,7 @@ This document records only capabilities integrated into the current Android app.
 
 ## Remaining integration gates
 
-- **Node.js:** embedded Node.js Mobile 24.22.1 full build is now packaged for arm64-v8a and x86_64, with a JNI bridge and visible foreground service. The pinned release archive is SHA-256 verified in CI. Verify server startup, shutdown, logging, networking, core APIs and ABI compatibility on physical devices. Node.js Mobile has compatibility limitations, including unsupported child_process/cluster APIs.
+- **Node.js:** embedded Node.js Mobile 24.22.1 full build is now packaged for arm64-v8a and x86_64, with a JNI bridge and visible foreground service. The pinned release archive is SHA-256 verified in CI. Emulator tests prove the x86_64 runtime starts both supplied projects, opens `node:sqlite`, serves the storefront and stops. Verify arm64-v8a, process lifecycle, logging, networking and core APIs on physical devices. Node.js Mobile has compatibility limitations, including unsupported child_process/cluster APIs.
 - **npm / npx:** still not integrated. Add an explicit-consent package installation workflow with lockfile enforcement, registry TLS, project-scoped cache/storage quotas, cancellation, lifecycle-script approval and native-addon compatibility checks before enabling package installation.
 - **PHP:** build and maintain PHP CLI for each supported Android ABI, select extensions, integrate process I/O and test Composer workflows.
 - **Java:** bundle a compiler, convert class files to DEX, resolve dependencies and execute through a constrained class-loading boundary.
@@ -67,7 +67,7 @@ This document records only capabilities integrated into the current Android app.
 - A user-selected Node entry point is started in a dedicated Android service process with an ongoing notification and explicit Stop action.
 - The runner detects nested ZIP wrapper folders containing a package manifest and server entry point, checks the requested Node engine against the bundled 24.22.1 version, validates the port and checks for `node_modules` when dependencies are declared. It reports compatibility warnings and captures server logs.
 - The two supplied clothing-store ZIPs declare no npm dependencies and use built-in `node:sqlite`; the full Node 24 runtime provides that module. The runner does not yet install npm dependencies or run package lifecycle scripts, child processes or cluster workers. Native addons require Android ABI-compatible binaries.
-- CI verifies the pinned runtime download, native compilation and JVM launch-plan tests; physical-device runtime verification remains outstanding.
+- CI downloads the fixtures by pinned commit, verifies ZIP integrity, imports them with the production ZIP importer, validates their HTML entry points, serves static storefront assets through the loopback preview server, then starts the Node backend and checks its health route, SQLite database and storefront assets. The emulator is x86_64; this does not prove physical-device or arm64-v8a behavior.
 
 ## Node project inspection
 
