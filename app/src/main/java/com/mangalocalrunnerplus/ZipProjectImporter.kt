@@ -6,6 +6,7 @@ import android.provider.OpenableColumns
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.util.UUID
 import java.util.zip.ZipInputStream
 
@@ -35,6 +36,22 @@ object ZipProjectImporter {
     private const val BUFFER_SIZE = 8192
 
     fun importZip(context: Context, uri: Uri, limits: ZipImportLimits = ZipImportLimits.from(context)): File {
+        val displayName = getZipName(context, uri)
+        val input = context.contentResolver.openInputStream(uri)
+            ?: throw IOException("Could not open selected ZIP file.")
+        return input.use { stream ->
+            importZip(context, stream, displayName, limits)
+        }
+    }
+
+    // The stream entry point is shared by the OpenDocument picker and the
+    // instrumentation tests, so tests exercise the production extraction path.
+    internal fun importZip(
+        context: Context,
+        input: InputStream,
+        displayName: String,
+        limits: ZipImportLimits = ZipImportLimits.from(context)
+    ): File {
         val projectsDir = File(context.filesDir, "projects")
 
         if (!projectsDir.exists() && !projectsDir.mkdirs()) {
@@ -45,7 +62,7 @@ object ZipProjectImporter {
             throw IOException("Projects directory is not writable.")
         }
 
-        val projectName = getZipName(context, uri)
+        val projectName = displayName
             .substringBeforeLast(".")
             .replace(Regex("[^A-Za-z0-9._-]"), "_")
             .trim('_', '.', '-')
@@ -60,89 +77,84 @@ object ZipProjectImporter {
         }
 
         try {
-            val input = context.contentResolver.openInputStream(uri)
-                ?: throw IOException("Could not open selected ZIP file.")
+            ZipInputStream(input).use { zip ->
+                val buffer = ByteArray(BUFFER_SIZE)
+                val seenPaths = HashSet<String>()
+                var entryCount = 0
+                var totalBytes = 0L
 
-            input.use { stream ->
-                ZipInputStream(stream).use { zip ->
-                    val buffer = ByteArray(BUFFER_SIZE)
-                    val seenPaths = HashSet<String>()
-                    var entryCount = 0
-                    var totalBytes = 0L
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    entryCount++
 
-                    while (true) {
-                        val entry = zip.nextEntry ?: break
-                        entryCount++
+                    if (limits.maxEntries > 0 && entryCount > limits.maxEntries) {
+                        throw IOException("ZIP contains too many entries.")
+                    }
 
-                        if (limits.maxEntries > 0 && entryCount > limits.maxEntries) {
-                            throw IOException("ZIP contains too many entries.")
+                    val safeName = validateEntryName(entry.name)
+                    val outputFile = File(tempDir, safeName)
+                    val canonicalRoot = tempDir.canonicalPath + File.separator
+                    val canonicalOutput = outputFile.canonicalPath
+
+                    if (!canonicalOutput.startsWith(canonicalRoot)) {
+                        throw IOException("Unsafe ZIP entry path.")
+                    }
+
+                    // Reject duplicate normalized paths instead of silently overwriting
+                    // an earlier file or directory from the same archive.
+                    val normalizedPath = canonicalOutput
+                    if (!seenPaths.add(normalizedPath)) {
+                        throw IOException("ZIP contains duplicate file paths.")
+                    }
+
+                    if (entry.isDirectory) {
+                        if (outputFile.exists() && !outputFile.isDirectory) {
+                            throw IOException("ZIP file and directory paths conflict.")
+                        }
+                        if (!outputFile.exists() && !outputFile.mkdirs()) {
+                            throw IOException("Could not create ZIP directory.")
+                        }
+                    } else {
+                        val parent = outputFile.parentFile
+                            ?: throw IOException("Invalid ZIP file path.")
+
+                        if (!parent.exists() && !parent.mkdirs()) {
+                            throw IOException("Could not create parent directory.")
+                        }
+                        if (!parent.isDirectory) {
+                            throw IOException("ZIP path parent is not a directory.")
                         }
 
-                        val safeName = validateEntryName(entry.name)
-                        val outputFile = File(tempDir, safeName)
-                        val canonicalRoot = tempDir.canonicalPath + File.separator
-                        val canonicalOutput = outputFile.canonicalPath
-
-                        if (!canonicalOutput.startsWith(canonicalRoot)) {
-                            throw IOException("Unsafe ZIP entry path.")
+                        if (!outputFile.createNewFile()) {
+                            throw IOException("ZIP contains conflicting file paths.")
                         }
 
-                        // Reject duplicate normalized paths instead of silently overwriting
-                        // an earlier file or directory from the same archive.
-                        val normalizedPath = canonicalOutput
-                        if (!seenPaths.add(normalizedPath)) {
-                            throw IOException("ZIP contains duplicate file paths.")
-                        }
+                        var fileBytes = 0L
+                        FileOutputStream(outputFile).use { output ->
+                            while (true) {
+                                val count = zip.read(buffer)
+                                if (count == -1) break
 
-                        if (entry.isDirectory) {
-                            if (outputFile.exists() && !outputFile.isDirectory) {
-                                throw IOException("ZIP file and directory paths conflict.")
-                            }
-                            if (!outputFile.exists() && !outputFile.mkdirs()) {
-                                throw IOException("Could not create ZIP directory.")
-                            }
-                        } else {
-                            val parent = outputFile.parentFile
-                                ?: throw IOException("Invalid ZIP file path.")
+                                fileBytes += count
+                                totalBytes += count
 
-                            if (!parent.exists() && !parent.mkdirs()) {
-                                throw IOException("Could not create parent directory.")
-                            }
-                            if (!parent.isDirectory) {
-                                throw IOException("ZIP path parent is not a directory.")
-                            }
-
-                            if (!outputFile.createNewFile()) {
-                                throw IOException("ZIP contains conflicting file paths.")
-                            }
-
-                            var fileBytes = 0L
-                            FileOutputStream(outputFile).use { output ->
-                                while (true) {
-                                    val count = zip.read(buffer)
-                                    if (count == -1) break
-
-                                    fileBytes += count
-                                    totalBytes += count
-
-                                    if (limits.maxSingleFileBytes > 0 && fileBytes > limits.maxSingleFileBytes) {
-                                        throw IOException("A ZIP file exceeds the configured per-file limit (${limits.maxSingleFileBytes / (1024L * 1024L)} MB).")
-                                    }
-                                    if (limits.maxTotalBytes > 0 && totalBytes > limits.maxTotalBytes) {
-                                        throw IOException("ZIP extraction exceeds the configured total limit (${limits.maxTotalBytes / (1024L * 1024L)} MB).")
-                                    }
-
-                                    output.write(buffer, 0, count)
+                                if (limits.maxSingleFileBytes > 0 && fileBytes > limits.maxSingleFileBytes) {
+                                    throw IOException("A ZIP file exceeds the configured per-file limit (${limits.maxSingleFileBytes / (1024L * 1024L)} MB).")
                                 }
+                                if (limits.maxTotalBytes > 0 && totalBytes > limits.maxTotalBytes) {
+                                    throw IOException("ZIP extraction exceeds the configured total limit (${limits.maxTotalBytes / (1024L * 1024L)} MB).")
+                                }
+
+                                output.write(buffer, 0, count)
                             }
                         }
-
-                        zip.closeEntry()
                     }
 
-                    if (entryCount == 0) {
-                        throw IOException("The selected ZIP archive is empty.")
-                    }
+                    zip.closeEntry()
+                }
+
+                if (entryCount == 0) {
+                    throw IOException("The selected ZIP archive is empty.")
                 }
             }
 
