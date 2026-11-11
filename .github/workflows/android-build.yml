@@ -192,7 +192,9 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none -memory 4096 -cores 4
           disable-animations: true
           script: |
-            set -euo pipefail
+            # The emulator runner executes this script with /bin/sh, not Bash.
+            # Keep the script POSIX-compatible; do not use pipefail or PIPESTATUS.
+            set -eu
             mkdir -p app/build/reports/novarun-runtime
             APK="app/build/outputs/apk/debug/app-debug.apk"
             TEST_APK="app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
@@ -215,8 +217,9 @@ jobs:
             echo "Instrumentation package: $TEST_PACKAGE"
 
             set +e
-            adb shell am instrument -w -r "$TEST_PACKAGE/androidx.test.runner.AndroidJUnitRunner" 2>&1 | tee app/build/reports/novarun-runtime/instrumentation.txt
-            TEST_EXIT=${PIPESTATUS[0]}
+            adb shell am instrument -w -r "$TEST_PACKAGE/androidx.test.runner.AndroidJUnitRunner" > app/build/reports/novarun-runtime/instrumentation.txt 2>&1
+            TEST_EXIT=$?
+            cat app/build/reports/novarun-runtime/instrumentation.txt
             set -e
             adb logcat -d -t 5000 > app/build/reports/novarun-runtime/logcat.txt || true
 
