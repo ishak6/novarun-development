@@ -31,7 +31,7 @@ class ClothingStoreZipRuntimeTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val activity = ActivityScenario.launch(MainActivity::class.java)
-        val projectRoot = extractZip(context, assetName)
+        val projectRoot = extractZip(context, instrumentation.context, assetName)
         val port = ServerSocket(0).use { it.localPort }
         var started = false
         try {
@@ -101,12 +101,12 @@ class ClothingStoreZipRuntimeTest {
         }
     }
 
-    private fun extractZip(context: Context, assetName: String): File {
+    private fun extractZip(context: Context, testAssetsContext: Context, assetName: String): File {
         val root = File(context.cacheDir, "zip-runtime-${assetName.hashCode()}-${System.nanoTime()}")
         check(root.mkdirs())
         var totalBytes = 0L
         var entries = 0
-        ZipInputStream(context.assets.open(assetName)).use { zip ->
+        ZipInputStream(testAssetsContext.assets.open(assetName)).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
                 entries++
