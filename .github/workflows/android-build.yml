@@ -104,6 +104,7 @@ jobs:
           test -s "$APK"
           test -x "$READELF"
 
+          zip_entries="$(unzip -Z1 "$APK")"
           for abi in arm64-v8a x86_64; do
             case "$abi" in
               arm64-v8a) expected_machine="AArch64" ;;
@@ -112,7 +113,7 @@ jobs:
 
             for library in libnode.so libnovarun_node_bridge.so; do
               entry="lib/$abi/$library"
-              if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
+              if ! grep -Fxq "$entry" <<< "$zip_entries"; then
                 echo "::error::APK is missing $entry"
                 exit 1
               fi
