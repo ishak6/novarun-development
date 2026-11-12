@@ -91,6 +91,43 @@ jobs:
       - name: Build Debug APK
         run: gradle assembleDebug --stacktrace
 
+      # The app supports arm64-v8a and x86_64. A successful Gradle build alone
+      # does not prove that both embedded Node libraries were packaged for the
+      # matching ELF machine type, so inspect the final APK before publishing it.
+      - name: Verify packaged Node.js native ABIs
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          READELF="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          test -s "$APK"
+          test -x "$READELF"
+
+          for abi in arm64-v8a x86_64; do
+            case "$abi" in
+              arm64-v8a) expected_machine="AArch64" ;;
+              x86_64) expected_machine="Advanced Micro Devices X86-64" ;;
+            esac
+
+            for library in libnode.so libnovarun_node_bridge.so; do
+              entry="lib/$abi/$library"
+              if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
+                echo "::error::APK is missing $entry"
+                exit 1
+              fi
+
+              extracted="/tmp/novarun-$abi-$library"
+              unzip -p "$APK" "$entry" > "$extracted"
+              machine="$("$READELF" -h "$extracted" | sed -n 's/^[[:space:]]*Machine:[[:space:]]*//p')"
+              if [ "$machine" != "$expected_machine" ]; then
+                echo "::error::$entry has ELF machine '$machine'; expected '$expected_machine'"
+                exit 1
+              fi
+              echo "Verified $entry ($machine)"
+            done
+          done
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
