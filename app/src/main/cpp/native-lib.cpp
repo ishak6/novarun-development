@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <thread>
@@ -138,6 +139,8 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
             if (captured > payloadLimit) {
                 if (ftruncate(logFd, static_cast<off_t>(payloadLimit)) == 0) {
                     captured = payloadLimit;
+                } else {
+                    canWrite = false;
                 }
                 truncated = true;
             }
