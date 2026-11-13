@@ -18,7 +18,7 @@ class NodeRuntimeLogQuotaTest {
         val project = File(context.filesDir, "novarun-log-quota-${UUID.randomUUID()}").apply {
             check(mkdirs())
         }
-        val logFile: File?
+        var logFile: File? = null
         try {
             File(project, "server.js").writeText(
                 """
@@ -41,22 +41,30 @@ class NodeRuntimeLogQuotaTest {
             }
 
             assertEquals("Node log fixture must exit normally: ${state.message}", "STOPPED", state.status)
-            logFile = state.logPath?.let(::File)
-            assertTrue("Node log file must be present", logFile?.isFile == true)
+            val capturedLog = state.logPath?.let(::File)
+                ?: throw AssertionError("Node log path must be present")
+            logFile = capturedLog
+            assertTrue("Node log file must exist", capturedLog.isFile)
             assertTrue(
                 "Captured stdout/stderr must stay within ${NodeLogLimits.MAX_BYTES} bytes",
-                logFile!!.length() <= NodeLogLimits.MAX_BYTES
+                capturedLog.length() <= NodeLogLimits.MAX_BYTES
             )
             assertTrue(
                 "Truncation must be visible in the bounded log",
-                logFile.readText().contains(NodeLogLimits.TRUNCATION_MARKER)
+                capturedLog.readText().contains(NodeLogLimits.TRUNCATION_MARKER)
             )
         } finally {
             if (NodeStateStore.read(context).status in setOf("STARTING", "RUNNING")) {
                 NodeProjectService.stop(context)
+                val stopDeadline = System.currentTimeMillis() + 5_000L
+                while (System.currentTimeMillis() < stopDeadline &&
+                    NodeStateStore.read(context).status != "STOPPED"
+                ) {
+                    Thread.sleep(100)
+                }
             }
             project.deleteRecursively()
+            logFile?.delete()
         }
-        logFile?.delete()
     }
 }
