@@ -55,6 +55,7 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
         return 2;
     }
 
+    const std::string logFilePath(log);
     const bool changed = chdir(cwd) == 0;
     if (changed) {
         setenv("NODE_PATH", modules, 1);
@@ -101,7 +102,7 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
         offset += value.size() + 1;
     }
 
-    const int logFd = open(log, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
+    const int logFd = open(logFilePath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
     if (logFd < 0) return 6;
 
     int outputPipe[2] = {-1, -1};
