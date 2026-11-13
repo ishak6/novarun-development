@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <node.h>
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -10,6 +11,7 @@
 #include <vector>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 
 namespace {
 constexpr size_t kMaxCapturedLogBytes = 2U * 1024U * 1024U;
@@ -126,9 +128,10 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
     }
     close(outputPipe[1]);
 
+    std::atomic<bool> stopReading{false};
     std::thread logReader;
     try {
-        logReader = std::thread([readFd = outputPipe[0], logFd]() {
+        logReader = std::thread([readFd = outputPipe[0], logFd, &stopReading]() {
             const size_t markerSize = kTruncatedMarker.size();
             const size_t payloadLimit = kMaxCapturedLogBytes - markerSize;
             off_t existing = lseek(logFd, 0, SEEK_END);
@@ -146,9 +149,23 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
             }
 
             char chunk[8192];
+            pollfd descriptor{readFd, POLLIN | POLLHUP | POLLERR, 0};
             while (true) {
+                descriptor.revents = 0;
+                const int ready = poll(&descriptor, 1, stopReading.load() ? 100 : -1);
+                if (ready < 0) {
+                    if (errno == EINTR) continue;
+                    break;
+                }
+                if (ready == 0) {
+                    if (stopReading.load()) break;
+                    continue;
+                }
+                if (descriptor.revents & POLLNVAL) break;
+                if (!(descriptor.revents & (POLLIN | POLLHUP | POLLERR))) continue;
+
                 const ssize_t countRead = read(readFd, chunk, sizeof(chunk));
-                if (countRead < 0 && errno == EINTR) continue;
+                if (countRead < 0 && (errno == EINTR || errno == EAGAIN)) continue;
                 if (countRead <= 0) break;
 
                 const size_t count = static_cast<size_t>(countRead);
@@ -187,6 +204,7 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
     fflush(stderr);
     restoreDescriptor(savedStdout, STDOUT_FILENO);
     restoreDescriptor(savedStderr, STDERR_FILENO);
+    stopReading.store(true);
     logReader.join();
     return result;
 }
