@@ -137,6 +137,11 @@ internal data class NodeLaunchPlan(
     }
 }
 
+internal object NodeLogLimits {
+    const val MAX_BYTES = 2 * 1024 * 1024
+    const val TRUNCATION_MARKER = "[NovaRun] log output truncated after 2 MiB."
+}
+
 internal data class NodeState(
     val status: String = "STOPPED", val message: String = "Node.js backend stopped",
     val url: String? = null, val logPath: String? = null
