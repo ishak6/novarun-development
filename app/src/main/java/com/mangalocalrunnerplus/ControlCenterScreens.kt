@@ -60,9 +60,9 @@ fun NovaRunSettingsScreen() {
         mutableStateOf(prefs.getString("theme", "Dark") ?: "Dark")
     }
 
-    var maxZipEntries by remember { mutableStateOf(prefs.getInt("zip_max_entries", 2000).toString()) }
-    var maxZipTotalMb by remember { mutableStateOf(prefs.getInt("zip_max_total_mb", 200).toString()) }
-    var maxZipSingleMb by remember { mutableStateOf(prefs.getInt("zip_max_single_mb", 64).toString()) }
+    var maxZipEntries by remember { mutableStateOf(prefs.getInt("zip_max_entries", ZipImportLimits.DEFAULT_MAX_ENTRIES).coerceIn(0, ZipImportLimits.HARD_MAX_ENTRIES).toString()) }
+    var maxZipTotalMb by remember { mutableStateOf(prefs.getInt("zip_max_total_mb", ZipImportLimits.DEFAULT_MAX_TOTAL_MB).coerceIn(0, ZipImportLimits.DEFAULT_MAX_TOTAL_MB).toString()) }
+    var maxZipSingleMb by remember { mutableStateOf(prefs.getInt("zip_max_single_mb", ZipImportLimits.DEFAULT_MAX_SINGLE_FILE_MB).coerceIn(0, ZipImportLimits.DEFAULT_MAX_SINGLE_FILE_MB).toString()) }
 
     Column(
         modifier = Modifier
