@@ -137,15 +137,19 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
             off_t existing = lseek(logFd, 0, SEEK_END);
             size_t captured = existing > 0 ? static_cast<size_t>(existing) : 0U;
             bool canWrite = true;
-            bool truncated = false;
+            const auto writeTruncationMarker = [&]() {
+                if (!canWrite) return;
+                writeAll(logFd, kTruncatedMarker.data(), markerSize);
+                canWrite = false;
+            };
 
             if (captured > payloadLimit) {
                 if (ftruncate(logFd, static_cast<off_t>(payloadLimit)) == 0) {
                     captured = payloadLimit;
+                    writeTruncationMarker();
                 } else {
                     canWrite = false;
                 }
-                truncated = true;
             }
 
             char chunk[8192];
@@ -176,14 +180,16 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
                         captured += allowed;
                     } else {
                         canWrite = false;
-                        truncated = true;
                     }
                 }
-                if (allowed < count || !canWrite) truncated = true;
-            }
 
-            if (truncated && canWrite) {
-                writeAll(logFd, kTruncatedMarker.data(), markerSize);
+                // Publish the marker as soon as the first byte is dropped. The
+                // reader keeps draining the pipe, but never writes beyond the
+                // fixed file-size budget. Waiting until node::Start returns
+                // would hide the marker for long-running development servers.
+                if (allowed < count && canWrite) {
+                    writeTruncationMarker();
+                }
             }
             close(readFd);
             close(logFd);
