@@ -70,6 +70,10 @@ class NodeRuntimeLogQuotaTest {
                 "Captured stdout/stderr must stay within ${NodeLogLimits.MAX_BYTES} bytes",
                 capturedLog.length() <= NodeLogLimits.MAX_BYTES
             )
+            assertTrue(
+                "Service compatibility diagnostics must be present before Node output capture",
+                logText.contains("Compatibility notes:")
+            )
 
             val connection = URL("http://127.0.0.1:$port/").openConnection() as HttpURLConnection
             connection.connectTimeout = 5_000
@@ -89,6 +93,10 @@ class NodeRuntimeLogQuotaTest {
                 state = NodeStateStore.read(context)
             }
             assertEquals("User Stop action must stop the Node service", "STOPPED", state.status)
+            assertTrue(
+                "Final log size must remain within the configured cap after Stop",
+                capturedLog.length() <= NodeLogLimits.MAX_BYTES
+            )
         } finally {
             if (NodeStateStore.read(context).status in setOf("STARTING", "RUNNING", "ERROR")) {
                 NodeProjectService.stop(context)
