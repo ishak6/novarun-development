@@ -1,11 +1,42 @@
 #include <jni.h>
 #include <node.h>
+#include <algorithm>
+#include <atomic>
+#include <cerrno>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
+
+namespace {
+constexpr size_t kMaxCapturedLogBytes = 2U * 1024U * 1024U;
+const std::string kTruncatedMarker = "\n[NovaRun] log output truncated after 2 MiB.\n";
+
+bool writeAll(int fd, const char* data, size_t length) {
+    size_t offset = 0;
+    while (offset < length) {
+        const ssize_t written = write(fd, data + offset, length - offset);
+        if (written < 0 && errno == EINTR) continue;
+        if (written <= 0) return false;
+        offset += static_cast<size_t>(written);
+    }
+    return true;
+}
+
+void restoreDescriptor(int saved, int target) {
+    if (saved < 0) {
+        close(target);
+        return;
+    }
+    if (dup2(saved, target) < 0) close(target);
+    close(saved);
+}
+} // namespace
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
@@ -27,8 +58,8 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
         return 2;
     }
 
+    const std::string logFilePath(log);
     const bool changed = chdir(cwd) == 0;
-    int logFd = -1;
     if (changed) {
         setenv("NODE_PATH", modules, 1);
         setenv("TMPDIR", temp, 1);
@@ -36,7 +67,6 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
         setenv("PORT", port, 1);
         setenv("HOST", "127.0.0.1", 1);
         setenv("NODE_ENV", "development", 1);
-        logFd = open(log, O_WRONLY | O_CREAT | O_APPEND, 0600);
     }
 
     env->ReleaseStringUTFChars(workingDirectory, cwd);
@@ -45,29 +75,19 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
     env->ReleaseStringUTFChars(logPath, log);
     env->ReleaseStringUTFChars(portValue, port);
 
-    if (!changed) {
-        if (logFd >= 0) close(logFd);
-        return 3;
-    }
+    if (!changed) return 3;
 
     const jsize count = env->GetArrayLength(arguments);
-    if (count < 2 || count > 32) {
-        if (logFd >= 0) close(logFd);
-        return 4;
-    }
+    if (count < 2 || count > 32) return 4;
 
     std::vector<std::string> values;
     size_t total = 0;
     for (jsize i = 0; i < count; ++i) {
         auto item = static_cast<jstring>(env->GetObjectArrayElement(arguments, i));
-        if (!item) {
-            if (logFd >= 0) close(logFd);
-            return 5;
-        }
+        if (!item) return 5;
         const char* value = env->GetStringUTFChars(item, nullptr);
         if (!value) {
             env->DeleteLocalRef(item);
-            if (logFd >= 0) close(logFd);
             return 5;
         }
         values.emplace_back(value);
@@ -85,12 +105,112 @@ Java_com_mangalocalrunnerplus_NodeNativeBridge_startNodeWithArguments(
         offset += value.size() + 1;
     }
 
-    if (logFd >= 0) {
-        dup2(logFd, STDOUT_FILENO);
-        dup2(logFd, STDERR_FILENO);
+    const int logFd = open(logFilePath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
+    if (logFd < 0) return 6;
+
+    int outputPipe[2] = {-1, -1};
+    if (pipe(outputPipe) != 0) {
         close(logFd);
+        return 7;
     }
+
+    const int savedStdout = dup(STDOUT_FILENO);
+    const int savedStderr = dup(STDERR_FILENO);
+    if (savedStdout < 0 || savedStderr < 0 ||
+        dup2(outputPipe[1], STDOUT_FILENO) < 0 ||
+        dup2(outputPipe[1], STDERR_FILENO) < 0) {
+        restoreDescriptor(savedStdout, STDOUT_FILENO);
+        restoreDescriptor(savedStderr, STDERR_FILENO);
+        close(outputPipe[0]);
+        close(outputPipe[1]);
+        close(logFd);
+        return 8;
+    }
+    close(outputPipe[1]);
+
+    std::atomic<bool> stopReading{false};
+    std::thread logReader;
+    try {
+        logReader = std::thread([readFd = outputPipe[0], logFd, &stopReading]() {
+            const size_t markerSize = kTruncatedMarker.size();
+            const size_t payloadLimit = kMaxCapturedLogBytes - markerSize;
+            off_t existing = lseek(logFd, 0, SEEK_END);
+            size_t captured = existing > 0 ? static_cast<size_t>(existing) : 0U;
+            bool canWrite = true;
+            const auto writeTruncationMarker = [&]() {
+                if (!canWrite) return;
+                writeAll(logFd, kTruncatedMarker.data(), markerSize);
+                canWrite = false;
+            };
+
+            if (captured > payloadLimit) {
+                if (ftruncate(logFd, static_cast<off_t>(payloadLimit)) == 0) {
+                    captured = payloadLimit;
+                    writeTruncationMarker();
+                } else {
+                    canWrite = false;
+                }
+            }
+
+            char chunk[8192];
+            pollfd descriptor{readFd, POLLIN | POLLHUP | POLLERR, 0};
+            while (true) {
+                descriptor.revents = 0;
+                const int ready = poll(&descriptor, 1, stopReading.load() ? 100 : -1);
+                if (ready < 0) {
+                    if (errno == EINTR) continue;
+                    break;
+                }
+                if (ready == 0) {
+                    if (stopReading.load()) break;
+                    continue;
+                }
+                if (descriptor.revents & POLLNVAL) break;
+                if (!(descriptor.revents & (POLLIN | POLLHUP | POLLERR))) continue;
+
+                const ssize_t countRead = read(readFd, chunk, sizeof(chunk));
+                if (countRead < 0 && (errno == EINTR || errno == EAGAIN)) continue;
+                if (countRead <= 0) break;
+
+                const size_t count = static_cast<size_t>(countRead);
+                const size_t remaining = captured < payloadLimit ? payloadLimit - captured : 0U;
+                const size_t allowed = std::min(remaining, count);
+                if (allowed > 0 && canWrite) {
+                    if (writeAll(logFd, chunk, allowed)) {
+                        captured += allowed;
+                    } else {
+                        canWrite = false;
+                    }
+                }
+
+                // Publish the marker as soon as the first byte is dropped. The
+                // reader keeps draining the pipe, but never writes beyond the
+                // fixed file-size budget. Waiting until node::Start returns
+                // would hide the marker for long-running development servers.
+                if (allowed < count && canWrite) {
+                    writeTruncationMarker();
+                }
+            }
+            close(readFd);
+            close(logFd);
+        });
+    } catch (...) {
+        restoreDescriptor(savedStdout, STDOUT_FILENO);
+        restoreDescriptor(savedStderr, STDERR_FILENO);
+        close(outputPipe[0]);
+        close(logFd);
+        return 9;
+    }
+
     const int argc = static_cast<int>(argv.size());
     argv.push_back(nullptr); // Node's embedder entry point expects argv[argc] to be null.
-    return node::Start(argc, argv.data());
+    const int result = node::Start(argc, argv.data());
+
+    fflush(stdout);
+    fflush(stderr);
+    restoreDescriptor(savedStdout, STDOUT_FILENO);
+    restoreDescriptor(savedStderr, STDERR_FILENO);
+    stopReading.store(true);
+    logReader.join();
+    return result;
 }

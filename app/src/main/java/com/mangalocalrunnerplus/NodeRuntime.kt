@@ -137,6 +137,11 @@ internal data class NodeLaunchPlan(
     }
 }
 
+internal object NodeLogLimits {
+    const val MAX_BYTES = 2 * 1024 * 1024
+    const val TRUNCATION_MARKER = "[NovaRun] log output truncated after 2 MiB."
+}
+
 internal data class NodeState(
     val status: String = "STOPPED", val message: String = "Node.js backend stopped",
     val url: String? = null, val logPath: String? = null
@@ -200,6 +205,11 @@ class NodeProjectService : Service() {
         val p = plan.getOrThrow()
         val log = File(filesDir, "node-backend-${p.root.name.hashCode()}-$port.log")
         log.writeText("NovaRun embedded Node.js 24.22.1\nProject: ${p.root.name}\nEntry: ${p.entry.relativeTo(p.root).path}\n")
+        // Write all service-owned diagnostics before the native reader snapshots
+        // the initial file length and starts enforcing the combined 2 MiB cap.
+        if (p.warnings.isNotEmpty()) {
+            log.appendText("\nCompatibility notes:\n- " + p.warnings.joinToString("\n- ") + "\n")
+        }
         val url = "http://127.0.0.1:$port/"
         NodeStateStore.write(this, NodeState("STARTING", "Starting ${p.entry.name}…", url, log.absolutePath))
         Thread({
@@ -236,7 +246,6 @@ class NodeProjectService : Service() {
                 Process.killProcess(Process.myPid())
             }
         }, "NovaRun-Node-Health").start()
-        if (p.warnings.isNotEmpty()) log.appendText("\nCompatibility notes:\n- " + p.warnings.joinToString("\n- ") + "\n")
     }
 
     private fun foreground(message: String) {
