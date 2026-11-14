@@ -11,21 +11,40 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 
 data class ZipImportLimits(
-    val maxEntries: Int = 2000,
-    val maxTotalBytes: Long = 200L * 1024L * 1024L,
-    val maxSingleFileBytes: Long = 64L * 1024L * 1024L
+    val maxEntries: Int = DEFAULT_MAX_ENTRIES,
+    val maxTotalBytes: Long = DEFAULT_MAX_TOTAL_BYTES,
+    val maxSingleFileBytes: Long = DEFAULT_MAX_SINGLE_FILE_BYTES
 ) {
+    /**
+     * User preferences may lower the limits, but can never disable or raise the
+     * hard extraction budget. Zero/negative values restore the recommended cap.
+     */
+    fun bounded(): ZipImportLimits = ZipImportLimits(
+        maxEntries = if (maxEntries <= 0) DEFAULT_MAX_ENTRIES else maxEntries.coerceAtMost(HARD_MAX_ENTRIES),
+        maxTotalBytes = if (maxTotalBytes <= 0L) DEFAULT_MAX_TOTAL_BYTES else maxTotalBytes.coerceAtMost(HARD_MAX_TOTAL_BYTES),
+        maxSingleFileBytes = if (maxSingleFileBytes <= 0L) DEFAULT_MAX_SINGLE_FILE_BYTES else maxSingleFileBytes.coerceAtMost(HARD_MAX_SINGLE_FILE_BYTES)
+    )
+
     companion object {
+        const val DEFAULT_MAX_ENTRIES = 2000
+        const val DEFAULT_MAX_TOTAL_MB = 200
+        const val DEFAULT_MAX_SINGLE_FILE_MB = 64
+        const val HARD_MAX_ENTRIES = 2000
+        const val HARD_MAX_TOTAL_BYTES = 200L * 1024L * 1024L
+        const val HARD_MAX_SINGLE_FILE_BYTES = 64L * 1024L * 1024L
+        const val DEFAULT_MAX_TOTAL_BYTES = HARD_MAX_TOTAL_BYTES
+        const val DEFAULT_MAX_SINGLE_FILE_BYTES = HARD_MAX_SINGLE_FILE_BYTES
+
         fun from(context: Context): ZipImportLimits {
             val prefs = context.getSharedPreferences("novarun_settings", Context.MODE_PRIVATE)
-            val entries = prefs.getInt("zip_max_entries", 2000).coerceAtLeast(0)
-            val totalMb = prefs.getInt("zip_max_total_mb", 200).coerceAtLeast(0)
-            val singleMb = prefs.getInt("zip_max_single_mb", 64).coerceAtLeast(0)
+            val entries = prefs.getInt("zip_max_entries", DEFAULT_MAX_ENTRIES)
+            val totalMb = prefs.getInt("zip_max_total_mb", DEFAULT_MAX_TOTAL_MB)
+            val singleMb = prefs.getInt("zip_max_single_mb", DEFAULT_MAX_SINGLE_FILE_MB)
             return ZipImportLimits(
                 maxEntries = entries,
                 maxTotalBytes = totalMb.toLong() * 1024L * 1024L,
                 maxSingleFileBytes = singleMb.toLong() * 1024L * 1024L
-            )
+            ).bounded()
         }
     }
 }
@@ -52,6 +71,7 @@ object ZipProjectImporter {
         displayName: String,
         limits: ZipImportLimits = ZipImportLimits.from(context)
     ): File {
+        val safeLimits = limits.bounded()
         val projectsDir = File(context.filesDir, "projects")
 
         if (!projectsDir.exists() && !projectsDir.mkdirs()) {
@@ -87,7 +107,7 @@ object ZipProjectImporter {
                     val entry = zip.nextEntry ?: break
                     entryCount++
 
-                    if (limits.maxEntries > 0 && entryCount > limits.maxEntries) {
+                    if (entryCount > safeLimits.maxEntries) {
                         throw IOException("ZIP contains too many entries.")
                     }
 
@@ -138,11 +158,11 @@ object ZipProjectImporter {
                                 fileBytes += count
                                 totalBytes += count
 
-                                if (limits.maxSingleFileBytes > 0 && fileBytes > limits.maxSingleFileBytes) {
-                                    throw IOException("A ZIP file exceeds the configured per-file limit (${limits.maxSingleFileBytes / (1024L * 1024L)} MB).")
+                                if (fileBytes > safeLimits.maxSingleFileBytes) {
+                                    throw IOException("A ZIP file exceeds the configured per-file limit (${safeLimits.maxSingleFileBytes / (1024L * 1024L)} MB).")
                                 }
-                                if (limits.maxTotalBytes > 0 && totalBytes > limits.maxTotalBytes) {
-                                    throw IOException("ZIP extraction exceeds the configured total limit (${limits.maxTotalBytes / (1024L * 1024L)} MB).")
+                                if (totalBytes > safeLimits.maxTotalBytes) {
+                                    throw IOException("ZIP extraction exceeds the configured total limit (${safeLimits.maxTotalBytes / (1024L * 1024L)} MB).")
                                 }
 
                                 output.write(buffer, 0, count)
