@@ -31,8 +31,8 @@ This document records only capabilities integrated into the current Android app.
 
 ## ZIP import limits and path safety
 
-- Maximum 2,000 archive entries.
-- Maximum 200 MiB total extracted data and 64 MiB per individual file.
+- Non-disableable hard limits: 2,000 archive entries, 200 MiB total extracted data and 64 MiB per individual file.
+- User settings may lower these limits. A value of 0 restores the recommended default; values above the hard maximum are clamped.
 - Entry names are checked for absolute paths, parent traversal, drive-qualified paths, NUL characters and excessive length.
 - Duplicate normalized paths and file/directory conflicts are rejected.
 - Files are extracted into a temporary directory and promoted only after extraction completes.
