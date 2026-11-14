@@ -251,17 +251,19 @@ fun NovaRunSettingsScreen() {
 
         SettingsCard {
             Text("Import limits", color = NovaRunPalette.TextPrimary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-            Text("Set 0 for no configured cap. Android storage availability and ZIP path safety still apply.", color = ControlMuted, fontSize = 11.sp)
+            Text("ZIP extraction always has hard safety caps. Enter 0 to use recommended defaults; larger values are clamped.", color = ControlMuted, fontSize = 11.sp)
 
             OutlinedTextField(
                 value = maxZipEntries,
                 onValueChange = { value ->
                     if (value.length <= 8 && value.all(Char::isDigit)) {
-                        maxZipEntries = value
-                        value.toIntOrNull()?.let { prefs.edit().putInt("zip_max_entries", it.coerceAtLeast(0)).apply() }
+                        val requested = value.toIntOrNull()
+                        val bounded = requested?.coerceIn(0, ZipImportLimits.HARD_MAX_ENTRIES)
+                        maxZipEntries = if (bounded == null) value else bounded.toString()
+                        bounded?.let { prefs.edit().putInt("zip_max_entries", it).apply() }
                     }
                 },
-                label = { Text("Maximum ZIP entries (0 = unlimited)") },
+                label = { Text("Maximum ZIP entries (0 = default; max ${ZipImportLimits.HARD_MAX_ENTRIES})") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -269,11 +271,13 @@ fun NovaRunSettingsScreen() {
                 value = maxZipTotalMb,
                 onValueChange = { value ->
                     if (value.length <= 8 && value.all(Char::isDigit)) {
-                        maxZipTotalMb = value
-                        value.toIntOrNull()?.let { prefs.edit().putInt("zip_max_total_mb", it.coerceAtLeast(0)).apply() }
+                        val requested = value.toIntOrNull()
+                        val bounded = requested?.coerceIn(0, ZipImportLimits.DEFAULT_MAX_TOTAL_MB)
+                        maxZipTotalMb = if (bounded == null) value else bounded.toString()
+                        bounded?.let { prefs.edit().putInt("zip_max_total_mb", it).apply() }
                     }
                 },
-                label = { Text("Maximum extracted total MB (0 = unlimited)") },
+                label = { Text("Maximum extracted total MB (0 = default; max ${ZipImportLimits.DEFAULT_MAX_TOTAL_MB})") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -281,15 +285,18 @@ fun NovaRunSettingsScreen() {
                 value = maxZipSingleMb,
                 onValueChange = { value ->
                     if (value.length <= 8 && value.all(Char::isDigit)) {
-                        maxZipSingleMb = value
-                        value.toIntOrNull()?.let { prefs.edit().putInt("zip_max_single_mb", it.coerceAtLeast(0)).apply() }
+                        val requested = value.toIntOrNull()
+                        val bounded = requested?.coerceIn(0, ZipImportLimits.DEFAULT_MAX_SINGLE_FILE_MB)
+                        maxZipSingleMb = if (bounded == null) value else bounded.toString()
+                        bounded?.let { prefs.edit().putInt("zip_max_single_mb", it).apply() }
                     }
                 },
-                label = { Text("Maximum single file MB (0 = unlimited)") },
+                label = { Text("Maximum single file MB (0 = default; max ${ZipImportLimits.DEFAULT_MAX_SINGLE_FILE_MB})") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-            Text("Current: ${maxZipEntries.ifBlank { "2000" }} entries · ${maxZipTotalMb.ifBlank { "200" }} MB total · ${maxZipSingleMb.ifBlank { "64" }} MB/file", color = NovaRunPalette.Cyan, fontSize = 11.sp)
+            val effectiveLimits = ZipImportLimits.from(context)
+            Text("Effective: ${effectiveLimits.maxEntries} entries · ${effectiveLimits.maxTotalBytes / (1024L * 1024L)} MB total · ${effectiveLimits.maxSingleFileBytes / (1024L * 1024L)} MB/file", color = NovaRunPalette.Cyan, fontSize = 11.sp)
             OutlinedButton(
                 onClick = {
                     maxZipEntries = "2000"
