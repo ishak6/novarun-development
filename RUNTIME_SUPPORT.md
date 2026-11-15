@@ -11,7 +11,7 @@ This document records only capabilities integrated into the current Android app.
 | Markdown (.md) | Documentation | Preserved and detected; not executable |
 | .gitkeep | Project metadata | Preserved by ZIP import; hidden from public HTTP serving with other dotfiles |
 | SQL | Executable with limits | Project-isolated SQLite database |
-| Python | Executable with limits; CI bridge verified | CPython 3.11 via Chaquopy; Android-specific package limitations; physical-device verification remains required |
+| Python | Executable with limits; CI bridge verified | CPython 3.11 via Chaquopy; Android-specific package limitations; interpreter calls are serialized because `cwd`, `sys.path`, trace hooks and stdout/stderr are process-global. The five-second trace deadline is cooperative, not an OS-level timeout; blocking native calls and spawned threads are not isolated. Physical-device verification remains required |
 | Node.js | Embedded runtime integrated; emulator verified | Node.js Mobile 24.22.1 full build is packaged for arm64-v8a and x86_64. The release archive SHA-256 is pinned and verified in CI; the full build retains built-in `node:sqlite`. The x86_64 Android emulator starts both supplied ZIP backends and verifies HTTP, SQLite, logs and Stop behavior. Physical-device ABI and lifecycle validation remain required |
 | npm / npx | Not integrated | package.json and lockfiles are inspected; no npm/npx CLI or dependency installation is bundled. Existing node_modules may be used by the Node server; lifecycle scripts are never auto-run |
 | PHP | Planned | Composer/PHP manifests are inspected; no PHP CLI runtime is bundled or executed |
@@ -24,7 +24,7 @@ This document records only capabilities integrated into the current Android app.
 - Project code runs with the app's Android permissions; it is not a hostile-code sandbox.
 - Runtime availability is shown separately from preview-only support.
 - A runtime is marked "Ready to Run" only when its adapter is registered and reports available.
-- Python script paths are canonicalized and restricted to the selected project. Output is capped and a cooperative execution deadline is applied.
+- Python script paths are canonicalized and restricted to the selected project. Output is capped and a cooperative execution deadline is applied. Python executions are serialized to prevent concurrent scripts from corrupting the embedded interpreter's process-global working directory, import path, trace function and output redirection.
 - Standalone JavaScript runs in Rhino ES6 with a 1 MB script limit, instruction budget, five-second cooperative deadline and bounded output. Node APIs, browser DOM APIs and npm are not provided by Rhino.
 - SQL uses a private database per project, with statement-count, file-size and output limits.
 - Package installation and arbitrary project scripts require explicit user consent, project-scoped storage, cancellation, disk quotas and a documented security boundary before being enabled.
