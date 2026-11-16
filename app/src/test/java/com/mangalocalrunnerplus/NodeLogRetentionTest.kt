@@ -15,7 +15,7 @@ class NodeLogRetentionTest {
             val logs = (0 until 12).map { index ->
                 File(directory, "node-backend-project-$index-$index.log").apply {
                     writeBytes(ByteArray(2 * 1024 * 1024))
-                    setLastModified(1_000L + index)
+                    setLastModified(1_000_000L + index * 10_000L)
                 }
             }
             val current = logs.first()
