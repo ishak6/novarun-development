@@ -281,14 +281,28 @@ class LocalWebServerService : Service() {
                     }
 
                     if (lanStarted) {
-                        server = lanServer
-                        tlsFingerprint = tlsIdentity.sha256Fingerprint
-                        val lanAddress = LocalWebServer.getLocalNetworkAddress()
-                        lanAddressUrl = lanAddress?.let { "https://$it:$port" }
-                        if (lanAddressUrl == null) {
+                        val adopted = synchronized(serverLock) {
+                            if (startCoroutineJob?.isActive == true) {
+                                server = lanServer
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        if (adopted) {
+                            tlsFingerprint = tlsIdentity.sha256Fingerprint
+                            val lanAddress = LocalWebServer.getLocalNetworkAddress()
+                            lanAddressUrl = lanAddress?.let { "https://$it:$port" }
+                            if (lanAddressUrl == null) {
+                                synchronized(serverLock) {
+                                    if (server === lanServer) server = null
+                                }
+                                lanServer.stop()
+                                lanFailure = "LAN IP unavailable"
+                            }
+                        } else {
                             lanServer.stop()
-                            server = null
-                            lanFailure = "LAN IP unavailable"
+                            return@launch
                         }
                     } else {
                         lanFailure = "LAN port $port could not be opened"
