@@ -314,6 +314,10 @@ class LocalWebServerService : Service() {
                 lanFailure = "LAN password is not configured"
             }
 
+            // Do not publish RUNNING if Stop/restart cancelled this startup while
+            // the optional LAN listener was being prepared.
+            if (!currentCoroutineContext().isActive) return@launch
+
             // Localhost is the primary URL on this device. LAN URL is separately
             // exposed only when its HTTPS listener is actually running.
             val primaryUrl = localAddress
