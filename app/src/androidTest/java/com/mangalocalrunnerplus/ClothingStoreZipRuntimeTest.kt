@@ -86,6 +86,62 @@ class ClothingStoreZipRuntimeTest {
     }
 
     @Test
+    fun rapidStartStopDoesNotLeaveLocalhostListenerRunning() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val activity = ActivityScenario.launch(MainActivity::class.java)
+        val assetName = "clothing_store_nokshi_v1.5.3_professional.zip"
+        val projectRoot = instrumentation.context.assets.open(assetName).use { input ->
+            ZipProjectImporter.importZip(context, input, assetName, ZipImportLimits())
+        }
+        val observedUrls = linkedSetOf<String>()
+
+        try {
+            repeat(5) {
+                LocalWebServerService.start(
+                    context = context,
+                    projectDirectory = projectRoot,
+                    durationMillis = 60_000L,
+                    port = 0 + 19000 + it,
+                    authenticationEnabled = false
+                )
+                // Immediately issue Stop to exercise cancellation during startup.
+                LocalWebServerService.stop(context)
+
+                val deadline = System.currentTimeMillis() + 15_000L
+                var state = LocalServerServiceStateStore.state.value
+                while (System.currentTimeMillis() < deadline &&
+                    state.status != LocalServerServiceStatus.STOPPED
+                ) {
+                    state.localUrl?.let(observedUrls::add)
+                    Thread.sleep(100)
+                    state = LocalServerServiceStateStore.state.value
+                }
+                state.localUrl?.let(observedUrls::add)
+                assertEquals(
+                    "Service must settle in STOPPED after rapid Start/Stop: ${state.message}",
+                    LocalServerServiceStatus.STOPPED,
+                    state.status
+                )
+            }
+
+            observedUrls.forEach { url ->
+                val result = runCatching {
+                    val connection = URL(url).openConnection() as HttpURLConnection
+                    connection.connectTimeout = 1_000
+                    connection.readTimeout = 1_000
+                    try { connection.responseCode } finally { connection.disconnect() }
+                }
+                assertTrue("Listener must be closed after rapid Stop: $url", result.isFailure)
+            }
+        } finally {
+            LocalWebServerService.stop(context)
+            activity.close()
+            projectRoot.deleteRecursively()
+        }
+    }
+
+    @Test
     fun secureFullstackZipStartsAndAnswersHealthCheck() {
         runStoreZip("clothing_store_secure_fullstack.zip")
     }
