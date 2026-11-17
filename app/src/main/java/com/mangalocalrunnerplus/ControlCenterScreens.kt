@@ -856,24 +856,32 @@ private fun LocalhostUrlCard(
             color = NovaRunPalette.TextPrimary
         )
 
-        TextButton(
-            onClick = {
-                val clipboard = context.getSystemService(
-                    android.content.Context.CLIPBOARD_SERVICE
-                ) as android.content.ClipboardManager
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(
+                onClick = {
+                    val clipboard = context.getSystemService(
+                        android.content.Context.CLIPBOARD_SERVICE
+                    ) as android.content.ClipboardManager
 
-                clipboard.setPrimaryClip(
-                    android.content.ClipData.newPlainText(
-                        label,
-                        url
+                    clipboard.setPrimaryClip(
+                        android.content.ClipData.newPlainText(label, url)
                     )
-                )
+                }
+            ) {
+                Text("COPY URL", color = NovaRunPalette.Lime)
             }
-        ) {
-            Text(
-                "COPY URL",
-                color = NovaRunPalette.Lime
-            )
+
+            TextButton(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        )
+                    }
+                }
+            ) {
+                Text("OPEN", color = NovaRunPalette.Cyan)
+            }
         }
     }
 }
