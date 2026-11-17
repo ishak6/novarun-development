@@ -86,6 +86,56 @@ class ClothingStoreZipRuntimeTest {
     }
 
     @Test
+    fun invalidLanPortDoesNotPreventLocalhostStartup() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val activity = ActivityScenario.launch(MainActivity::class.java)
+        val assetName = "clothing_store_nokshi_v1.5.3_professional.zip"
+        val projectRoot = instrumentation.context.assets.open(assetName).use { input ->
+            ZipProjectImporter.importZip(context, input, assetName, ZipImportLimits())
+        }
+
+        try {
+            LocalWebServerService.start(
+                context = context,
+                projectDirectory = projectRoot,
+                durationMillis = 60_000L,
+                port = 80,
+                authenticationEnabled = false
+            )
+
+            val deadline = System.currentTimeMillis() + 30_000L
+            var state = LocalServerServiceStateStore.state.value
+            while (System.currentTimeMillis() < deadline &&
+                state.status !in setOf(LocalServerServiceStatus.RUNNING, LocalServerServiceStatus.ERROR)
+            ) {
+                Thread.sleep(150)
+                state = LocalServerServiceStateStore.state.value
+            }
+
+            assertEquals(
+                "Invalid optional LAN port must not fail localhost startup: ${state.message}",
+                LocalServerServiceStatus.RUNNING,
+                state.status
+            )
+            assertTrue("Localhost URL must still be available", !state.localUrl.isNullOrBlank())
+            assertEquals("LAN URL must be absent when its port is invalid", null, state.lanUrl)
+            val response = get(state.localUrl!!)
+            assertEquals("Localhost must serve the project despite invalid LAN port", 200, response.first)
+        } finally {
+            LocalWebServerService.stop(context)
+            val stopDeadline = System.currentTimeMillis() + 10_000L
+            while (System.currentTimeMillis() < stopDeadline &&
+                LocalServerServiceStateStore.state.value.status != LocalServerServiceStatus.STOPPED
+            ) {
+                Thread.sleep(100)
+            }
+            activity.close()
+            projectRoot.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rapidStartStopDoesNotLeaveLocalhostListenerRunning() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
