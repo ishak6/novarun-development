@@ -54,23 +54,34 @@ object ZipProjectImporter {
     private const val MAX_ENTRY_NAME_LENGTH = 1024
     private const val BUFFER_SIZE = 8192
 
-    fun importZip(context: Context, uri: Uri, limits: ZipImportLimits = ZipImportLimits.from(context)): File {
+    fun importZip(
+        context: Context,
+        uri: Uri,
+        limits: ZipImportLimits = ZipImportLimits.from(context),
+        cancellationCheck: () -> Unit = {}
+    ): File {
+        cancellationCheck()
         val displayName = getZipName(context, uri)
         val input = context.contentResolver.openInputStream(uri)
             ?: throw IOException("Could not open selected ZIP file.")
         return input.use { stream ->
-            importZip(context, stream, displayName, limits)
+            importZip(context, stream, displayName, limits, cancellationCheck)
         }
     }
 
     // The stream entry point is shared by the OpenDocument picker and the
     // instrumentation tests, so tests exercise the production extraction path.
+    // The cancellation callback is checked between entries and decompression
+    // chunks. Any cancellation follows the same temporary-directory cleanup path
+    // as malformed archives and extraction-limit failures.
     internal fun importZip(
         context: Context,
         input: InputStream,
         displayName: String,
-        limits: ZipImportLimits = ZipImportLimits.from(context)
+        limits: ZipImportLimits = ZipImportLimits.from(context),
+        cancellationCheck: () -> Unit = {}
     ): File {
+        cancellationCheck()
         val safeLimits = limits.bounded()
         val projectsDir = File(context.filesDir, "projects")
 
@@ -104,6 +115,7 @@ object ZipProjectImporter {
                 var totalBytes = 0L
 
                 while (true) {
+                    cancellationCheck()
                     val entry = zip.nextEntry ?: break
                     entryCount++
 
@@ -152,6 +164,7 @@ object ZipProjectImporter {
                         var fileBytes = 0L
                         FileOutputStream(outputFile).use { output ->
                             while (true) {
+                                cancellationCheck()
                                 val count = zip.read(buffer)
                                 if (count == -1) break
 
@@ -178,6 +191,7 @@ object ZipProjectImporter {
                 }
             }
 
+            cancellationCheck()
             if (!tempDir.renameTo(finalDir)) {
                 throw IOException("Could not finalize imported project.")
             }
