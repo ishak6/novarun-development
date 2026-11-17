@@ -71,6 +71,7 @@ class LocalWebServerService : Service() {
     )
 
     private var server: LocalWebServer? = null
+    private var loopbackServer: LocalWebServer? = null
     private var startJob: Job? = null
 
     override fun onCreate() {
@@ -245,8 +246,21 @@ class LocalWebServerService : Service() {
 
             server = newServer
 
-            val localAddress =
-                "https://127.0.0.1:$port"
+            // This-device browser access uses loopback HTTP because Android browsers do not trust the app's self-signed LAN TLS certificate.
+            // The listener binds only to 127.0.0.1 and is not exposed to the LAN.
+            val loopback = withContext(Dispatchers.IO) {
+                (18080..18100).firstNotNullOfOrNull { candidatePort ->
+                    val candidate = LocalWebServer(
+                        projectDirectory = webRoot,
+                        port = candidatePort,
+                        bindToLan = false,
+                        defaultDocument = defaultDocument
+                    )
+                    if (candidate.start()) candidatePort to candidate else null
+                }
+            }
+            loopbackServer = loopback?.second
+            val localAddress = loopback?.first?.let { "http://127.0.0.1:$it/" }
 
             val lanAddress =
                 LocalWebServer.getLocalNetworkAddress()
@@ -348,6 +362,8 @@ class LocalWebServerService : Service() {
         withContext(Dispatchers.IO) {
             server?.stop()
             server = null
+            loopbackServer?.stop()
+            loopbackServer = null
         }
     }
 
@@ -368,6 +384,8 @@ class LocalWebServerService : Service() {
 
         server?.stop()
         server = null
+        loopbackServer?.stop()
+        loopbackServer = null
 
         LocalServerServiceStateStore.update(
             LocalServerServiceState(
@@ -474,6 +492,8 @@ class LocalWebServerService : Service() {
 
         server?.stop()
         server = null
+        loopbackServer?.stop()
+        loopbackServer = null
 
         val currentState =
             LocalServerServiceStateStore.state.value
