@@ -193,13 +193,6 @@ class LocalWebServerService : Service() {
                 return@launch
             }
 
-            if (port !in 1024..65535) {
-                setError("Invalid server port")
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-                return@launch
-            }
-
             // Resolve and validate the HTML entry point before opening a socket.
             val preview = ProjectPreviewValidator.validate(project)
             if (!preview.isValid || preview.projectRoot == null || preview.entryFile == null) {
@@ -260,7 +253,7 @@ class LocalWebServerService : Service() {
             var lanAddressUrl: String? = null
             var lanFailure: String? = null
 
-            if (!authenticationEnabled || !accessToken.isNullOrBlank()) {
+            if (port in 1024..65535 && (!authenticationEnabled || !accessToken.isNullOrBlank())) {
                 try {
                     val tlsIdentity = withContext(Dispatchers.IO) {
                         LanTlsIdentity.create(this@LocalWebServerService)
@@ -311,7 +304,11 @@ class LocalWebServerService : Service() {
                     lanFailure = "LAN TLS unavailable: ${error.message ?: "Keystore error"}"
                 }
             } else {
-                lanFailure = "LAN password is not configured"
+                lanFailure = if (port !in 1024..65535) {
+                    "LAN port must be between 1024 and 65535"
+                } else {
+                    "LAN password is not configured"
+                }
             }
 
             // Do not publish RUNNING if Stop/restart cancelled this startup while
