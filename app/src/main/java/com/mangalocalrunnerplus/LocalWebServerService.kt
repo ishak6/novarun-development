@@ -17,6 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -73,6 +75,7 @@ class LocalWebServerService : Service() {
     private var server: LocalWebServer? = null
     private var loopbackServer: LocalWebServer? = null
     private var startJob: Job? = null
+    private val serverLock = Any()
 
     override fun onCreate() {
         super.onCreate()
@@ -109,7 +112,7 @@ class LocalWebServerService : Service() {
                     DEFAULT_PORT
                 )
                 val authenticationEnabled = intent.getBooleanExtra(EXTRA_AUTH_ENABLED, true)
-                val credentials = if (authenticationEnabled) LanCredentialsStore.get(this) else null
+                val credentials = if (authenticationEnabled) LanCredentialsStore.getOrNull(this) else null
                 val accessToken = credentials?.password
                 val accessUsername = credentials?.username
 
@@ -169,6 +172,7 @@ class LocalWebServerService : Service() {
 
         startJob = serviceScope.launch {
 
+            val startCoroutineJob = currentCoroutineContext()[Job]
             stopExistingServer()
 
             val project = try {
@@ -217,9 +221,28 @@ class LocalWebServerService : Service() {
                         bindToLan = false,
                         defaultDocument = defaultDocument
                     )
-                    if (candidate.start()) candidatePort to candidate else null
+                    if (candidate.start()) {
+                        val adopted = synchronized(serverLock) {
+                            if (startCoroutineJob?.isActive == true) {
+                                loopbackServer = candidate
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        if (adopted) {
+                            candidatePort to candidate
+                        } else {
+                            candidate.stop()
+                            null
+                        }
+                    } else {
+                        null
+                    }
                 }
             }
+
+            if (!currentCoroutineContext().isActive) return@launch
 
             if (loopback == null) {
                 setError("Could not start localhost server. Ports 18080–18100 are unavailable.")
@@ -228,7 +251,6 @@ class LocalWebServerService : Service() {
                 return@launch
             }
 
-            loopbackServer = loopback.second
             val localAddress = "http://127.0.0.1:${loopback.first}/"
 
             // LAN hosting is optional and independent. A missing password,
@@ -367,10 +389,12 @@ class LocalWebServerService : Service() {
     private suspend fun stopExistingServer() {
 
         withContext(Dispatchers.IO) {
-            server?.stop()
-            server = null
-            loopbackServer?.stop()
-            loopbackServer = null
+            synchronized(serverLock) {
+                server?.stop()
+                server = null
+                loopbackServer?.stop()
+                loopbackServer = null
+            }
         }
     }
 
@@ -389,10 +413,12 @@ class LocalWebServerService : Service() {
         startJob?.cancel()
         startJob = null
 
-        server?.stop()
-        server = null
-        loopbackServer?.stop()
-        loopbackServer = null
+        synchronized(serverLock) {
+            server?.stop()
+            server = null
+            loopbackServer?.stop()
+            loopbackServer = null
+        }
 
         LocalServerServiceStateStore.update(
             LocalServerServiceState(
@@ -566,7 +592,7 @@ class LocalWebServerService : Service() {
             authenticationEnabled: Boolean = true
         ) {
 
-            val credentials = if (authenticationEnabled) LanCredentialsStore.get(context) else null
+            val credentials = if (authenticationEnabled) LanCredentialsStore.getOrNull(context) else null
             val accessToken = credentials?.password
             LocalServerServiceStateStore.update(
                 LocalServerServiceState(
