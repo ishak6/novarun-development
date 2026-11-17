@@ -260,7 +260,7 @@ class LocalWebServerService : Service() {
 
                     if (lanStarted) {
                         server = lanServer
-                        tlsFingerprint = tlsFingerprint
+                        tlsFingerprint = tlsIdentity.sha256Fingerprint
                         val lanAddress = LocalWebServer.getLocalNetworkAddress()
                         lanAddressUrl = lanAddress?.let { "https://$it:$port" }
                         if (lanAddressUrl == null) {
@@ -309,7 +309,7 @@ class LocalWebServerService : Service() {
                     accessPassword = accessToken,
                     accessUsername = accessUsername,
                     authenticationEnabled = authenticationEnabled,
-                    tlsFingerprint = tlsIdentity.sha256Fingerprint
+                    tlsFingerprint = tlsFingerprint
                 )
             )
 
