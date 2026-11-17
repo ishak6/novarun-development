@@ -119,11 +119,8 @@ class LocalWebServerService : Service() {
                     return START_NOT_STICKY
                 }
 
-                if (authenticationEnabled && accessToken.isNullOrBlank()) {
-                    setError("LAN access token is missing")
-                    stopSelf()
-                    return START_NOT_STICKY
-                }
+                // Missing LAN credentials must not block this-device localhost hosting.
+                // LAN hosting is simply skipped until credentials are available.
 
                 showForegroundNotification(
                     "Starting NovaRun LAN server..."
@@ -132,7 +129,7 @@ class LocalWebServerService : Service() {
                 LocalServerServiceStateStore.update(
                     LocalServerServiceState(
                         status = LocalServerServiceStatus.STARTING,
-                        message = "Starting HTTPS LAN server...",
+                        message = "Starting local preview server...",
                         port = port,
                         accessPassword = accessToken,
                         accessUsername = accessUsername,
@@ -210,44 +207,8 @@ class LocalWebServerService : Service() {
             val webRoot = preview.projectRoot
             val defaultDocument = preview.entryFile.name
 
-            val tlsIdentity = try {
-                withContext(Dispatchers.IO) {
-                    LanTlsIdentity.create(this@LocalWebServerService)
-                }
-            } catch (error: Exception) {
-                setError("Could not prepare HTTPS identity: ${error.message ?: "Android Keystore error"}")
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-                return@launch
-            }
-
-            val newServer = LocalWebServer(
-                projectDirectory = webRoot,
-                port = port,
-                bindToLan = true,
-                accessToken = accessToken,
-                accessUsername = accessUsername ?: "novarun",
-                sslContext = tlsIdentity.sslContext,
-                defaultDocument = defaultDocument
-            )
-
-            val started = withContext(Dispatchers.IO) {
-                newServer.start()
-            }
-
-            if (!started) {
-                setError(
-                    "Could not bind HTTPS server to port $port. It may already be in use, or Android could not open the TLS socket. Try another port."
-                )
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-                return@launch
-            }
-
-            server = newServer
-
-            // This-device browser access uses loopback HTTP because Android browsers do not trust the app's self-signed LAN TLS certificate.
-            // The listener binds only to 127.0.0.1 and is not exposed to the LAN.
+            // Start the loopback listener first. It is the required service for
+            // this-device preview and has no dependency on LAN TLS or Wi-Fi.
             val loopback = withContext(Dispatchers.IO) {
                 (18080..18100).firstNotNullOfOrNull { candidatePort ->
                     val candidate = LocalWebServer(
@@ -259,18 +220,67 @@ class LocalWebServerService : Service() {
                     if (candidate.start()) candidatePort to candidate else null
                 }
             }
-            loopbackServer = loopback?.second
-            val localAddress = loopback?.first?.let { "http://127.0.0.1:$it/" }
 
-            val lanAddress =
-                LocalWebServer.getLocalNetworkAddress()
-
-            val lanAddressUrl = lanAddress?.let {
-                "https://$it:$port"
+            if (loopback == null) {
+                setError("Could not start localhost server. Ports 18080–18100 are unavailable.")
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return@launch
             }
 
-            val primaryUrl =
-                lanAddressUrl ?: localAddress
+            loopbackServer = loopback.second
+            val localAddress = "http://127.0.0.1:${loopback.first}/"
+
+            // LAN hosting is optional and independent. A missing password,
+            // Keystore failure, unavailable Wi-Fi interface, or occupied LAN
+            // port must not stop the localhost server.
+            var tlsFingerprint: String? = null
+            var lanAddressUrl: String? = null
+            var lanFailure: String? = null
+
+            if (!authenticationEnabled || !accessToken.isNullOrBlank()) {
+                try {
+                    val tlsIdentity = withContext(Dispatchers.IO) {
+                        LanTlsIdentity.create(this@LocalWebServerService)
+                    }
+
+                    val lanServer = LocalWebServer(
+                        projectDirectory = webRoot,
+                        port = port,
+                        bindToLan = true,
+                        accessToken = accessToken,
+                        accessUsername = accessUsername ?: "novarun",
+                        sslContext = tlsIdentity.sslContext,
+                        defaultDocument = defaultDocument
+                    )
+
+                    val lanStarted = withContext(Dispatchers.IO) {
+                        lanServer.start()
+                    }
+
+                    if (lanStarted) {
+                        server = lanServer
+                        tlsFingerprint = tlsFingerprint
+                        val lanAddress = LocalWebServer.getLocalNetworkAddress()
+                        lanAddressUrl = lanAddress?.let { "https://$it:$port" }
+                        if (lanAddressUrl == null) {
+                            lanServer.stop()
+                            server = null
+                            lanFailure = "LAN IP unavailable"
+                        }
+                    } else {
+                        lanFailure = "LAN port $port could not be opened"
+                    }
+                } catch (error: Exception) {
+                    lanFailure = "LAN TLS unavailable: ${error.message ?: "Keystore error"}"
+                }
+            } else {
+                lanFailure = "LAN password is not configured"
+            }
+
+            // Localhost is the primary URL on this device. LAN URL is separately
+            // exposed only when its HTTPS listener is actually running.
+            val primaryUrl = localAddress
 
             val startTime = SystemClock.elapsedRealtime()
 
@@ -284,13 +294,10 @@ class LocalWebServerService : Service() {
                 LocalServerServiceState(
                     status = LocalServerServiceStatus.RUNNING,
                     message = if (lanAddressUrl != null) {
-                        if (durationMillis == 0L) {
-                            "HTTPS LAN server running - Unlimited"
-                        } else {
-                            "HTTPS LAN server running"
-                        }
+                        if (durationMillis == 0L) "Localhost and HTTPS LAN server running - Unlimited"
+                        else "Localhost and HTTPS LAN server running"
                     } else {
-                        "HTTPS server running. LAN IP unavailable."
+                        "Localhost running. ${lanFailure ?: "LAN hosting unavailable"}."
                     },
                     projectName = project.name,
                     url = primaryUrl,
@@ -308,9 +315,9 @@ class LocalWebServerService : Service() {
 
             showForegroundNotification(
                 if (lanAddressUrl != null) {
-                    "HTTPS LAN server running on port $port"
+                    "Localhost and HTTPS LAN server running"
                 } else {
-                    "HTTPS server running. LAN IP unavailable."
+                    "Localhost server running; LAN unavailable"
                 }
             )
 
@@ -330,9 +337,9 @@ class LocalWebServerService : Service() {
                         LocalServerServiceState(
                             status = LocalServerServiceStatus.RUNNING,
                             message = if (lanAddressUrl != null) {
-                                "HTTPS LAN server running"
+                                "Localhost and HTTPS LAN server running"
                             } else {
-                                "Server running. LAN IP unavailable."
+                                "Localhost running. ${lanFailure ?: "LAN hosting unavailable"}."
                             },
                             projectName = project.name,
                             url = primaryUrl,
@@ -344,7 +351,7 @@ class LocalWebServerService : Service() {
                             accessPassword = accessToken,
                             accessUsername = accessUsername,
                             authenticationEnabled = authenticationEnabled,
-                            tlsFingerprint = tlsIdentity.sha256Fingerprint
+                            tlsFingerprint = tlsFingerprint
                         )
                     )
 
