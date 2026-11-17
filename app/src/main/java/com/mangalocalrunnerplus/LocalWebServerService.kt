@@ -15,6 +15,7 @@ import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
@@ -269,7 +270,9 @@ class LocalWebServerService : Service() {
                         defaultDocument = defaultDocument
                     )
 
-                    val lanStarted = withContext(Dispatchers.IO) {
+                    // Finish the blocking bind attempt even if the parent job is
+                    // cancelled, so we can deterministically close an unadopted socket.
+                    val lanStarted = withContext(NonCancellable + Dispatchers.IO) {
                         lanServer.start()
                     }
 
