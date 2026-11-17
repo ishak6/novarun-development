@@ -829,7 +829,7 @@ fun NovaRunLocalhostScreen(project: File?, onOpenNodePreview: (String) -> Unit =
             )
 
             Text(
-                "LAN URL অন্য ডিভাইসে খুলতে হলে দুই ডিভাইস একই Wi-Fi/Hotspot-এ থাকতে হবে। Router client isolation বা firewall থাকলে LAN access বন্ধ থাকতে পারে। LAN server-এ Basic Authentication চালু থাকে: username novarun এবং উপরের session password দিতে হবে। HTTP হওয়ায় একই নেটওয়ার্কে traffic encrypted নয়—শুধু বিশ্বস্ত private network-এ ব্যবহার করুন।",
+                "LAN URL অন্য ডিভাইসে খুলতে হলে দুই ডিভাইস একই Wi-Fi/Hotspot-এ থাকতে হবে। Router client isolation বা firewall থাকলে LAN access বন্ধ থাকতে পারে। LAN HTTPS ব্যবহার করে এবং certificate self-signed; browser trust warning দেখাতে পারে। Authentication চালু থাকলে উপরে দেখানো username ও session password দিন। শুধু বিশ্বস্ত private network-এ ব্যবহার করুন।",
                 color = ControlMuted,
                 fontSize = 12.sp
             )
