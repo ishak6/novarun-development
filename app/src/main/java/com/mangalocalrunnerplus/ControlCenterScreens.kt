@@ -782,7 +782,7 @@ fun NovaRunLocalhostScreen(project: File?, onOpenNodePreview: (String) -> Unit =
             }
         }
 
-        state.url?.let { url ->
+        (state.localUrl ?: state.url)?.let { url ->
             Button(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RectangleShape,
@@ -809,7 +809,7 @@ fun NovaRunLocalhostScreen(project: File?, onOpenNodePreview: (String) -> Unit =
                     }
                 }
             ) {
-                Text("Open in External Browser")
+                Text("Open on This Device")
             }
         }
 
