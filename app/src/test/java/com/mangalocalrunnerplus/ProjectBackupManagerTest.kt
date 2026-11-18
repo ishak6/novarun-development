@@ -99,8 +99,8 @@ class ProjectBackupManagerTest {
     @Test
     fun backupUsesImportCompatibleHardLimits() {
         val limits = ProjectBackupManager.Limits()
-        assertEquals(ZipProjectImporter.HARD_MAX_ENTRIES, limits.maxEntries)
-        assertEquals(ZipProjectImporter.HARD_MAX_TOTAL_BYTES, limits.maxTotalBytes)
-        assertEquals(ZipProjectImporter.HARD_MAX_SINGLE_FILE_BYTES, limits.maxSingleFileBytes)
+        assertEquals(ZipImportLimits.HARD_MAX_ENTRIES, limits.maxEntries)
+        assertEquals(ZipImportLimits.HARD_MAX_TOTAL_BYTES, limits.maxTotalBytes)
+        assertEquals(ZipImportLimits.HARD_MAX_SINGLE_FILE_BYTES, limits.maxSingleFileBytes)
     }
 }
