@@ -293,7 +293,7 @@ class LocalWebServerService : Service() {
                         }
                         if (adopted) {
                             tlsFingerprint = tlsIdentity.sha256Fingerprint
-                            val lanAddress = LocalWebServer.getLocalNetworkAddress()
+                            val lanAddress = LanNetworkAddress.find(this@LocalWebServerService)
                             lanAddressUrl = lanAddress?.let { "https://$it:$port" }
                             if (lanAddressUrl == null) {
                                 synchronized(serverLock) {
