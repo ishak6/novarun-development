@@ -68,8 +68,6 @@ fun WebPreviewScreen(
     var externalNetworkAllowed by remember(projectDirectory.absolutePath) {
         mutableStateOf(WebPreviewPreferenceStore.isExternalNetworkAllowed(context, projectDirectory))
     }
-    val externalNetworkPolicy = remember { AtomicBoolean(externalNetworkAllowed) }
-    val allowedPortPolicy = remember { AtomicInteger(0) }
     val projectRoot = validation.projectRoot
 
     var previewServer by remember(projectDirectory) {
@@ -163,6 +161,8 @@ fun WebPreviewScreen(
 
     val backendUri = remember(nodeServerUrl) { nodeServerUrl?.let(Uri::parse) }
     val allowedPort = backendUri?.port ?: previewPort
+    val externalNetworkPolicy = remember { AtomicBoolean(externalNetworkAllowed) }
+    val allowedPortPolicy = remember { AtomicInteger(allowedPort) }
     SideEffect {
         externalNetworkPolicy.set(externalNetworkAllowed)
         allowedPortPolicy.set(allowedPort)
@@ -232,13 +232,6 @@ fun WebPreviewScreen(
             ) {
                 Text("JavaScript: " + if (javascriptEnabled) "ON" else "OFF")
             }
-            if (javascriptEnabled) {
-                Text(
-                    "Run trusted project scripts only.",
-                    color = Color(0xFFFF9F0A),
-                    fontSize = 10.sp
-                )
-            }
             TextButton(
                 onClick = {
                     val next = !externalNetworkAllowed
@@ -250,6 +243,13 @@ fun WebPreviewScreen(
             ) {
                 Text("Network: " + if (externalNetworkAllowed) "HTTPS ON" else "LOCAL ONLY")
             }
+        }
+        if (javascriptEnabled) {
+            Text(
+                "Run trusted project scripts only.",
+                color = Color(0xFFFF9F0A),
+                fontSize = 10.sp
+            )
         }
         if (externalNetworkAllowed) {
             Text(
