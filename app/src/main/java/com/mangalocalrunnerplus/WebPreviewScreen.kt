@@ -6,6 +6,7 @@ import android.net.Uri
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -27,6 +28,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,7 +41,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -60,6 +65,11 @@ fun WebPreviewScreen(
     var javascriptEnabled by remember(projectDirectory.absolutePath) {
         mutableStateOf(WebPreviewPreferenceStore.isJavaScriptEnabled(context, projectDirectory))
     }
+    var externalNetworkAllowed by remember(projectDirectory.absolutePath) {
+        mutableStateOf(WebPreviewPreferenceStore.isExternalNetworkAllowed(context, projectDirectory))
+    }
+    val externalNetworkPolicy = remember { AtomicBoolean(externalNetworkAllowed) }
+    val allowedPortPolicy = remember { AtomicInteger(0) }
     val projectRoot = validation.projectRoot
 
     var previewServer by remember(projectDirectory) {
@@ -153,6 +163,10 @@ fun WebPreviewScreen(
 
     val backendUri = remember(nodeServerUrl) { nodeServerUrl?.let(Uri::parse) }
     val allowedPort = backendUri?.port ?: previewPort
+    SideEffect {
+        externalNetworkPolicy.set(externalNetworkAllowed)
+        allowedPortPolicy.set(allowedPort)
+    }
     val previewUrl = nodeServerUrl ?: if (previewServer != null && previewPort > 0) {
         "http://127.0.0.1:$previewPort/"
     } else {
@@ -225,6 +239,24 @@ fun WebPreviewScreen(
                     fontSize = 10.sp
                 )
             }
+            TextButton(
+                onClick = {
+                    val next = !externalNetworkAllowed
+                    externalNetworkAllowed = next
+                    WebPreviewPreferenceStore.setExternalNetworkAllowed(context, projectDirectory, next)
+                    reloadKey++
+                },
+                enabled = previewUrl != null
+            ) {
+                Text("Network: " + if (externalNetworkAllowed) "HTTPS ON" else "LOCAL ONLY")
+            }
+        }
+        if (externalNetworkAllowed) {
+            Text(
+                "External HTTPS resources are allowed and may send project data to remote servers.",
+                color = Color(0xFFFF9F0A),
+                fontSize = 10.sp
+            )
         }
 
         if (nodeServerUrl != null) {
@@ -333,7 +365,34 @@ fun WebPreviewScreen(
                                     request: WebResourceRequest?
                                 ): Boolean {
                                     val uri = request?.url ?: return true
-                                    return !isAllowedPreviewUrl(uri, allowedPort)
+                                    return !PreviewUrlPolicy.isAllowed(
+                                        uri,
+                                        allowedPortPolicy.get(),
+                                        externalNetworkPolicy.get()
+                                    )
+                                }
+
+                                override fun shouldInterceptRequest(
+                                    view: WebView?,
+                                    request: WebResourceRequest?
+                                ): WebResourceResponse? {
+                                    val uri = request?.url ?: return null
+                                    if (!PreviewUrlPolicy.isAllowed(
+                                            uri,
+                                            allowedPortPolicy.get(),
+                                            externalNetworkPolicy.get()
+                                        )
+                                    ) {
+                                        return WebResourceResponse(
+                                            "text/plain",
+                                            "UTF-8",
+                                            403,
+                                            "Blocked by NovaRun preview policy",
+                                            mapOf("Cache-Control" to "no-store"),
+                                            ByteArrayInputStream(ByteArray(0))
+                                        )
+                                    }
+                                    return super.shouldInterceptRequest(view, request)
                                 }
 
                                 override fun onReceivedError(
@@ -389,8 +448,3 @@ fun WebPreviewScreen(
     }
 }
 
-private fun isAllowedPreviewUrl(uri: Uri, allowedPort: Int): Boolean {
-    if (allowedPort !in 1..65535 || uri.scheme != "http") return false
-    val hostAllowed = uri.host == "127.0.0.1" || uri.host == "localhost"
-    return hostAllowed && uri.port == allowedPort
-}
