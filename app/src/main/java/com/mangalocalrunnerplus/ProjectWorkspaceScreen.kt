@@ -1,6 +1,8 @@
 
 package com.mangalocalrunnerplus
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,7 +23,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 
 private val WorkspaceBackground
     get() = NovaRunPalette.Background
@@ -40,6 +46,39 @@ fun ProjectWorkspaceScreen(
     onProjectSelected: (File) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var backupTarget by remember { mutableStateOf<File?>(null) }
+    val backupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        val project = backupTarget
+        backupTarget = null
+        if (uri != null && project != null) {
+            scope.launch {
+                val result = runCatching {
+                    withContext(Dispatchers.IO) {
+                        val archive = ProjectBackupManager.createBackup(project, context.cacheDir)
+                        try {
+                            val output = context.contentResolver.openOutputStream(uri, "w")
+                                ?: throw IOException("Could not open the selected backup destination.")
+                            output.use { destination ->
+                                archive.inputStream().use { input -> input.copyTo(destination) }
+                            }
+                        } finally {
+                            archive.delete()
+                        }
+                    }
+                }
+                message = result.fold(
+                    onSuccess = { "Backup saved: ${project.name}.zip. To restore it, choose Home > Import ZIP; NovaRun restores it as a separate project so the current project is not overwritten." },
+                    onFailure = { "Backup failed: ${it.message ?: "Unknown error"}" }
+                )
+            }
+        } else if (uri == null) {
+            message = "Backup cancelled."
+        }
+    }
 
     var projects by remember { mutableStateOf(emptyList<File>()) }
     var searchText by remember { mutableStateOf("") }
@@ -170,6 +209,12 @@ fun ProjectWorkspaceScreen(
             Text("New Project", fontWeight = FontWeight.Bold)
         }
 
+        Text(
+            "Backup a project from its card. Restore a backup with Home > Import ZIP; it creates a separate project and does not overwrite existing files.",
+            color = WorkspaceMuted,
+            fontSize = 11.sp
+        )
+
         Spacer(Modifier.height(14.dp))
 
         OutlinedTextField(
@@ -248,6 +293,10 @@ fun ProjectWorkspaceScreen(
                     ProjectCard(
                         project = project,
                         onOpen = { onProjectSelected(project) },
+                        onBackup = {
+                            backupTarget = project
+                            backupLauncher.launch(project.name.replace(Regex("[^A-Za-z0-9._-]"), "_") + "_backup.zip")
+                        },
                         onDelete = { projectToDelete = project }
                     )
                 }
@@ -360,6 +409,7 @@ fun ProjectWorkspaceScreen(
 private fun ProjectCard(
     project: File,
     onOpen: () -> Unit,
+    onBackup: () -> Unit,
     onDelete: () -> Unit
 ) {
     val size = ProjectRepository.formatSize(
@@ -490,6 +540,9 @@ private fun ProjectCard(
                     php.warnings.firstOrNull()?.let { warning ->
                         Text(warning, color = NovaRunPalette.Warning, fontSize = 9.sp, maxLines = 2)
                     }
+                }
+                TextButton(onClick = onBackup) {
+                    Text("BACKUP ZIP", color = WorkspaceBlue, fontSize = 11.sp)
                 }
             }
 
