@@ -1,0 +1,22 @@
+package com.mangalocalrunnerplus
+
+import android.content.Context
+import java.io.File
+
+object WebPreviewPreferenceStore {
+    private const val PREFERENCES = "novarun_preview"
+    private const val KEY_PREFIX = "javascript_enabled_"
+
+    fun isJavaScriptEnabled(context: Context, projectDirectory: File): Boolean =
+        preferences(context).getBoolean(key(projectDirectory), true)
+
+    fun setJavaScriptEnabled(context: Context, projectDirectory: File, enabled: Boolean) {
+        preferences(context).edit().putBoolean(key(projectDirectory), enabled).apply()
+    }
+
+    private fun preferences(context: Context) =
+        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+
+    private fun key(projectDirectory: File): String =
+        KEY_PREFIX + projectDirectory.absolutePath.hashCode()
+}
