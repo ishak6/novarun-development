@@ -17,14 +17,14 @@ object ProjectBackupManager {
     private const val BUFFER_SIZE = 8192
 
     data class Limits(
-        val maxEntries: Int = ZipProjectImporter.HARD_MAX_ENTRIES,
-        val maxTotalBytes: Long = ZipProjectImporter.HARD_MAX_TOTAL_BYTES,
-        val maxSingleFileBytes: Long = ZipProjectImporter.HARD_MAX_SINGLE_FILE_BYTES
+        val maxEntries: Int = ZipImportLimits.HARD_MAX_ENTRIES,
+        val maxTotalBytes: Long = ZipImportLimits.HARD_MAX_TOTAL_BYTES,
+        val maxSingleFileBytes: Long = ZipImportLimits.HARD_MAX_SINGLE_FILE_BYTES
     ) {
         init {
-            require(maxEntries in 1..ZipProjectImporter.HARD_MAX_ENTRIES)
-            require(maxTotalBytes in 1..ZipProjectImporter.HARD_MAX_TOTAL_BYTES)
-            require(maxSingleFileBytes in 1..ZipProjectImporter.HARD_MAX_SINGLE_FILE_BYTES)
+            require(maxEntries in 1..ZipImportLimits.HARD_MAX_ENTRIES)
+            require(maxTotalBytes in 1..ZipImportLimits.HARD_MAX_TOTAL_BYTES)
+            require(maxSingleFileBytes in 1..ZipImportLimits.HARD_MAX_SINGLE_FILE_BYTES)
         }
     }
 
