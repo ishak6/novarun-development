@@ -78,6 +78,7 @@ fun NovaRunApp() {
     var selectedProject by remember { mutableStateOf<File?>(null) }
     var nodePreviewUrl by remember { mutableStateOf<String?>(null) }
     var selectedFile by remember { mutableStateOf<File?>(null) }
+    var selectedImageFile by remember { mutableStateOf<File?>(null) }
     var showProjectDialog by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
 
@@ -110,6 +111,11 @@ fun NovaRunApp() {
 
             showExitDialog -> {
                 showExitDialog = false
+            }
+
+            selectedTab == 11 -> {
+                selectedImageFile = null
+                selectedTab = 9
             }
 
             selectedTab == 10 -> {
@@ -284,8 +290,13 @@ fun NovaRunApp() {
                         ProjectFileExplorer(
                             projectRoot = project,
                             onFileSelected = { file ->
-                                selectedFile = file
-                                selectedTab = 10
+                                if (ProjectImageFiles.isPreviewable(file)) {
+                                    selectedImageFile = file
+                                    selectedTab = 11
+                                } else {
+                                    selectedFile = file
+                                    selectedTab = 10
+                                }
                             }
                         )
                     } else {
@@ -294,6 +305,25 @@ fun NovaRunApp() {
                             description =
                                 "Select a project before opening File Explorer.",
                             icon = Icons.Default.Folder
+                        )
+                    }
+                }
+
+                11 -> {
+                    val imageFile = selectedImageFile
+                    if (imageFile != null && imageFile.exists() && imageFile.isFile) {
+                        ProjectImagePreviewScreen(
+                            file = imageFile,
+                            onBack = {
+                                selectedImageFile = null
+                                selectedTab = 9
+                            }
+                        )
+                    } else {
+                        SimpleScreen(
+                            title = "Image Not Available",
+                            description = "The selected image no longer exists or cannot be read.",
+                            icon = Icons.Default.Visibility
                         )
                     }
                 }
