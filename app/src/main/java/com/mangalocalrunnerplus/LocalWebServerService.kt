@@ -89,6 +89,16 @@ class LocalWebServerService : Service() {
         startId: Int
     ): Int {
 
+        // Every startForegroundService() request must be promoted immediately,
+        // even if a Stop intent races ahead of the queued Start intent.
+        showForegroundNotification(
+            if (intent?.action == ACTION_STOP) {
+                "Stopping NovaRun local server..."
+            } else {
+                "Starting NovaRun local server..."
+            }
+        )
+
         when (intent?.action) {
 
             ACTION_STOP -> {
@@ -125,10 +135,6 @@ class LocalWebServerService : Service() {
 
                 // Missing LAN credentials must not block this-device localhost hosting.
                 // LAN hosting is simply skipped until credentials are available.
-
-                showForegroundNotification(
-                    "Starting NovaRun LAN server..."
-                )
 
                 LocalServerServiceStateStore.update(
                     LocalServerServiceState(
