@@ -30,6 +30,25 @@ class ProjectRepositoryRuntimeTest {
     }
 
     @Test
+    fun deletingProjectDoesNotFollowNestedExternalSymlinks() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val name = "RepositorySymlinkDelete-" + System.currentTimeMillis()
+        val project = ProjectRepository.createProject(context, name)
+        val outside = File(context.cacheDir, "novarun-repository-outside-" + System.currentTimeMillis()).apply {
+            mkdirs()
+        }
+        File(outside, "keep.txt").writeText("must survive project deletion")
+        try {
+            Files.createSymbolicLink(File(project, "external").toPath(), outside.toPath())
+            assertTrue(ProjectRepository.deleteProject(context, name))
+            assertTrue("External target must survive project deletion", File(outside, "keep.txt").exists())
+        } finally {
+            project.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
+    @Test
     fun workspaceDoesNotListOrDeleteProjectSymlinksOutsideItsRoot() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val projects = File(context.filesDir, "projects").apply { mkdirs() }
