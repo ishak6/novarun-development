@@ -28,6 +28,7 @@ class LocalWebServer(
     private val projectDirectory: File,
     private val port: Int = 8080,
     private val bindToLan: Boolean = false,
+    private val lanBindAddress: InetAddress? = null,
     private val accessToken: String? = null,
     private val accessUsername: String = "novarun",
     private val sslContext: SSLContext? = null,
@@ -70,18 +71,27 @@ class LocalWebServer(
             defaultDocument.contains('/') || defaultDocument.contains('\\')
         ) return false
 
-        // Never expose a project on the LAN over plaintext HTTP.
-        // Loopback-only preview may still use HTTP for local browser access.
-        if (bindToLan && sslContext == null) {
-            return false
+        // LAN mode must bind only to the selected private network address.
+        // A wildcard bind could also expose the project on unrelated interfaces.
+        if (bindToLan) {
+            val address = lanBindAddress ?: return false
+            if (
+                address.isAnyLocalAddress ||
+                address.isLinkLocalAddress ||
+                address.isMulticastAddress ||
+                (!address.isLoopbackAddress && !address.isSiteLocalAddress) ||
+                sslContext == null
+            ) {
+                return false
+            }
         }
 
         return try {
 
-            // LAN mode listens on all network interfaces.
+            // LAN mode listens only on the chosen Wi-Fi or hotspot address.
             // Local-only mode listens only on localhost.
             val bindAddress = if (bindToLan) {
-                InetAddress.getByName("0.0.0.0")
+                requireNotNull(lanBindAddress)
             } else {
                 InetAddress.getByName("127.0.0.1")
             }
