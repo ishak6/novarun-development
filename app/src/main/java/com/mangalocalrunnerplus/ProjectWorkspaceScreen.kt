@@ -91,6 +91,18 @@ fun ProjectWorkspaceScreen(
         projects = ProjectRepository.getProjects(context)
     }
 
+    val launchRestoreBackup = rememberZipImportLauncher { result ->
+        result.fold(
+            onSuccess = { restored ->
+                refreshProjects()
+                message = "Backup restored as a separate project: ${restored.name}. Your existing projects were not overwritten."
+            },
+            onFailure = { error ->
+                message = "Restore failed: ${error.message ?: "Could not import backup ZIP."}"
+            }
+        )
+    }
+
     fun createProject() {
         val project = try {
             ProjectRepository.createProject(context, newProjectName)
@@ -168,8 +180,19 @@ fun ProjectWorkspaceScreen(
             Text("New Project", fontWeight = FontWeight.Bold)
         }
 
+        OutlinedButton(
+            onClick = launchRestoreBackup,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = WorkspaceBlue)
+        ) {
+            Text("RESTORE BACKUP / IMPORT ZIP", fontWeight = FontWeight.SemiBold)
+        }
+
+        Spacer(Modifier.height(10.dp))
+
         Text(
-            "Backup a project from its card. Restore a backup with Home > Import ZIP; it creates a separate project and does not overwrite existing files.",
+            "Backup from a project card. Restore creates a separate project; existing files are never overwritten.",
             color = WorkspaceMuted,
             fontSize = 11.sp
         )
