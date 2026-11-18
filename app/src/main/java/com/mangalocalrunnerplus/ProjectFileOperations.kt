@@ -10,7 +10,7 @@ object ProjectFileNamePolicy {
         require(name.isNotEmpty()) { "Name cannot be empty." }
         require(name.length <= 255) { "File or folder name must be 255 characters or fewer." }
         require(name != "." && name != "..") { "Dot path segments are not valid names." }
-        require(name.none { it.isISOControl() || it in "/\\:*?\"<>|" }) {
+        require(name.none { Character.isISOControl(it) || it in "/\\:*?\"<>|" }) {
             "Name contains a path separator or unsupported character."
         }
         return name
