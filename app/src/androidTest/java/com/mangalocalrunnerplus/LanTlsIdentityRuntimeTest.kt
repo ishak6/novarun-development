@@ -23,7 +23,11 @@ class LanTlsIdentityRuntimeTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val identity = LanTlsIdentity.create(context)
         val fingerprint = identity.sha256Fingerprint
-        assertEquals("EC", (LanTlsIdentity.create(context).sslContext.socketFactory as javax.net.ssl.SSLSocketFactory).let { "EC" })
+        val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val certificate = keyStore.getCertificate(
+            "novarun_${context.packageName}_lan_tls_identity_v3"
+        ) as X509Certificate
+        assertEquals("EC", certificate.publicKey.algorithm)
 
         assertTrue(
             "Keystore certificate fingerprint must be a SHA-256 hex digest",
