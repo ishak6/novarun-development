@@ -311,6 +311,7 @@ fun NodeBackendRunnerCard(project: File?, onOpenPreview: (String) -> Unit = {}) 
             OutlinedTextField(value = portText, onValueChange = { if (it.length <= 5 && it.all(Char::isDigit)) portText = it },
                 label = { Text("Node server port") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Text("Uses Node.js 24.22.1 full runtime with built-in SQLite. Both supplied store ZIPs have no npm dependencies. child_process/cluster are unsupported.", color = NovaRunPalette.TextSecondary, fontSize = 11.sp)
+            Text("SECURITY: Node project code runs with NovaRun's Android app permissions and can access app-private files. It is not sandboxed. Run trusted projects only.", color = NovaRunPalette.Warning, fontSize = 11.sp)
             Text("First admin setup token appears in SERVER LOG on first launch. Keep it private.", color = NovaRunPalette.Warning, fontSize = 11.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = project != null && state.status !in setOf("STARTING", "RUNNING"),
