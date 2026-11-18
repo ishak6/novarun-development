@@ -4,7 +4,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.net.ServerSocket
-import java.net.Socket
 import java.nio.file.Files
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -42,7 +41,8 @@ class LanTlsIdentityRuntimeTest {
             projectDirectory = root,
             port = port,
             bindToLan = true,
-            sslContext = identity.sslContext
+            sslContext = identity.sslContext,
+            tlsProtocols = identity.enabledProtocols
         )
         val trustOnlyExpectedCertificate = object : X509TrustManager {
             override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
@@ -63,19 +63,23 @@ class LanTlsIdentityRuntimeTest {
 
         try {
             assertTrue("TLS listener must start with the Android Keystore identity", server.start())
-            val response = (clientContext.socketFactory
-                .createSocket("127.0.0.1", port) as SSLSocket).use { socket ->
-                socket.soTimeout = 5_000
-                socket.startHandshake()
-                socket.getOutputStream().write(
-                    "GET /index.html HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
-                        .toByteArray(Charsets.US_ASCII)
-                )
-                socket.getInputStream().bufferedReader().readText()
-            }
+            assertTrue("TLS 1.2 must remain enabled", "TLSv1.2" in identity.enabledProtocols)
+            identity.enabledProtocols.forEach { protocol ->
+                val response = (clientContext.socketFactory
+                    .createSocket("127.0.0.1", port) as SSLSocket).use { socket ->
+                    socket.enabledProtocols = arrayOf(protocol)
+                    socket.soTimeout = 5_000
+                    socket.startHandshake()
+                    socket.getOutputStream().write(
+                        "GET /index.html HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+                            .toByteArray(Charsets.US_ASCII)
+                    )
+                    socket.getInputStream().bufferedReader().readText()
+                }
 
-            assertTrue("TLS response must return HTTP 200", response.startsWith("HTTP/1.1 200 OK"))
-            assertTrue("TLS response must serve the selected project", response.contains("android-keystore-tls-ok"))
+                assertTrue("$protocol response must return HTTP 200", response.startsWith("HTTP/1.1 200 OK"))
+                assertTrue("$protocol response must serve the selected project", response.contains("android-keystore-tls-ok"))
+            }
         } finally {
             server.stop()
             root.deleteRecursively()
