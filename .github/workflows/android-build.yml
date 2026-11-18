@@ -276,7 +276,7 @@ jobs:
   publish-direct-apk:
     name: Publish direct APK download
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor == 'ishak6')
-    needs: build
+    needs: [build, runtime-verification]
     runs-on: ubuntu-latest
     permissions:
       contents: write
