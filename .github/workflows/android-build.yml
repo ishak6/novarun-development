@@ -271,3 +271,41 @@ jobs:
             app/build/reports/novarun-runtime/
           if-no-files-found: ignore
           retention-days: 7
+
+
+  publish-direct-apk:
+    name: Publish direct APK download
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download the verified APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: NovaRun-Debug-APK
+          path: dist
+
+      - name: Verify downloaded APK before publishing
+        run: |
+          set -euo pipefail
+          test -s dist/app-debug.apk
+          file dist/app-debug.apk
+          unzip -t dist/app-debug.apk >/dev/null
+          sha256sum dist/app-debug.apk | tee dist/app-debug.apk.sha256
+
+      - name: Publish APK as a direct GitHub Release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: novarun-debug-${{ github.run_number }}-${{ github.run_attempt }}
+          name: NovaRun Debug APK ${{ github.run_number }}.${{ github.run_attempt }}
+          prerelease: true
+          draft: false
+          make_latest: false
+          files: |
+            dist/app-debug.apk
+            dist/app-debug.apk.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
