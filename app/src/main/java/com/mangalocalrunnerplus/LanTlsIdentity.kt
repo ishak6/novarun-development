@@ -9,13 +9,14 @@ import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
+import java.security.spec.ECGenParameterSpec
 import java.util.Date
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.security.auth.x500.X500Principal
 
 /**
- * Creates and retains a device-local TLS identity in Android Keystore.
+ * Creates and retains a device-local P-256 ECDSA TLS identity in Android Keystore.
  *
  * The certificate is self-signed. TLS encrypts traffic, but browsers will not
  * automatically trust this certificate; users must verify its SHA-256
@@ -31,10 +32,14 @@ data class LanTlsIdentity(
         private const val VALIDITY_DAYS = 3650L
 
         fun create(context: Context): LanTlsIdentity {
-            // v2 replaces the original key, whose digest authorization was too
-            // narrow for Android's TLS signer. Keep v1 until v2 is fully usable.
-            val keyAlias = "novarun_${context.packageName}_lan_tls_identity_v2"
-            val legacyAlias = "novarun_${context.packageName}_lan_tls_identity_v1"
+            // v3 migrates from RSA to P-256 ECDSA. This avoids RSA-specific
+            // TLS signer/decrypt authorization differences across Android
+            // Keystore and Conscrypt versions.
+            val keyAlias = "novarun_${context.packageName}_lan_tls_identity_v3"
+            val legacyAliases = listOf(
+                "novarun_${context.packageName}_lan_tls_identity_v1",
+                "novarun_${context.packageName}_lan_tls_identity_v2"
+            )
             val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply {
                 load(null)
             }
@@ -42,20 +47,18 @@ data class LanTlsIdentity(
             if (!keyStore.containsAlias(keyAlias)) {
                 val now = System.currentTimeMillis()
                 val generator = KeyPairGenerator.getInstance(
-                    KeyProperties.KEY_ALGORITHM_RSA,
+                    KeyProperties.KEY_ALGORITHM_EC,
                     KEYSTORE_PROVIDER
                 )
-                val paddings = arrayOf(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
                 val spec = KeyGenParameterSpec.Builder(
                     keyAlias,
                     KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
                 )
-                    .setKeySize(2048)
-                    // TLS providers often pass an already-computed digest to
-                    // Android Keystore. SHA-256 is also needed for the
+                    .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+                    // TLS providers commonly pass an already-computed digest
+                    // to Android Keystore; SHA-256 is also needed for the
                     // self-signed certificate created with this key.
                     .setDigests(KeyProperties.DIGEST_NONE, KeyProperties.DIGEST_SHA256)
-                    .setSignaturePaddings(*paddings)
                     .setCertificateSubject(X500Principal("CN=NovaRun Local Server"))
                     .setCertificateSerialNumber(BigInteger.valueOf(now.coerceAtLeast(1L)))
                     .setCertificateNotBefore(Date(now - 60_000L))
@@ -68,6 +71,9 @@ data class LanTlsIdentity(
             val certificate = keyStore.getCertificate(keyAlias) as? X509Certificate
                 ?: error("NovaRun TLS certificate is unavailable")
             certificate.checkValidity()
+            check(certificate.publicKey.algorithm.equals("EC", ignoreCase = true)) {
+                "NovaRun TLS identity must use an EC public key"
+            }
 
             val keyManagerFactory = KeyManagerFactory.getInstance(
                 KeyManagerFactory.getDefaultAlgorithm()
@@ -82,15 +88,16 @@ data class LanTlsIdentity(
                 .digest(certificate.encoded)
                 .joinToString(":") { byte -> "%02X".format(byte) }
 
-            // Android Keystore TLS signing is verified with RSA PKCS#1 on
-            // TLS 1.2. Keep the LAN endpoint on TLS 1.2 until the API 35+
-            // RSA-PSS/MGF1 path has independent device verification.
-            val protocols = listOf("TLSv1.2")
+            // Let the platform negotiate the strongest available version;
+            // LocalWebServer filters this list against supported protocols.
+            val protocols = listOf("TLSv1.3", "TLSv1.2")
 
-            // Remove the obsolete key only after the v2 identity and SSLContext
-            // are ready. A failed migration therefore leaves the old entry intact.
-            if (keyStore.containsAlias(legacyAlias)) {
-                runCatching { keyStore.deleteEntry(legacyAlias) }
+            // Remove obsolete RSA identities only after the EC identity and
+            // SSLContext are ready. A failed migration leaves old entries intact.
+            legacyAliases.forEach { alias ->
+                if (keyStore.containsAlias(alias)) {
+                    runCatching { keyStore.deleteEntry(alias) }
+                }
             }
 
             return LanTlsIdentity(sslContext, fingerprint, protocols)
