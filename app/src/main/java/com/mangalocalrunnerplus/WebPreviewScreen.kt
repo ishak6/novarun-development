@@ -1,7 +1,6 @@
 package com.mangalocalrunnerplus
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.webkit.WebChromeClient
@@ -58,14 +57,8 @@ fun WebPreviewScreen(
     val validation = remember(projectDirectory) {
         ProjectPreviewValidator.validate(projectDirectory)
     }
-    val javascriptPreferenceKey = remember(projectDirectory.absolutePath) {
-        "javascript_enabled_" + projectDirectory.absolutePath.hashCode()
-    }
     var javascriptEnabled by remember(projectDirectory.absolutePath) {
-        mutableStateOf(
-            context.getSharedPreferences("novarun_preview", Context.MODE_PRIVATE)
-                .getBoolean(javascriptPreferenceKey, true)
-        )
+        mutableStateOf(WebPreviewPreferenceStore.isJavaScriptEnabled(context, projectDirectory))
     }
     val projectRoot = validation.projectRoot
 
@@ -215,8 +208,7 @@ fun WebPreviewScreen(
                 onClick = {
                     val next = !javascriptEnabled
                     javascriptEnabled = next
-                    context.getSharedPreferences("novarun_preview", Context.MODE_PRIVATE)
-                        .edit().putBoolean(javascriptPreferenceKey, next).apply()
+                    WebPreviewPreferenceStore.setJavaScriptEnabled(context, projectDirectory, next)
                     webView?.let { view ->
                         view.settings.javaScriptEnabled = next
                         view.reload()
