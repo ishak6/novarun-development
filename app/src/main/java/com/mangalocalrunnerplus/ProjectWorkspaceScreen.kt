@@ -92,35 +92,36 @@ fun ProjectWorkspaceScreen(
     }
 
     fun createProject() {
-        val name = newProjectName.trim()
+        val name = try {
+            ProjectNamePolicy.validate(newProjectName)
+        } catch (error: IllegalArgumentException) {
+            message = error.message ?: "প্রজেক্টের নাম সঠিক নয়।"
+            return
+        }
 
-        when {
-            name.isBlank() -> {
-                message = "প্রজেক্টের নাম লিখুন।"
-            }
+        val root = File(context.filesDir, "projects")
+        if (!root.exists() && !root.mkdirs()) {
+            message = "Projects directory তৈরি করা যায়নি।"
+            return
+        }
+        if (!root.isDirectory) {
+            message = "Projects storage একটি directory নয়।"
+            return
+        }
 
-            name.length > 50 -> {
-                message = "প্রজেক্টের নাম ৫০ অক্ষরের মধ্যে রাখুন।"
-            }
+        val project = File(root, name)
+        if (project.exists()) {
+            message = "এই নামে একটি Project আগে থেকেই আছে।"
+            return
+        }
+        if (!project.mkdirs()) {
+            message = "Project তৈরি করা যায়নি। আবার চেষ্টা করুন।"
+            return
+        }
 
-            !name.matches(Regex("[a-zA-Z0-9 _.-]+")) -> {
-                message = "শুধু English letter, number, space, dot, underscore ও hyphen ব্যবহার করুন।"
-            }
-
-            else -> {
-                val root = File(context.filesDir, "projects")
-                if (!root.exists()) root.mkdirs()
-
-                val project = File(root, name)
-
-                if (project.exists()) {
-                    message = "এই নামে একটি Project আগে থেকেই আছে।"
-                } else {
-                    val created = project.mkdirs()
-
-                    if (created) {
-                        File(project, "index.html").writeText(
-                            """<!DOCTYPE html>
+        try {
+            File(project, "index.html").writeText(
+                """<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -131,18 +132,16 @@ fun ProjectWorkspaceScreen(
     <h1>Welcome to $name</h1>
     <p>Your project is ready.</p>
 </body>
-</html>"""
-                        )
-
-                        showNewProjectDialog = false
-                        newProjectName = ""
-                        refreshProjects()
-                        message = "নতুন Project তৈরি হয়েছে: $name"
-                    } else {
-                        message = "Project তৈরি করা যায়নি। আবার চেষ্টা করুন।"
-                    }
-                }
-            }
+</html>""",
+                Charsets.UTF_8
+            )
+            showNewProjectDialog = false
+            newProjectName = ""
+            refreshProjects()
+            message = "নতুন Project তৈরি হয়েছে: $name"
+        } catch (error: Exception) {
+            project.deleteRecursively()
+            message = "Project তৈরি অসম্পূর্ণ হয়েছে: " + (error.message ?: "Storage error")
         }
     }
 
