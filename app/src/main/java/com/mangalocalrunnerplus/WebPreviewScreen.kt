@@ -367,6 +367,9 @@ fun WebPreviewScreen(
                         }
                     },
                     update = { view ->
+                        if (view.settings.javaScriptEnabled != javascriptEnabled) {
+                            view.settings.javaScriptEnabled = javascriptEnabled
+                        }
                         val targetIdentity = PreviewLoadIdentity(
                             projectDirectory.absolutePath,
                             previewUrl,
@@ -378,9 +381,6 @@ fun WebPreviewScreen(
                             isLoading = true
                             progress = 0
                             view.loadUrl(previewUrl)
-                        }
-                        if (view.settings.javaScriptEnabled != javascriptEnabled) {
-                            view.settings.javaScriptEnabled = javascriptEnabled
                         }
                     }
                 )
