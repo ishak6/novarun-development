@@ -15,6 +15,56 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class NodeRuntimeLogQuotaTest {
     @Test
+    fun rapidNodeStartStopLeavesBackendStopped() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val project = File(context.filesDir, "novarun-node-race-${UUID.randomUUID()}").apply {
+            check(mkdirs())
+        }
+        val port = ServerSocket(0).use { it.localPort }
+        try {
+            File(project, "server.js").writeText(
+                """
+                const http = require('node:http');
+                http.createServer((_request, response) => response.end('race-ok'))
+                    .listen(Number(process.env.PORT), '127.0.0.1');
+                """.trimIndent()
+            )
+
+            NodeProjectService.start(context, project, port)
+            NodeProjectService.stop(context)
+
+            val deadline = System.currentTimeMillis() + 15_000L
+            var state = NodeStateStore.read(context)
+            while (System.currentTimeMillis() < deadline && state.status != "STOPPED") {
+                Thread.sleep(100)
+                state = NodeStateStore.read(context)
+            }
+            assertEquals("Node backend must stop after immediate Stop: ${state.message}", "STOPPED", state.status)
+
+            // A delayed Start command must not resurrect the backend after Stop.
+            Thread.sleep(1_000L)
+            state = NodeStateStore.read(context)
+            assertEquals("A queued Node Start restarted the backend: ${state.message}", "STOPPED", state.status)
+
+            val connection = runCatching {
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress("127.0.0.1", port), 500)
+                }
+            }
+            assertTrue("Node server socket must remain closed after Stop", connection.isFailure)
+        } finally {
+            if (NodeStateStore.read(context).status in setOf("STARTING", "RUNNING", "ERROR")) {
+                NodeProjectService.stop(context)
+                val stopDeadline = System.currentTimeMillis() + 5_000L
+                while (System.currentTimeMillis() < stopDeadline && NodeStateStore.read(context).status != "STOPPED") {
+                    Thread.sleep(100)
+                }
+            }
+            project.deleteRecursively()
+        }
+    }
+
+    @Test
     fun capturedNodeOutputNeverExceedsTwoMiBWhileServerRuns() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val project = File(context.filesDir, "novarun-log-quota-${UUID.randomUUID()}").apply {
