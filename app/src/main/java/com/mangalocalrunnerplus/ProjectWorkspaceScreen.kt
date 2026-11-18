@@ -92,57 +92,17 @@ fun ProjectWorkspaceScreen(
     }
 
     fun createProject() {
-        val name = try {
-            ProjectNamePolicy.validate(newProjectName)
-        } catch (error: IllegalArgumentException) {
-            message = error.message ?: "প্রজেক্টের নাম সঠিক নয়।"
-            return
-        }
-
-        val root = File(context.filesDir, "projects")
-        if (!root.exists() && !root.mkdirs()) {
-            message = "Projects directory তৈরি করা যায়নি।"
-            return
-        }
-        if (!root.isDirectory) {
-            message = "Projects storage একটি directory নয়।"
-            return
-        }
-
-        val project = File(root, name)
-        if (project.exists()) {
-            message = "এই নামে একটি Project আগে থেকেই আছে।"
-            return
-        }
-        if (!project.mkdirs()) {
-            message = "Project তৈরি করা যায়নি। আবার চেষ্টা করুন।"
-            return
-        }
-
-        try {
-            File(project, "index.html").writeText(
-                """<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>$name</title>
-</head>
-<body>
-    <h1>Welcome to $name</h1>
-    <p>Your project is ready.</p>
-</body>
-</html>""",
-                Charsets.UTF_8
-            )
-            showNewProjectDialog = false
-            newProjectName = ""
-            refreshProjects()
-            message = "নতুন Project তৈরি হয়েছে: $name"
+        val project = try {
+            ProjectRepository.createProject(context, newProjectName)
         } catch (error: Exception) {
-            project.deleteRecursively()
-            message = "Project তৈরি অসম্পূর্ণ হয়েছে: " + (error.message ?: "Storage error")
+            message = error.message ?: "Project তৈরি করা যায়নি। আবার চেষ্টা করুন।"
+            return
         }
+
+        showNewProjectDialog = false
+        newProjectName = ""
+        refreshProjects()
+        message = "নতুন Project তৈরি হয়েছে: ${project.name}"
     }
 
     LaunchedEffect(Unit) {
