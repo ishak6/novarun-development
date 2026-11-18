@@ -32,8 +32,6 @@ import java.util.UUID
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-private const val MAX_EDITOR_FILE_BYTES = 2_000_000L
-
 @Composable
 fun CodeEditorScreen(
     file: File,
@@ -93,15 +91,7 @@ fun CodeEditorScreen(
     }
 
     val initialContent = remember(file.absolutePath) {
-        runCatching {
-            if (!file.exists() || !file.isFile) {
-                throw IllegalStateException("File is not available.")
-            }
-            if (file.length() > MAX_EDITOR_FILE_BYTES) {
-                throw IllegalStateException("File is larger than the supported 2 MB editor limit. Open it in a lighter external tool or split the file.")
-            }
-            file.readText(Charsets.UTF_8)
-        }
+        CodeEditorFilePolicy.load(file)
     }
 
     var code by remember(file.absolutePath) {
@@ -166,8 +156,8 @@ fun CodeEditorScreen(
                     throw IllegalStateException(loadError ?: "File cannot be edited.")
                 }
 
-                val encodedSnapshot = snapshot.toByteArray(Charsets.UTF_8)
-                if (encodedSnapshot.size.toLong() > MAX_EDITOR_FILE_BYTES) {
+                val encodedSnapshot = CodeEditorFilePolicy.encodeSnapshot(snapshot)
+                if (encodedSnapshot.size.toLong() > CodeEditorFilePolicy.MAX_FILE_BYTES) {
                     throw IllegalStateException("Edited content exceeds the 2 MB editor limit.")
                 }
 
@@ -177,7 +167,7 @@ fun CodeEditorScreen(
                     )
                 }
 
-                if (file.length() > MAX_EDITOR_FILE_BYTES) {
+                if (file.length() > CodeEditorFilePolicy.MAX_FILE_BYTES) {
                     throw IllegalStateException(
                         "File is larger than the supported 2 MB limit."
                     )
