@@ -149,84 +149,22 @@ fun CodeEditorScreen(
 
     suspend fun saveSnapshot(snapshot: String): Boolean = saveMutex.withLock {
         isSaving = true
-
         try {
             withContext(Dispatchers.IO) {
                 if (loadError != null) {
                     throw IllegalStateException(loadError ?: "File cannot be edited.")
                 }
-
-                val encodedSnapshot = CodeEditorFilePolicy.encodeSnapshot(snapshot)
-
-                if (!file.exists() || !file.isFile) {
-                    throw IllegalStateException(
-                        "File is unavailable. It may have been deleted or moved."
-                    )
-                }
-
-                if (file.length() > CodeEditorFilePolicy.MAX_FILE_BYTES) {
-                    throw IllegalStateException(
-                        "File is larger than the supported 2 MB limit."
-                    )
-                }
-
-                val parent = file.parentFile
-                    ?: throw IllegalStateException(
-                        "File location is unavailable."
-                    )
-
-                if (!parent.exists() || !parent.isDirectory || !parent.canWrite()) {
-                    throw IllegalStateException(
-                        "Parent directory is unavailable or read-only."
-                    )
-                }
-
-                // Write to a sibling temporary file first so an interrupted save
-                // does not leave the user's source file partially overwritten.
-                val tempFile = File(
-                    parent,
-                    ".${file.name}.${UUID.randomUUID()}.tmp"
-                )
-
-                try {
-                    FileOutputStream(tempFile).use { output ->
-                        output.write(encodedSnapshot)
-                        output.fd.sync()
-                    }
-
-                    try {
-                        Files.move(
-                            tempFile.toPath(),
-                            file.toPath(),
-                            StandardCopyOption.ATOMIC_MOVE,
-                            StandardCopyOption.REPLACE_EXISTING
-                        )
-                    } catch (exception: AtomicMoveNotSupportedException) {
-                        Files.move(
-                            tempFile.toPath(),
-                            file.toPath(),
-                            StandardCopyOption.REPLACE_EXISTING
-                        )
-                    }
-                } finally {
-                    if (tempFile.exists()) {
-                        tempFile.delete()
-                    }
-                }
+                CodeEditorFilePolicy.save(projectDirectory, file, snapshot)
             }
-
             savedCode = snapshot
             saveError = false
             true
-
         } catch (exception: CancellationException) {
             throw exception
-
         } catch (exception: Exception) {
             saveError = true
             message = exception.message ?: "Could not save file."
             false
-
         } finally {
             isSaving = false
         }
