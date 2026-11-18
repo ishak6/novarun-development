@@ -178,6 +178,11 @@ class NodeProjectService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Promote before parsing any action so an immediate Stop cannot leave
+        // a startForegroundService() request unpromoted.
+        foreground(
+            if (intent?.action == ACTION_STOP) "Stopping Node.js backend…" else "Preparing embedded Node.js…"
+        )
         when (intent?.action) {
             ACTION_STOP -> {
                 NodeStateStore.write(this, NodeState(message = "Stopped by user"))
@@ -193,7 +198,6 @@ class NodeProjectService : Service() {
 
     private fun startProject(intent: Intent) {
         if (!started.compareAndSet(false, true)) return
-        foreground("Preparing embedded Node.js…")
         val project = intent.getStringExtra(EXTRA_PROJECT)?.let(::File)
         val port = intent.getIntExtra(EXTRA_PORT, 3000)
         val plan = project?.let { NodeLaunchPlan.create(it, port) }
