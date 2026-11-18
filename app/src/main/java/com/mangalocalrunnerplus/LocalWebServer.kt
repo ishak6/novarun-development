@@ -31,7 +31,8 @@ class LocalWebServer(
     private val accessToken: String? = null,
     private val accessUsername: String = "novarun",
     private val sslContext: SSLContext? = null,
-    private val defaultDocument: String = "index.html"
+    private val defaultDocument: String = "index.html",
+    private val tlsProtocols: List<String>? = null
 ) {
 
     private val running = AtomicBoolean(false)
@@ -89,7 +90,7 @@ class LocalWebServer(
                 reuseAddress = true
                 if (this is SSLServerSocket) {
                     val supported = supportedProtocols.toSet()
-                    enabledProtocols = listOf("TLSv1.3", "TLSv1.2")
+                    enabledProtocols = (tlsProtocols ?: listOf("TLSv1.3", "TLSv1.2"))
                         .filter { it in supported }
                         .toTypedArray()
                     if (enabledProtocols.isEmpty()) {
