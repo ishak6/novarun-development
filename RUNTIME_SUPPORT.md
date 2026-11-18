@@ -91,3 +91,12 @@ This document records only capabilities integrated into the current Android app.
 - Default local settings use `HOST=127.0.0.1`, `PORT=3000`, `data/store.sqlite` and `public/uploads/`. NovaRun sets the host and port and runs with the nested folder as the working directory.
 - The first-run setup token is written to the Node server log; the user must create the first admin account in the in-app website preview. Do not expose the local server on a LAN or public network without a separately configured authenticated/TLS deployment.
 - The Node 24.22.1 mobile binary is from the pinned fogtape/nodejs-mobile v24.22.1-0 release, not the upstream nodejs-mobile project's official release line. CI verifies its published GitHub SHA-256 digest before packaging. Review the fork's source/provenance and keep the version pinned until a trusted upstream release is available.
+
+
+## External technical references used for runtime planning
+
+- Node.js Mobile API differences: https://nodejs-mobile.github.io/docs/api/differences/ — documents that `child_process` and `cluster` are unsupported on mobile.
+- Node.js Mobile FAQ: https://nodejs-mobile.github.io/docs/guide/faq/ — documents that npm modules are normally installed at development time into the app's project source directory; native addons need target-compatible builds.
+- Node.js Mobile source/build recipe: https://github.com/fogtape/nodejs-mobile — source patches, build instructions and binary provenance must be reviewed before changing the pinned runtime.
+- Termux package build system: https://github.com/termux/termux-packages/wiki/Building-packages — Android packages are built for a Termux-specific prefix and architecture.
+- Termux PHP package recipe: https://github.com/termux/termux-packages/blob/master/packages/php/build.sh — demonstrates PHP's native dependencies and extension/build configuration; binaries built for Termux cannot simply be copied into NovaRun's distinct Android app sandbox/prefix.
