@@ -10,7 +10,7 @@ import org.junit.Test
 class ProjectBackupManagerTest {
     @Test
     fun backupPreservesNestedFilesHiddenFilesAndEmptyDirectories() {
-        val temp = createTempDir(prefix = "novarun-backup-test-")
+        val temp = Files.createTempDirectory("novarun-backup-test-").toFile()
         try {
             val project = File(temp, "shop").apply { mkdirs() }
             File(project, "index.html").writeText("<html>shop</html>")
@@ -43,7 +43,7 @@ class ProjectBackupManagerTest {
 
     @Test
     fun backupRejectsMissingProjectDirectory() {
-        val temp = createTempDir(prefix = "novarun-backup-missing-")
+        val temp = Files.createTempDirectory("novarun-backup-missing-").toFile()
         try {
             val error = runCatching {
                 ProjectBackupManager.createBackup(File(temp, "missing"), File(temp, "cache"))
@@ -56,7 +56,7 @@ class ProjectBackupManagerTest {
 
     @Test
     fun backupRejectsSymbolicLinks() {
-        val temp = createTempDir(prefix = "novarun-backup-symlink-")
+        val temp = Files.createTempDirectory("novarun-backup-symlink-").toFile()
         try {
             val project = File(temp, "project").apply { mkdirs() }
             val outside = File(temp, "outside.txt").apply { writeText("outside") }
@@ -72,7 +72,7 @@ class ProjectBackupManagerTest {
 
     @Test
     fun backupEnforcesConfiguredEntryAndByteLimits() {
-        val temp = createTempDir(prefix = "novarun-backup-limits-")
+        val temp = Files.createTempDirectory("novarun-backup-limits-").toFile()
         try {
             val project = File(temp, "project").apply { mkdirs() }
             File(project, "one.txt").writeText("123")
