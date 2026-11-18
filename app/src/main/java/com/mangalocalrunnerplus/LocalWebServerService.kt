@@ -163,7 +163,10 @@ class LocalWebServerService : Service() {
             }
         }
 
-        return START_NOT_STICKY
+        // Android may recreate this user-started foreground service after process
+        // death and redeliver the selected project/start configuration. Explicit
+        // Stop and invalid requests above remain non-sticky.
+        return START_REDELIVER_INTENT
     }
 
     private fun startServer(
