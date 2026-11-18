@@ -28,8 +28,8 @@ This register is the source of truth for scope. A successful APK build is not pr
 | W-04 | Hard caps: 2,000 entries, 200 MiB total extracted bytes, 64 MiB per file; preferences may lower but never raise hard caps | Implemented with unit tests. |
 | W-05 | Extract to temporary directory and promote only after success; failed import must not corrupt an existing project | Implemented using temporary extraction and rename; verify rollback/failure cases on device. |
 | W-06 | Preserve project files including HTML, CSS, JS, JSON, TXT, XML, Python, Markdown, images, fonts and SVG | Partially implemented; complete file-type matrix and round-trip tests required. |
-| W-07 | Workspace project listing, folder navigation, file CRUD and project selection | Workspace/file explorer CRUD exists. Project creation/list/delete now validate safe names and reject project-root symlinks; emulator lifecycle/isolation tests added; latest CI verification pending. |
-| W-08 | Project backup and restore | Backup ZIP export is implemented with import-compatible hard caps and symlink rejection; restore uses Home > Import ZIP and restores as a separate project without overwriting the source. JVM and Android round-trip tests added; latest CI verification pending. |
+| W-07 | Workspace project listing, folder navigation, file CRUD and project selection | Workspace/file explorer CRUD exists. Project creation/list/delete now validate safe names and reject project-root symlinks; Android Emulator tests for create/list/delete and external symlink isolation passed (run 44285031576, SHA 7135a89). Full file CRUD interaction matrix remains. |
+| W-08 | Project backup and restore | Backup ZIP export is implemented with import-compatible hard caps and symlink rejection; Workspace restore imports as a separate project without overwriting the source. JVM and Android production-importer round-trip tests passed in run 44285031576 (SHA 7135a89). |
 | W-09 | Nested ZIP wrapper/root detection and project entry-point detection | Implemented; extend fixtures and edge-case tests. |
 
 ## C. Editor and preview
@@ -40,7 +40,7 @@ This register is the source of truth for scope. A successful APK build is not pr
 | E-02 | Syntax highlighting and editable code field | Implemented; device UX/performance audit remains. |
 | E-03 | Autosave plus manual save without races or partial writes | Atomic/coordinated save logic exists; full interruption and process-death tests required. |
 | E-04 | Unsaved-change warnings and read-only/permission handling | Partially implemented; verify all navigation/exit paths. |
-| E-05 | Large-file protection and bounded editor memory | Editor now refuses unreadable/over-2 MB files with a read-only warning and rejects UTF-8 snapshots above 2 MB before writing; policy unit tests added; CI verification pending. Full stress/performance matrix remains. |
+| E-05 | Large-file protection and bounded editor memory | Editor now refuses binary/unsupported, unreadable and over-2 MB files with a read-only warning and rejects UTF-8 snapshots above 2 MB before writing; policy unit tests passed in run 44285031576 (SHA 7135a89). Full stress/performance matrix remains. |
 | E-06 | Native in-app WebView preview; JavaScript enable/disable control | Preview screen exists; verify native in-app behavior, JS toggle, reload, navigation and error states. |
 | E-07 | Serve project HTML/assets with MIME handling, 404 behavior, safe canonical paths and SPA fallback | Implemented; security regression coverage required. |
 | E-08 | React/Vite project preview from prebuilt output (`dist`, `build`, `out`) | Preview validator supports output folders; full React/Vite fixture test required. |
