@@ -78,7 +78,7 @@ object ProjectRepository {
             )
             return project
         } catch (error: Exception) {
-            project.deleteRecursively()
+            SafeFileTree.deleteRecursivelyNoFollow(project)
             if (error is IOException) throw error
             throw IOException("Could not initialize the new project.", error)
         }
@@ -94,7 +94,7 @@ object ProjectRepository {
         val root = runCatching { ensureProjectsDirectory(context) }.getOrNull() ?: return false
         if (Files.isSymbolicLink(project.toPath())) return false
         if (runCatching { project.canonicalFile.parentFile != root }.getOrDefault(true)) return false
-        return project.deleteRecursively()
+        return SafeFileTree.deleteRecursivelyNoFollow(project)
     }
 
     fun getProjectSize(project: File): Long {
