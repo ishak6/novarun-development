@@ -70,6 +70,23 @@ class ProjectFileOperationsTest {
     }
 
     @Test
+    fun recursiveDeleteDoesNotFollowNestedExternalSymlinks() {
+        val temp = Files.createTempDirectory("novarun-file-nested-link-").toFile()
+        val root = File(temp, "project").apply { mkdirs() }
+        val outside = File(temp, "outside").apply { mkdirs() }
+        val nested = File(root, "nested").apply { mkdirs() }
+        File(outside, "keep.txt").writeText("safe")
+        try {
+            Files.createSymbolicLink(File(nested, "external").toPath(), outside.toPath())
+            ProjectFileOperations.delete(root, nested)
+            assertFalse(nested.exists())
+            assertTrue(File(outside, "keep.txt").exists())
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
     fun refusesDeletingProjectRootAndOutsideDirectories() {
         val temp = Files.createTempDirectory("novarun-file-root-").toFile()
         val root = File(temp, "project").apply { mkdirs() }
