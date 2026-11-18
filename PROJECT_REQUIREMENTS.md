@@ -93,7 +93,7 @@ This register is the source of truth for scope. A successful APK build is not pr
 | S-07 | Crash, ANR, low-memory, storage-full and permission-denied handling | Not fully verified; dedicated resilience tests required. |
 | S-08 | Compatibility across supported Android versions and arm64/x86_64 | CI build packages both Node ABIs; emulator x86_64 tests pass; physical arm64 and Android-version matrix required. |
 | S-09 | Performance: import, file browsing, editor, preview and runtime startup | No complete benchmark evidence yet. |
-| S-10 | Backup/restore and recovery from interrupted writes/imports | Backup/restore not implemented; import/editor recovery tests incomplete. |
+| S-10 | Backup/restore and recovery from interrupted writes/imports | Backup ZIP export and restore-as-new are implemented; the Android emulator round-trip test `exportedBackupRestoresThroughProductionZipImporter` passed in [run 44308780215](https://github.com/ishak6/novarun-development/actions/runs/44308780215) (tested SHA `71f882e`). Recovery from interrupted imports/editor writes remains unverified. |
 
 ## G. Release and acceptance
 
