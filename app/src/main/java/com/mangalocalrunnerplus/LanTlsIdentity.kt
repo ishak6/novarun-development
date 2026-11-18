@@ -1,7 +1,6 @@
 package com.mangalocalrunnerplus
 
 import android.content.Context
-import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.math.BigInteger
@@ -46,14 +45,7 @@ data class LanTlsIdentity(
                     KeyProperties.KEY_ALGORITHM_RSA,
                     KEYSTORE_PROVIDER
                 )
-                val paddings = if (Build.VERSION.SDK_INT >= 35) {
-                    arrayOf(
-                        KeyProperties.SIGNATURE_PADDING_RSA_PKCS1,
-                        KeyProperties.SIGNATURE_PADDING_RSA_PSS
-                    )
-                } else {
-                    arrayOf(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-                }
+                val paddings = arrayOf(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
                 val spec = KeyGenParameterSpec.Builder(
                     keyAlias,
                     KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
@@ -68,14 +60,6 @@ data class LanTlsIdentity(
                     .setCertificateSerialNumber(BigInteger.valueOf(now.coerceAtLeast(1L)))
                     .setCertificateNotBefore(Date(now - 60_000L))
                     .setCertificateNotAfter(Date(now + VALIDITY_DAYS * 24L * 60L * 60L * 1000L))
-                    .apply {
-                        // MGF1 digest selection became configurable in API 35.
-                        // TLS 1.3 RSA-PSS uses SHA-256; older Android versions
-                        // stay on TLS 1.2 with RSA PKCS#1 signatures.
-                        if (Build.VERSION.SDK_INT >= 35) {
-                            setMgf1Digests(KeyProperties.DIGEST_SHA256)
-                        }
-                    }
                     .build()
                 generator.initialize(spec)
                 generator.generateKeyPair()
@@ -98,13 +82,10 @@ data class LanTlsIdentity(
                 .digest(certificate.encoded)
                 .joinToString(":") { byte -> "%02X".format(byte) }
 
-            // TLS 1.3 RSA authentication requires RSA-PSS/MGF1 support. API 35
-            // can authorize SHA-256 MGF1; earlier Android releases use TLS 1.2.
-            val protocols = if (Build.VERSION.SDK_INT >= 35) {
-                listOf("TLSv1.3", "TLSv1.2")
-            } else {
-                listOf("TLSv1.2")
-            }
+            // Android Keystore TLS signing is verified with RSA PKCS#1 on
+            // TLS 1.2. Keep the LAN endpoint on TLS 1.2 until the API 35+
+            // RSA-PSS/MGF1 path has independent device verification.
+            val protocols = listOf("TLSv1.2")
 
             // Remove the obsolete key only after the v2 identity and SSLContext
             // are ready. A failed migration therefore leaves the old entry intact.
