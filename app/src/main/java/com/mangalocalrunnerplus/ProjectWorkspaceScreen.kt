@@ -47,6 +47,7 @@ fun ProjectWorkspaceScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var message by remember { mutableStateOf<String?>(null) }
 
     var backupTarget by remember { mutableStateOf<File?>(null) }
     val backupLauncher = rememberLauncherForActivityResult(
@@ -85,7 +86,6 @@ fun ProjectWorkspaceScreen(
     var projectToDelete by remember { mutableStateOf<File?>(null) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var newProjectName by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf<String?>(null) }
 
     fun refreshProjects() {
         projects = ProjectRepository.getProjects(context)
