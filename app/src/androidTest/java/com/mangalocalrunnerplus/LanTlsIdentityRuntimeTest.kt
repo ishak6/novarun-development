@@ -68,7 +68,7 @@ class LanTlsIdentityRuntimeTest {
                 socket.soTimeout = 5_000
                 socket.startHandshake()
                 socket.getOutputStream().write(
-                    "GET /index.html HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n"
+                    "GET /index.html HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
                         .toByteArray(Charsets.US_ASCII)
                 )
                 socket.getInputStream().bufferedReader().readText()
