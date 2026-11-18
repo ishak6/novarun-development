@@ -100,3 +100,16 @@ This document records only capabilities integrated into the current Android app.
 - Node.js Mobile source/build recipe: https://github.com/fogtape/nodejs-mobile — source patches, build instructions and binary provenance must be reviewed before changing the pinned runtime.
 - Termux package build system: https://github.com/termux/termux-packages/wiki/Building-packages — Android packages are built for a Termux-specific prefix and architecture.
 - Termux PHP package recipe: https://github.com/termux/termux-packages/blob/master/packages/php/build.sh — demonstrates PHP's native dependencies and extension/build configuration; binaries built for Termux cannot simply be copied into NovaRun's distinct Android app sandbox/prefix.
+
+
+### PHP Android embed prototype research (2026-11-18)
+
+A technically plausible arm64 path was found; PHP must remain marked **not executable** until the native wrapper and Android tests pass.
+
+- Pinned PHP Runtime Layer candidate: `swoole/swoole-cli` release `v6.2.2.2`, PHP `8.4.25`, asset `php-runtime-layer_swoole-cli-v6.2.2.2_php8.4.25_android-arm64-v8a.tar.xz`.
+- Published asset SHA-256: `8c762d98e49445645ada15bb4b594d1a1f33e2033a42c4e08df856123b78e776`.
+- PHPX Android build source pinned for prototype research: `swoole/phpx` commit `90e6d22a9c3f4d5dbd2c75d62e90bf5adfe58c89`; `android/build.sh` builds `libphpx.a` for `arm64-v8a` with Android NDK and API 24, and requires a matching ZTS runtime-layer ABI marker.
+- The selected published runtime layer is arm64-v8a only; x86_64 PHP support is not established. Do not label PHP available on x86_64.
+- The PHP runtime layer contains `libphp.a` and matching headers; it is not itself a ready-to-run PHP CLI executable. NovaRun still needs a tested JNI/Embed SAPI wrapper, process isolation, output capture, timeout/stop handling, and a real Android PHP fixture before PHP can be marked executable.
+- `swoole/phpx` is Apache-2.0; `swoole/swoole-cli` is dual-licensed and distributes bundled third-party notices plus a separate SWOOLE-CLI license. Any integration must preserve required notices and pass license review.
+- This is a prototype candidate, not an approved scope reduction and not evidence that PHP execution currently works.
