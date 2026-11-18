@@ -66,7 +66,7 @@ object ProjectFileOperations {
         if (safeTarget.canonicalFile == root) {
             throw IOException("The project root cannot be deleted from File Explorer.")
         }
-        if (!safeTarget.deleteRecursively()) throw IOException("Could not delete this item.")
+        if (!SafeFileTree.deleteRecursivelyNoFollow(safeTarget)) throw IOException("Could not delete this item.")
     }
 
     private fun requireInsideProject(projectRoot: File, candidate: File): File {
