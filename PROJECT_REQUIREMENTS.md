@@ -41,7 +41,7 @@ This register is the source of truth for scope. A successful APK build is not pr
 | E-03 | Autosave plus manual save without races or partial writes | Atomic/coordinated save logic exists; full interruption and process-death tests required. |
 | E-04 | Unsaved-change warnings and read-only/permission handling | Partially implemented; verify all navigation/exit paths. |
 | E-05 | Large-file protection and bounded editor memory | Editor now refuses binary/unsupported, unreadable and over-2 MB files with a read-only warning and rejects UTF-8 snapshots above 2 MB before writing; policy unit tests passed in run 44285031576 (SHA 7135a89). Full stress/performance matrix remains. |
-| E-06 | Native in-app WebView preview; JavaScript enable/disable control | Native in-app WebView preview has per-project JavaScript ON/OFF and HTTPS external-network opt-in controls. External HTTPS requests and subresources are blocked by default; external cleartext HTTP and file/content URLs remain blocked. URL policy and per-project network/JavaScript preference instrumentation passed in run 44288056435 (SHA 3a07adb). Preview listener cancellation cleanup and URL/project reload identity are implemented; latest small policy-atomicity change is under CI. |
+| E-06 | Native in-app WebView preview; JavaScript enable/disable control | Native in-app WebView preview has per-project JavaScript ON/OFF and HTTPS external-network opt-in controls. External HTTPS requests and subresources are blocked by default; external cleartext HTTP and file/content URLs remain blocked. URL policy and per-project network/JavaScript preference instrumentation passed in run 44288231337 (SHA f627439). Preview listener cancellation cleanup and URL/project reload identity are implemented; latest small policy-atomicity change is under CI. |
 | E-07 | Serve project HTML/assets with MIME handling, 404 behavior, safe canonical paths and SPA fallback | Implemented; security regression coverage required. |
 | E-08 | React/Vite project preview from prebuilt output (`dist`, `build`, `out`) | Preview validator supports output folders; full React/Vite fixture test required. |
 | E-09 | Build React/Vite source projects inside NovaRun | Not implemented: npm/npx/dependency installation is not bundled. Must be resolved by implementation or an explicit, technically justified user-approved alternative. |
@@ -85,7 +85,7 @@ This register is the source of truth for scope. A successful APK build is not pr
 | ID | Requirement | Current evidence / status |
 |---|---|---|
 | S-01 | ZIP/path traversal and duplicate-path defenses | Unit-tested. |
-| S-02 | HTTP path traversal, hidden-file and MIME protections | Implemented; preview WebView blocks external network requests by default and only allows external HTTPS after per-project opt-in; URL-policy instrumentation passed in run 44288056435 (SHA 3a07adb). |
+| S-02 | HTTP path traversal, hidden-file and MIME protections | Implemented; preview WebView blocks external network requests by default and only allows external HTTPS after per-project opt-in; URL-policy instrumentation passed in run 44288231337 (SHA f627439). |
 | S-03 | LAN TLS/authentication and encrypted credential storage | Implemented; physical-device verification required. |
 | S-04 | Keystore unavailable/corrupt state must not crash app or block localhost | Fallback implemented; fault-injection test required. |
 | S-05 | No secrets in user-visible logs or project export | Audit required; never surface first-run setup tokens in assistant output. |
