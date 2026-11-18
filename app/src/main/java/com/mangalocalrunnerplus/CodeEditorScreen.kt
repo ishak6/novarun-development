@@ -157,9 +157,6 @@ fun CodeEditorScreen(
                 }
 
                 val encodedSnapshot = CodeEditorFilePolicy.encodeSnapshot(snapshot)
-                if (encodedSnapshot.size.toLong() > CodeEditorFilePolicy.MAX_FILE_BYTES) {
-                    throw IllegalStateException("Edited content exceeds the 2 MB editor limit.")
-                }
 
                 if (!file.exists() || !file.isFile) {
                     throw IllegalStateException(
