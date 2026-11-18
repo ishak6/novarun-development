@@ -32,6 +32,12 @@ class RuntimeCapabilityManagerTest {
     }
 
     @Test
+    fun unsandboxedRuntimeBoundariesAreExplicit() {
+        assertTrue(RuntimeCapabilityManager.getCapability("Node.js").description.contains("not a security sandbox"))
+        assertTrue(RuntimeCapabilityManager.getCapability("Python").description.contains("not sandboxed"))
+    }
+
+    @Test
     fun runtimeOverviewSeparatesExecutionFromPreview() {
         val overview = RuntimeOverviewManager.create(
             listOf(
