@@ -16,9 +16,8 @@ class ProjectRepositoryRuntimeTest {
     fun createsListsAndDeletesProjectWithoutLeavingPartialFiles() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "RepositoryTest-" + System.currentTimeMillis()
-        var project: File? = null
+        val project = ProjectRepository.createProject(context, name)
         try {
-            project = ProjectRepository.createProject(context, name)
             assertTrue(project.isDirectory)
             assertTrue(File(project, "index.html").isFile)
             assertTrue(ProjectRepository.getProjects(context).any { it.name == name })
@@ -26,7 +25,7 @@ class ProjectRepositoryRuntimeTest {
             assertTrue(ProjectRepository.deleteProject(context, name))
             assertNull(ProjectRepository.findProject(context, name))
         } finally {
-            project?.deleteRecursively()
+            project.deleteRecursively()
         }
     }
 
@@ -39,7 +38,7 @@ class ProjectRepositoryRuntimeTest {
             mkdirs()
         }
         File(external, "private.txt").writeText("must remain")
-        val link = File(projects, "linked-project")
+        val link = File(projects, "linked-project-" + System.currentTimeMillis())
         try {
             Files.createSymbolicLink(link.toPath(), external.toPath())
             assertFalse(ProjectRepository.getProjects(context).any { it.name == link.name })
