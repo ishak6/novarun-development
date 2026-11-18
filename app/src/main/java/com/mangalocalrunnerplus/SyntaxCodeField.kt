@@ -26,7 +26,8 @@ fun SyntaxCodeField(
     extension: String,
     modifier: Modifier = Modifier,
     fontSizeSp: Int = 14,
-    wordWrap: Boolean = true
+    wordWrap: Boolean = true,
+    enabled: Boolean = true
 ) {
     val verticalScroll = rememberScrollState()
     val horizontalScroll = rememberScrollState()
@@ -50,6 +51,7 @@ fun SyntaxCodeField(
         TextField(
             value = code,
             onValueChange = onCodeChange,
+            enabled = enabled,
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(verticalScroll)
