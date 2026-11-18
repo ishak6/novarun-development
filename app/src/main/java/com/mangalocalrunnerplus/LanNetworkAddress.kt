@@ -4,18 +4,16 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.LinkProperties
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.util.Collections
 
 /**
- * Resolves the IPv4 address other devices can use to reach this phone.
+ * Resolves the IPv4 address another device can use to reach this phone.
  *
- * Prefer an address assigned to a Wi-Fi transport (including a Wi-Fi hotspot)
- * instead of whichever private address happens to be returned first by the
- * interface enumeration. Fall back to active Wi-Fi-like interfaces for devices
- * whose tethering interface is not exposed through ConnectivityManager.
+ * When this phone is sharing a hotspot, clients must use the phone's AP-side
+ * address, not its Wi-Fi upstream address. When hotspot mode is not active,
+ * prefer the address belonging to the active Wi-Fi network (router mode).
  */
 internal object LanNetworkAddress {
     fun find(context: Context): String? {
@@ -44,33 +42,54 @@ internal object LanNetworkAddress {
             Collections.list(NetworkInterface.getNetworkInterfaces())
         }.getOrDefault(emptyList())
 
-        val candidates = interfaces
-            .filter { it.isUp && !it.isLoopback }
-            .map { networkInterface ->
-                val name = networkInterface.name.lowercase()
-                val priority = when {
-                    name.startsWith("wlan") || name.startsWith("wifi") -> 0
-                    name.startsWith("ap") || name.startsWith("swlan") -> 1
-                    name.startsWith("p2p") -> 2
-                    else -> 3
-                }
-                priority to runCatching {
-                    Collections.list(networkInterface.inetAddresses)
-                        .filterIsInstance<Inet4Address>()
-                        .filter(::isUsablePrivateIpv4)
-                        .mapNotNull { it.hostAddress }
-                }.getOrDefault(emptyList())
-            }
-            .sortedBy { it.first }
+        val activeInterfaces = interfaces.filter { it.isUp && !it.isLoopback }
+        val hotspotAddresses = activeInterfaces
+            .filter { isHotspotInterface(it.name) }
+            .flatMap(::privateIpv4Addresses)
 
-        val interfaceAddresses = candidates.flatMap { it.second }
-        return selectAddress(wifiAddresses, interfaceAddresses)
+        val interfaceAddresses = activeInterfaces
+            .sortedBy { interfacePriority(it.name) }
+            .flatMap(::privateIpv4Addresses)
+
+        return selectAddress(
+            hotspotAddresses = hotspotAddresses,
+            wifiAddresses = wifiAddresses,
+            interfaceAddresses = interfaceAddresses
+        )
     }
 
     internal fun selectAddress(
+        hotspotAddresses: List<String>,
         wifiAddresses: List<String>,
         interfaceAddresses: List<String>
-    ): String? = wifiAddresses.firstOrNull() ?: interfaceAddresses.firstOrNull()
+    ): String? = hotspotAddresses.firstOrNull()
+        ?: wifiAddresses.firstOrNull()
+        ?: interfaceAddresses.firstOrNull()
+
+    private fun isHotspotInterface(name: String): Boolean {
+        val normalized = name.lowercase()
+        return normalized.startsWith("ap") ||
+            normalized.startsWith("swlan") ||
+            normalized.startsWith("softap")
+    }
+
+    private fun interfacePriority(name: String): Int {
+        val normalized = name.lowercase()
+        return when {
+            isHotspotInterface(normalized) -> 0
+            normalized.startsWith("wlan") || normalized.startsWith("wifi") -> 1
+            normalized.startsWith("p2p") -> 2
+            else -> 3
+        }
+    }
+
+    private fun privateIpv4Addresses(networkInterface: NetworkInterface): List<String> =
+        runCatching {
+            Collections.list(networkInterface.inetAddresses)
+                .filterIsInstance<Inet4Address>()
+                .filter(::isUsablePrivateIpv4)
+                .mapNotNull { it.hostAddress }
+        }.getOrDefault(emptyList())
 
     private fun isUsablePrivateIpv4(address: Inet4Address): Boolean =
         !address.isAnyLocalAddress &&
