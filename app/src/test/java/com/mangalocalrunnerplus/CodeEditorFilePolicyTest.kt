@@ -71,4 +71,62 @@ class CodeEditorFilePolicyTest {
         assertFalse(bytes.isEmpty())
         assertEquals("বাংলা", bytes.toString(Charsets.UTF_8))
     }
+
+    @Test
+    fun savePersistsUtf8ContentAndReplacesExistingFile() {
+        val temp = java.nio.file.Files.createTempDirectory("novarun-editor-save-").toFile()
+        val root = File(temp, "project").apply { mkdirs() }
+        val file = File(root, "index.html").apply { writeText("old") }
+        try {
+            CodeEditorFilePolicy.save(root, file, "<h1>বাংলা NovaRun</h1>")
+            assertEquals("<h1>বাংলা NovaRun</h1>", file.readText(Charsets.UTF_8))
+            assertTrue(root.listFiles().orEmpty().none { it.name.endsWith(".tmp") })
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun refusesFileOutsideProject() {
+        val temp = java.nio.file.Files.createTempDirectory("novarun-editor-outside-").toFile()
+        val root = File(temp, "project").apply { mkdirs() }
+        val outside = File(temp, "outside.txt").apply { writeText("keep") }
+        try {
+            assertTrue(runCatching { CodeEditorFilePolicy.save(root, outside, "overwrite") }.isFailure)
+            assertEquals("keep", outside.readText())
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun refusesSymbolicLinkTargetAndKeepsExternalFileUntouched() {
+        val temp = java.nio.file.Files.createTempDirectory("novarun-editor-link-").toFile()
+        val root = File(temp, "project").apply { mkdirs() }
+        val outside = File(temp, "outside.txt").apply { writeText("keep") }
+        val link = File(root, "linked.txt")
+        try {
+            java.nio.file.Files.createSymbolicLink(link.toPath(), outside.toPath())
+            assertTrue(runCatching { CodeEditorFilePolicy.save(root, link, "overwrite") }.isFailure)
+            assertEquals("keep", outside.readText())
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun refusesOversizedContentWithoutChangingOriginal() {
+        val temp = java.nio.file.Files.createTempDirectory("novarun-editor-size-").toFile()
+        val root = File(temp, "project").apply { mkdirs() }
+        val file = File(root, "index.js").apply { writeText("original") }
+        try {
+            val oversized = "x".repeat((CodeEditorFilePolicy.MAX_FILE_BYTES + 1).toInt())
+            assertTrue(runCatching { CodeEditorFilePolicy.save(root, file, oversized) }.isFailure)
+            assertEquals("original", file.readText())
+            assertTrue(root.listFiles().orEmpty().none { it.name.endsWith(".tmp") })
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
 }
