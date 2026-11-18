@@ -273,7 +273,8 @@ class LocalWebServerService : Service() {
                         accessToken = accessToken,
                         accessUsername = accessUsername ?: "novarun",
                         sslContext = tlsIdentity.sslContext,
-                        defaultDocument = defaultDocument
+                        defaultDocument = defaultDocument,
+                        tlsProtocols = tlsIdentity.enabledProtocols
                     )
 
                     // Finish the blocking bind attempt even if the parent job is
