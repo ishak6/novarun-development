@@ -1,6 +1,7 @@
 package com.mangalocalrunnerplus
 
 import java.io.File
+import java.nio.file.Files
 import java.util.zip.ZipInputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -48,6 +49,48 @@ class ProjectBackupManagerTest {
                 ProjectBackupManager.createBackup(File(temp, "missing"), File(temp, "cache"))
             }.exceptionOrNull()
             assertTrue(error is java.io.IOException)
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun backupRejectsSymbolicLinks() {
+        val temp = createTempDir(prefix = "novarun-backup-symlink-")
+        try {
+            val project = File(temp, "project").apply { mkdirs() }
+            val outside = File(temp, "outside.txt").apply { writeText("outside") }
+            Files.createSymbolicLink(File(project, "outside-link").toPath(), outside.toPath())
+            val error = runCatching {
+                ProjectBackupManager.createBackup(project, File(temp, "cache"))
+            }.exceptionOrNull()
+            assertTrue(error is java.io.IOException)
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun backupEnforcesConfiguredEntryAndByteLimits() {
+        val temp = createTempDir(prefix = "novarun-backup-limits-")
+        try {
+            val project = File(temp, "project").apply { mkdirs() }
+            File(project, "one.txt").writeText("123")
+            File(project, "two.txt").writeText("456")
+            val entryError = runCatching {
+                ProjectBackupManager.createBackup(
+                    project, File(temp, "entry-cache"),
+                    ProjectBackupManager.Limits(maxEntries = 1, maxTotalBytes = 100, maxSingleFileBytes = 100)
+                )
+            }.exceptionOrNull()
+            val byteError = runCatching {
+                ProjectBackupManager.createBackup(
+                    project, File(temp, "byte-cache"),
+                    ProjectBackupManager.Limits(maxEntries = 10, maxTotalBytes = 2, maxSingleFileBytes = 100)
+                )
+            }.exceptionOrNull()
+            assertTrue(entryError is java.io.IOException)
+            assertTrue(byteError is java.io.IOException)
         } finally {
             temp.deleteRecursively()
         }
