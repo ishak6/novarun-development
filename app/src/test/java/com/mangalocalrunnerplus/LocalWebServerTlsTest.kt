@@ -20,6 +20,34 @@ import java.nio.file.Files
 class LocalWebServerTlsTest {
 
     @Test
+    fun lanListenerRefusesWildcardOrPublicInterfaceBinding() {
+        val root = Files.createTempDirectory("novarun-lan-bind-scope").toFile()
+        val port = ServerSocket(0).use { it.localPort }
+        val context = testServerContext()
+        val wildcard = LocalWebServer(
+            projectDirectory = root,
+            port = port,
+            bindToLan = true,
+            sslContext = context
+        )
+        val publicAddress = LocalWebServer(
+            projectDirectory = root,
+            port = port,
+            bindToLan = true,
+            lanBindAddress = java.net.InetAddress.getByName("8.8.8.8"),
+            sslContext = context
+        )
+        try {
+            assertTrue(!wildcard.start())
+            assertTrue(!publicAddress.start())
+        } finally {
+            wildcard.stop()
+            publicAddress.stop()
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun servesProjectOverTlsAndCompletesHandshake() {
         val root = Files.createTempDirectory("novarun-tls-test").toFile()
         File(root, "index.html").writeText("encrypted-preview")
@@ -30,6 +58,7 @@ class LocalWebServerTlsTest {
             projectDirectory = root,
             port = port,
             bindToLan = true,
+            lanBindAddress = java.net.InetAddress.getByName("127.0.0.1"),
             sslContext = serverContext
         )
 
@@ -63,6 +92,7 @@ class LocalWebServerTlsTest {
             projectDirectory = root,
             port = port,
             bindToLan = true,
+            lanBindAddress = java.net.InetAddress.getByName("127.0.0.1"),
             accessToken = "tls-test-secret",
             sslContext = testServerContext()
         )
