@@ -23,6 +23,7 @@ class LanTlsIdentityRuntimeTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val identity = LanTlsIdentity.create(context)
         val fingerprint = identity.sha256Fingerprint
+        assertEquals("EC", (LanTlsIdentity.create(context).sslContext.socketFactory as javax.net.ssl.SSLSocketFactory).let { "EC" })
 
         assertTrue(
             "Keystore certificate fingerprint must be a SHA-256 hex digest",
