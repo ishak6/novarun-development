@@ -1,20 +1,31 @@
 package com.mangalocalrunnerplus
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LanNetworkAddressSelectionTest {
     @Test
-    fun wifiAddressIsPreferredOverOtherPrivateAddresses() {
-        val wifi = listOf("192.168.1.24")
-        val other = listOf("10.12.0.5")
-        assertEquals("192.168.1.24", wifi.firstOrNull() ?: other.firstOrNull())
+    fun prefersWifiAddressOverCellularOrOtherInterfaceAddress() {
+        assertEquals("192.168.1.24", LanNetworkAddress.selectAddress(
+            wifiAddresses = listOf("192.168.1.24"),
+            interfaceAddresses = listOf("10.12.0.5")
+        ))
     }
 
     @Test
-    fun missingWifiAddressFallsBackToAvailablePrivateAddress() {
-        val wifi = emptyList<String>()
-        val other = listOf("10.12.0.5")
-        assertEquals("10.12.0.5", wifi.firstOrNull() ?: other.firstOrNull())
+    fun fallsBackWhenWifiAddressIsUnavailable() {
+        assertEquals("10.12.0.5", LanNetworkAddress.selectAddress(
+            wifiAddresses = emptyList(),
+            interfaceAddresses = listOf("10.12.0.5")
+        ))
+    }
+
+    @Test
+    fun returnsNullWhenNoReachableAddressExists() {
+        assertNull(LanNetworkAddress.selectAddress(
+            wifiAddresses = emptyList(),
+            interfaceAddresses = emptyList()
+        ))
     }
 }
