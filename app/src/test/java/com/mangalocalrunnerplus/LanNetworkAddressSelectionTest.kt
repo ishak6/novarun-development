@@ -30,6 +30,35 @@ class LanNetworkAddressSelectionTest {
     }
 
     @Test
+    fun identifiesSecondaryWlanAsHotspotWhenRouterWifiIsAlsoConnected() {
+        assertEquals(
+            listOf("192.168.43.1"),
+            LanNetworkAddress.findHotspotCandidates(
+                interfaceAddresses = listOf(
+                    "wlan0" to "192.168.1.24",
+                    "wlan1" to "192.168.43.1"
+                ),
+                wifiAddresses = listOf("192.168.1.24")
+            )
+        )
+    }
+
+    @Test
+    fun recognizesVendorSpecificHotspotInterfaceNames() {
+        assertEquals(
+            listOf("192.168.43.1", "192.168.44.1", "192.168.45.1"),
+            LanNetworkAddress.findHotspotCandidates(
+                interfaceAddresses = listOf(
+                    "ap0" to "192.168.43.1",
+                    "swlan0" to "192.168.44.1",
+                    "softap0" to "192.168.45.1"
+                ),
+                wifiAddresses = emptyList()
+            )
+        )
+    }
+
+    @Test
     fun fallsBackToInterfaceAddressWhenNoWifiTransportIsAvailable() {
         assertEquals(
             "192.168.43.1",
