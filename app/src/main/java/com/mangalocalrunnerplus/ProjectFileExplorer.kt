@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material3.*
@@ -351,13 +352,17 @@ private fun FileExplorerItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (file.isDirectory) {
-                        Icons.Default.Folder
-                    } else {
-                        Icons.Default.InsertDriveFile
+                    imageVector = when {
+                        file.isDirectory -> Icons.Default.Folder
+                        ProjectImageFiles.isPreviewable(file) -> Icons.Default.Image
+                        else -> Icons.Default.InsertDriveFile
                     },
                     contentDescription = null,
-                    tint = if (file.isDirectory) ExplorerBlue else ExplorerMuted,
+                    tint = when {
+                        file.isDirectory -> ExplorerBlue
+                        ProjectImageFiles.isPreviewable(file) -> Color(0xFF9B5CFF)
+                        else -> ExplorerMuted
+                    },
                     modifier = Modifier.size(25.dp)
                 )
 
