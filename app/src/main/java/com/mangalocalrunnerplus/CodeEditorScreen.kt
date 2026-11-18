@@ -381,6 +381,14 @@ fun CodeEditorScreen(
             Spacer(Modifier.height(6.dp))
         }
 
+        if (extension == "py") {
+            Text(
+                "SECURITY: Python scripts run with NovaRun's Android app permissions and are not sandboxed. Run trusted code only.",
+                color = NovaRunPalette.Warning,
+                fontSize = 11.sp
+            )
+        }
+
         Spacer(Modifier.height(8.dp))
 
         Row(
