@@ -261,57 +261,56 @@ class LocalWebServerService : Service() {
             var lanFailure: String? = null
 
             if (port in 1024..65535 && (!authenticationEnabled || !accessToken.isNullOrBlank())) {
-                try {
-                    val tlsIdentity = withContext(Dispatchers.IO) {
-                        LanTlsIdentity.create(this@LocalWebServerService)
-                    }
-
-                    val lanServer = LocalWebServer(
-                        projectDirectory = webRoot,
-                        port = port,
-                        bindToLan = true,
-                        accessToken = accessToken,
-                        accessUsername = accessUsername ?: "novarun",
-                        sslContext = tlsIdentity.sslContext,
-                        defaultDocument = defaultDocument,
-                        tlsProtocols = tlsIdentity.enabledProtocols
-                    )
-
-                    // Finish the blocking bind attempt even if the parent job is
-                    // cancelled, so we can deterministically close an unadopted socket.
-                    val lanStarted = withContext(NonCancellable + Dispatchers.IO) {
-                        lanServer.start()
-                    }
-
-                    if (lanStarted) {
-                        val adopted = synchronized(serverLock) {
-                            if (startCoroutineJob?.isActive == true) {
-                                server = lanServer
-                                true
-                            } else {
-                                false
-                            }
+                val lanAddress = LanNetworkAddress.find(this@LocalWebServerService)
+                if (lanAddress == null) {
+                    lanFailure = "LAN IP unavailable"
+                } else {
+                    try {
+                        val lanBindAddress = java.net.InetAddress.getByName(lanAddress)
+                        val tlsIdentity = withContext(Dispatchers.IO) {
+                            LanTlsIdentity.create(this@LocalWebServerService)
                         }
-                        if (adopted) {
-                            tlsFingerprint = tlsIdentity.sha256Fingerprint
-                            val lanAddress = LanNetworkAddress.find(this@LocalWebServerService)
-                            lanAddressUrl = lanAddress?.let { "https://$it:$port" }
-                            if (lanAddressUrl == null) {
-                                synchronized(serverLock) {
-                                    if (server === lanServer) server = null
+
+                        val lanServer = LocalWebServer(
+                            projectDirectory = webRoot,
+                            port = port,
+                            bindToLan = true,
+                            lanBindAddress = lanBindAddress,
+                            accessToken = accessToken,
+                            accessUsername = accessUsername ?: "novarun",
+                            sslContext = tlsIdentity.sslContext,
+                            defaultDocument = defaultDocument,
+                            tlsProtocols = tlsIdentity.enabledProtocols
+                        )
+
+                        // Finish the blocking bind attempt even if the parent job is
+                        // cancelled, so we can deterministically close an unadopted socket.
+                        val lanStarted = withContext(NonCancellable + Dispatchers.IO) {
+                            lanServer.start()
+                        }
+
+                        if (lanStarted) {
+                            val adopted = synchronized(serverLock) {
+                                if (startCoroutineJob?.isActive == true) {
+                                    server = lanServer
+                                    true
+                                } else {
+                                    false
                                 }
+                            }
+                            if (adopted) {
+                                tlsFingerprint = tlsIdentity.sha256Fingerprint
+                                lanAddressUrl = "https://$lanAddress:$port"
+                            } else {
                                 lanServer.stop()
-                                lanFailure = "LAN IP unavailable"
+                                return@launch
                             }
                         } else {
-                            lanServer.stop()
-                            return@launch
+                            lanFailure = "LAN port $port could not be opened on $lanAddress"
                         }
-                    } else {
-                        lanFailure = "LAN port $port could not be opened"
+                    } catch (error: Exception) {
+                        lanFailure = "LAN TLS unavailable: ${error.message ?: "Keystore error"}"
                     }
-                } catch (error: Exception) {
-                    lanFailure = "LAN TLS unavailable: ${error.message ?: "Keystore error"}"
                 }
             } else {
                 lanFailure = if (port !in 1024..65535) {
