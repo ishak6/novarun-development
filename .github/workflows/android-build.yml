@@ -129,6 +129,19 @@ jobs:
             done
           done
 
+      # A successful Gradle task is not enough to prove that the exported APK
+      # has a valid Android signature. Verify it before publishing any artifact.
+      - name: Verify APK signature
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -s "$APK"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
