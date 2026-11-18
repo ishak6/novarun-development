@@ -46,9 +46,9 @@ fun ProjectImagePreviewScreen(
     file: File,
     onBack: () -> Unit
 ) {
-    val imageState by produceState<Bitmap?>(initialValue = null, file.absolutePath, file.length(), file.lastModified()) {
+    val imageResult by produceState<Result<Bitmap?>?>(null, file.absolutePath, file.length(), file.lastModified()) {
         value = withContext(Dispatchers.IO) {
-            decodeProjectImage(file)
+            runCatching { decodeProjectImage(file) }
         }
     }
 
@@ -93,26 +93,33 @@ fun ProjectImagePreviewScreen(
                 .background(NovaRunPalette.Surface),
             contentAlignment = Alignment.Center
         ) {
-            if (imageState == null) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(32.dp),
-                        color = NovaRunPalette.Cyan
-                    )
-                    Spacer(Modifier.height(12.dp))
+            when {
+                imageResult == null -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(32.dp),
+                            color = NovaRunPalette.Cyan
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text("Loading image…", color = NovaRunPalette.TextSecondary, fontSize = 12.sp)
+                    }
+                }
+                imageResult?.getOrNull() == null -> {
                     Text(
-                        "Loading image… If this remains blank, the file may be damaged or unsupported.",
-                        color = NovaRunPalette.TextSecondary,
-                        fontSize = 12.sp
+                        "Image could not be decoded. The file may be damaged or use an unsupported format.",
+                        modifier = Modifier.padding(24.dp),
+                        color = NovaRunPalette.Warning,
+                        fontSize = 13.sp
                     )
                 }
-            } else {
-                Image(
-                    bitmap = imageState!!.asImageBitmap(),
-                    contentDescription = file.name,
-                    modifier = Modifier.fillMaxSize().padding(8.dp),
-                    contentScale = ContentScale.Fit
-                )
+                else -> {
+                    Image(
+                        bitmap = imageResult!!.getOrNull()!!.asImageBitmap(),
+                        contentDescription = file.name,
+                        modifier = Modifier.fillMaxSize().padding(8.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
             }
         }
     }
