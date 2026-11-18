@@ -40,8 +40,6 @@ internal object LanNetworkAddress {
             }.getOrDefault(emptyList())
         }
 
-        wifiAddresses.firstOrNull()?.let { return it }
-
         val interfaces = runCatching {
             Collections.list(NetworkInterface.getNetworkInterfaces())
         }.getOrDefault(emptyList())
@@ -65,8 +63,14 @@ internal object LanNetworkAddress {
             }
             .sortedBy { it.first }
 
-        return candidates.firstNotNullOfOrNull { it.second.firstOrNull() }
+        val interfaceAddresses = candidates.flatMap { it.second }
+        return selectAddress(wifiAddresses, interfaceAddresses)
     }
+
+    internal fun selectAddress(
+        wifiAddresses: List<String>,
+        interfaceAddresses: List<String>
+    ): String? = wifiAddresses.firstOrNull() ?: interfaceAddresses.firstOrNull()
 
     private fun isUsablePrivateIpv4(address: Inet4Address): Boolean =
         !address.isAnyLocalAddress &&
