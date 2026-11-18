@@ -32,6 +32,8 @@ import java.util.UUID
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+private const val MAX_EDITOR_FILE_BYTES = 2_000_000L
+
 @Composable
 fun CodeEditorScreen(
     file: File,
@@ -90,26 +92,28 @@ fun CodeEditorScreen(
         }
     }
 
-    var code by remember(file.absolutePath) {
-        mutableStateOf(
-            try {
-                if (
-                    file.exists() &&
-                    file.isFile &&
-                    file.length() <= 2_000_000L
-                ) {
-                    file.readText()
-                } else {
-                    ""
-                }
-            } catch (exception: Exception) {
-                ""
+    val initialContent = remember(file.absolutePath) {
+        runCatching {
+            if (!file.exists() || !file.isFile) {
+                throw IllegalStateException("File is not available.")
             }
-        )
+            if (file.length() > MAX_EDITOR_FILE_BYTES) {
+                throw IllegalStateException("File is larger than the supported 2 MB editor limit. Open it in a lighter external tool or split the file.")
+            }
+            file.readText(Charsets.UTF_8)
+        }
+    }
+
+    var code by remember(file.absolutePath) {
+        mutableStateOf(initialContent.getOrDefault(""))
     }
 
     var savedCode by remember(file.absolutePath) {
-        mutableStateOf(code)
+        mutableStateOf(initialContent.getOrDefault(""))
+    }
+
+    var loadError by remember(file.absolutePath) {
+        mutableStateOf(initialContent.exceptionOrNull()?.message)
     }
 
     var message by remember {
@@ -158,13 +162,22 @@ fun CodeEditorScreen(
 
         try {
             withContext(Dispatchers.IO) {
+                if (loadError != null) {
+                    throw IllegalStateException(loadError ?: "File cannot be edited.")
+                }
+
+                val encodedSnapshot = snapshot.toByteArray(Charsets.UTF_8)
+                if (encodedSnapshot.size.toLong() > MAX_EDITOR_FILE_BYTES) {
+                    throw IllegalStateException("Edited content exceeds the 2 MB editor limit.")
+                }
+
                 if (!file.exists() || !file.isFile) {
                     throw IllegalStateException(
                         "File is unavailable. It may have been deleted or moved."
                     )
                 }
 
-                if (file.length() > 2_000_000L) {
+                if (file.length() > MAX_EDITOR_FILE_BYTES) {
                     throw IllegalStateException(
                         "File is larger than the supported 2 MB limit."
                     )
@@ -190,7 +203,7 @@ fun CodeEditorScreen(
 
                 try {
                     FileOutputStream(tempFile).use { output ->
-                        output.write(snapshot.toByteArray(Charsets.UTF_8))
+                        output.write(encodedSnapshot)
                         output.fd.sync()
                     }
 
@@ -336,7 +349,7 @@ fun CodeEditorScreen(
                             }
                         }
                     },
-                    enabled = !isSaving && !isRunning,
+                    enabled = !isSaving && !isRunning && loadError == null,
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = NovaRunPalette.Cyan
                     )
@@ -356,7 +369,7 @@ fun CodeEditorScreen(
                         }
                     }
                 },
-                enabled = isModified && !isSaving,
+                enabled = isModified && !isSaving && loadError == null,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = NovaRunPalette.Cyan,
                     contentColor = NovaRunPalette.Background
@@ -370,6 +383,15 @@ fun CodeEditorScreen(
                 Spacer(Modifier.width(6.dp))
                 Text("Save")
             }
+        }
+
+        loadError?.let { warning ->
+            Text(
+                "Read-only: " + warning,
+                color = NovaRunPalette.Error,
+                fontSize = 11.sp
+            )
+            Spacer(Modifier.height(6.dp))
         }
 
         Spacer(Modifier.height(8.dp))
@@ -435,6 +457,7 @@ fun CodeEditorScreen(
                     extension = extension,
                     fontSizeSp = fontSize,
                     wordWrap = wordWrap,
+                    enabled = loadError == null,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
