@@ -46,6 +46,7 @@ class LanTlsIdentityRuntimeTest {
             projectDirectory = root,
             port = port,
             bindToLan = true,
+            lanBindAddress = java.net.InetAddress.getByName("127.0.0.1"),
             sslContext = identity.sslContext,
             tlsProtocols = identity.enabledProtocols
         )
