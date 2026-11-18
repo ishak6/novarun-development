@@ -173,6 +173,17 @@ class ClothingStoreZipRuntimeTest {
                     LocalServerServiceStatus.STOPPED,
                     state.status
                 )
+
+                // Allow any already-queued Start intent to arrive after Stop.
+                // The final state must remain stopped, not merely be transiently stopped.
+                Thread.sleep(1_000L)
+                state = LocalServerServiceStateStore.state.value
+                state.localUrl?.let(observedUrls::add)
+                assertEquals(
+                    "A delayed Start intent restarted the service after Stop: ${state.message}",
+                    LocalServerServiceStatus.STOPPED,
+                    state.status
+                )
             }
 
             observedUrls.forEach { url ->
