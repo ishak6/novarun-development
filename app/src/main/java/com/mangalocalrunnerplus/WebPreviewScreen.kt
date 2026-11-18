@@ -235,6 +235,7 @@ fun WebPreviewScreen(
             TextButton(
                 onClick = {
                     val next = !externalNetworkAllowed
+                    externalNetworkPolicy.set(next)
                     externalNetworkAllowed = next
                     WebPreviewPreferenceStore.setExternalNetworkAllowed(context, projectDirectory, next)
                     reloadKey++
@@ -426,6 +427,8 @@ fun WebPreviewScreen(
                         }
                     },
                     update = { view ->
+                        externalNetworkPolicy.set(externalNetworkAllowed)
+                        allowedPortPolicy.set(allowedPort)
                         if (view.settings.javaScriptEnabled != javascriptEnabled) {
                             view.settings.javaScriptEnabled = javascriptEnabled
                         }
