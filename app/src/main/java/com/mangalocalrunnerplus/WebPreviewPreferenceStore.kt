@@ -18,5 +18,5 @@ object WebPreviewPreferenceStore {
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
     private fun key(projectDirectory: File): String =
-        KEY_PREFIX + projectDirectory.absolutePath.hashCode()
+        KEY_PREFIX + projectDirectory.absolutePath
 }
