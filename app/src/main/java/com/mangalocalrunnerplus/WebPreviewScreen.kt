@@ -358,17 +358,29 @@ fun WebPreviewScreen(
                                 }
                             }
 
-                            tag = reloadKey
+                            tag = PreviewLoadIdentity(
+                                projectDirectory.absolutePath,
+                                previewUrl,
+                                reloadKey
+                            )
                             loadUrl(previewUrl)
                         }
                     },
                     update = { view ->
-                        if (view.tag != reloadKey) {
-                            view.tag = reloadKey
+                        val targetIdentity = PreviewLoadIdentity(
+                            projectDirectory.absolutePath,
+                            previewUrl,
+                            reloadKey
+                        )
+                        if (view.tag != targetIdentity) {
+                            view.tag = targetIdentity
                             loadError = null
                             isLoading = true
                             progress = 0
-                            view.reload()
+                            view.loadUrl(previewUrl)
+                        }
+                        if (view.settings.javaScriptEnabled != javascriptEnabled) {
+                            view.settings.javaScriptEnabled = javascriptEnabled
                         }
                     }
                 )
