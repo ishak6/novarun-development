@@ -34,13 +34,16 @@ object ProjectBackupManager {
         cacheDirectory: File,
         limits: Limits = Limits()
     ): File {
+        if (Files.isSymbolicLink(projectDirectory.toPath())) {
+            throw IOException("Project directory cannot be a symbolic link.")
+        }
         val project = try {
             projectDirectory.canonicalFile
         } catch (error: Exception) {
             throw IOException("Project directory cannot be resolved.", error)
         }
 
-        if (!project.isDirectory || Files.isSymbolicLink(project.toPath())) {
+        if (!project.isDirectory) {
             throw IOException("Select a valid project directory to back up.")
         }
 
@@ -57,8 +60,6 @@ object ProjectBackupManager {
                 val buffer = ByteArray(BUFFER_SIZE)
                 var entries = 0
                 var totalBytes = 0L
-                val rootPrefix = project.path + File.separator
-
                 project.walkTopDown().forEach { item ->
                     if (item == project) return@forEach
 
@@ -71,7 +72,7 @@ object ProjectBackupManager {
                     } catch (error: Exception) {
                         throw IOException("Could not resolve project item: " + item.name, error)
                     }
-                    if (!canonical.path.startsWith(rootPrefix)) {
+                    if (canonical == project || !canonical.toPath().startsWith(project.toPath())) {
                         throw IOException("Backup stopped: project item escaped its root.")
                     }
 
