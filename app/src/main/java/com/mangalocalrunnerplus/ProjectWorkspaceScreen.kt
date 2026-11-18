@@ -72,7 +72,7 @@ fun ProjectWorkspaceScreen(
                     }
                 }
                 message = result.fold(
-                    onSuccess = { "Backup saved: ${project.name}.zip. To restore it, choose Home > Import ZIP; NovaRun restores it as a separate project so the current project is not overwritten." },
+                    onSuccess = { "Backup saved: ${project.name}.zip. Restore it from Workspace > Restore Backup / Import ZIP; NovaRun creates a separate project without overwriting the current one." },
                     onFailure = { "Backup failed: ${it.message ?: "Unknown error"}" }
                 )
             }
