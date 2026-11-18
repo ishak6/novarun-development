@@ -193,7 +193,9 @@ class NodeProjectService : Service() {
             ACTION_START -> startProject(intent)
             else -> stopSelf()
         }
-        return START_NOT_STICKY
+        // Redeliver only a user-issued Start request if Android recreates the
+        // isolated Node runtime process. Explicit Stop remains non-sticky.
+        return if (intent?.action == ACTION_START) START_REDELIVER_INTENT else START_NOT_STICKY
     }
 
     private fun startProject(intent: Intent) {
