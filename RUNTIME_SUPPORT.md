@@ -40,11 +40,11 @@ This document records only capabilities integrated into the current Android app.
 
 ## LAN server authentication and HTTPS
 
-- LAN binding is opt-in and uses TLS 1.2 or TLS 1.3 with an RSA identity generated and retained by Android Keystore.
+- LAN binding is opt-in and uses TLS 1.2 or TLS 1.3 with a P-256 ECDSA identity generated and retained by Android Keystore. The v3 identity alias migrates from legacy RSA aliases only after the new identity and SSL context are ready.
 - The certificate is self-signed and device-local. Verify the displayed SHA-256 fingerprint before trusting it; HTTPS does not establish public-CA trust or automatic hostname/IP validation.
 - Password protection can be enabled or disabled while the server is stopped. Credentials are encrypted at rest using Android Keystore AES-GCM.
 - Password OFF allows any reachable LAN client to access served project content. Keep LAN sharing disabled on untrusted networks.
-- TLS integration tests passed in CI; physical-device/browser trust and handshake testing remain release gates.
+- Android Keystore P-256 identity persistence and TLS 1.2/1.3 handshake integration passed in the x86_64 Android emulator in [run 44308780215](https://github.com/ishak6/novarun-development/actions/runs/44308780215) (tested SHA `71f882e`). Physical-device/browser trust and handshake testing remain release gates.
 
 ## Remaining integration gates
 
