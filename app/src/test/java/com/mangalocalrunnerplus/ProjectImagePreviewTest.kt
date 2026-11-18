@@ -7,22 +7,50 @@ import org.junit.Test
 
 class ProjectImagePreviewTest {
     @Test
-    fun recognizesSupportedRasterImagesButNotVectorOrTextFiles() {
+    fun recognizesSupportedRasterVectorAndModernImageFormats() {
         val root = Files.createTempDirectory("novarun-image-types").toFile()
         try {
-            val png = java.io.File(root, "logo.png").apply { writeBytes(byteArrayOf(1)) }
-            val jpg = java.io.File(root, "photo.JPG").apply { writeBytes(byteArrayOf(1)) }
-            val webp = java.io.File(root, "banner.webp").apply { writeBytes(byteArrayOf(1)) }
-            val gif = java.io.File(root, "animation.gif").apply { writeBytes(byteArrayOf(1)) }
-            val svg = java.io.File(root, "vector.svg").apply { writeText("<svg/>") }
-            val html = java.io.File(root, "index.html").apply { writeText("<html/>") }
+            val supported = listOf(
+                "logo.png", "photo.JPG", "photo.jpeg", "banner.webp",
+                "animation.gif", "bitmap.bmp", "vector.svg", "photo.heic",
+                "photo.heif", "modern.avif"
+            )
+            supported.forEach { name ->
+                val file = java.io.File(root, name).apply { writeBytes(byteArrayOf(1)) }
+                assertTrue("$name should be previewable on API 35", ProjectImageFiles.isPreviewable(file, 35))
+            }
 
-            assertTrue(ProjectImageFiles.isPreviewable(png))
-            assertTrue(ProjectImageFiles.isPreviewable(jpg))
-            assertTrue(ProjectImageFiles.isPreviewable(webp))
-            assertTrue(ProjectImageFiles.isPreviewable(gif))
-            assertFalse(ProjectImageFiles.isPreviewable(svg))
-            assertFalse(ProjectImageFiles.isPreviewable(html))
+            val unsupported = listOf("index.html", "notes.txt", "archive.tiff", "icon.ico")
+            unsupported.forEach { name ->
+                val file = java.io.File(root, name).apply { writeBytes(byteArrayOf(1)) }
+                assertFalse("$name must not be routed to the image viewer", ProjectImageFiles.isPreviewable(file, 35))
+            }
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun gatesModernFormatsByAndroidDecoderAvailability() {
+        val root = Files.createTempDirectory("novarun-image-api-gates").toFile()
+        try {
+            val heic = java.io.File(root, "photo.heic").apply { writeBytes(byteArrayOf(1)) }
+            val avif = java.io.File(root, "photo.avif").apply { writeBytes(byteArrayOf(1)) }
+            assertFalse(ProjectImageFiles.isPreviewable(heic, 27))
+            assertTrue(ProjectImageFiles.isPreviewable(heic, 29))
+            assertFalse(ProjectImageFiles.isPreviewable(avif, 30))
+            assertTrue(ProjectImageFiles.isPreviewable(avif, 31))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsDirectoriesEvenWhenTheirNamesLookLikeImages() {
+        val root = Files.createTempDirectory("novarun-image-directory").toFile()
+        try {
+            val fakeImageDirectory = java.io.File(root, "photos.png").apply { mkdirs() }
+            assertFalse(ProjectImageFiles.isPreviewable(fakeImageDirectory, 35))
         } finally {
             root.deleteRecursively()
         }
