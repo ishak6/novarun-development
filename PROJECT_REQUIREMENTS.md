@@ -58,7 +58,7 @@ This register is the source of truth for scope. A successful APK build is not pr
 | H-06 | LAN authentication credentials encrypted at rest; optional auth state clearly explained | Implemented; Keystore failure fallback added; physical-device test required. |
 | H-07 | Optional LAN failures (TLS, Keystore, credentials, IP, invalid/busy port) must not disable localhost | Implemented; invalid LAN port regression test passes in emulator. Keystore failure injection test still required. |
 | H-08 | Start/Stop race must not leak sockets; Stop closes listeners | Emulator instrumentation covers normal stop and rapid start/stop; repeat stress on physical device. |
-| H-09 | Background hosting survives app UI navigation and has an ongoing notification with user Stop action | Foreground service exists; Android 13–15 lifecycle/permission/device verification required. |
+| H-09 | Background hosting survives app UI navigation and has an ongoing notification with user Stop action | Foreground service exists; both local-preview and Node services now promote to foreground before processing Start/Stop actions. Emulator regression covers immediate and delayed Stop; 11 instrumentation tests passed in run 44286135337 (SHA c734855). Android 13–15 physical-device lifecycle/permission verification remains. |
 | H-10 | No accidental public-network exposure; no false claim that app code is sandboxed | Security policy documented; runtime code executes with app permissions and is not a hostile-code sandbox. |
 
 ## E. Runtime engines and developer tools
