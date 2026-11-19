@@ -163,4 +163,64 @@ class NodeRuntimeLogQuotaTest {
             logFile?.delete()
         }
     }
+
+    @Test
+    fun nodeStartupTimeoutDoesNotRedeliverTheSameFailedStart() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val project = File(context.filesDir, "novarun-node-timeout-${UUID.randomUUID()}").apply {
+            check(mkdirs())
+        }
+        val port = ServerSocket(0).use { it.localPort }
+        try {
+            // Keep the Node event loop alive but deliberately never bind the port.
+            // This exercises the real 30-second startup watchdog and service restart mode.
+            File(project, "server.js").writeText("setInterval(() => {}, 1000);")
+            NodeProjectService.start(context, project, port)
+
+            val deadline = System.currentTimeMillis() + 45_000L
+            var state = NodeStateStore.read(context)
+            while (System.currentTimeMillis() < deadline &&
+                !(state.status == "ERROR" && state.message.contains("No server accepted connections"))
+            ) {
+                Thread.sleep(100)
+                state = NodeStateStore.read(context)
+            }
+            assertEquals(
+                "The startup watchdog must report its timeout instead of silently restarting",
+                true,
+                state.status == "ERROR" && state.message.contains("No server accepted connections")
+            )
+
+            // A redelivered failed Start would change the persisted state back to STARTING.
+            val observationDeadline = System.currentTimeMillis() + 10_000L
+            while (System.currentTimeMillis() < observationDeadline) {
+                Thread.sleep(250)
+                state = NodeStateStore.read(context)
+                assertEquals(
+                    "A timed-out Node Start was automatically redelivered",
+                    "ERROR",
+                    state.status
+                )
+            }
+
+            val connection = runCatching {
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress("127.0.0.1", port), 500)
+                }
+            }
+            assertTrue("Timed-out Node project must not leave a listening socket", connection.isFailure)
+        } finally {
+            if (NodeStateStore.read(context).status in setOf("STARTING", "RUNNING", "ERROR")) {
+                NodeProjectService.stop(context)
+                val stopDeadline = System.currentTimeMillis() + 5_000L
+                while (System.currentTimeMillis() < stopDeadline &&
+                    NodeStateStore.read(context).status != "STOPPED"
+                ) {
+                    Thread.sleep(100)
+                }
+            }
+            project.deleteRecursively()
+        }
+    }
+
 }
