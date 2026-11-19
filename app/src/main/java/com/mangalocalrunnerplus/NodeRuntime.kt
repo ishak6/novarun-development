@@ -190,7 +190,7 @@ class NodeProjectService : Service() {
                 // This service is isolated in :nodejs; only that runtime process is terminated.
                 Process.killProcess(Process.myPid())
             }
-            ACTION_START -> startProject(intent)
+            ACTION_START -> startProject(intent, startId)
             else -> stopSelf()
         }
         // Redeliver only a user-issued Start request if Android recreates the
@@ -198,7 +198,7 @@ class NodeProjectService : Service() {
         return if (intent?.action == ACTION_START) START_REDELIVER_INTENT else START_NOT_STICKY
     }
 
-    private fun startProject(intent: Intent) {
+    private fun startProject(intent: Intent, startId: Int) {
         if (!started.compareAndSet(false, true)) return
         val project = intent.getStringExtra(EXTRA_PROJECT)?.let(::File)
         val port = intent.getIntExtra(EXTRA_PORT, 3000)
@@ -249,6 +249,11 @@ class NodeProjectService : Service() {
             }
             if (NodeStateStore.read(this).status == "STARTING") {
                 NodeStateStore.write(this, NodeState("ERROR", "No server accepted connections on port $port within 30 seconds. Check the log.", url, log.absolutePath))
+                // Mark this start request stopped before terminating the isolated
+                // Node process. Otherwise START_REDELIVER_INTENT can redeliver the
+                // same failed request and create an endless 30-second restart loop.
+                stopSelfResult(startId)
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 Process.killProcess(Process.myPid())
             }
         }, "NovaRun-Node-Health").start()
