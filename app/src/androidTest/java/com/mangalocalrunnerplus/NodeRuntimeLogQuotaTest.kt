@@ -245,7 +245,7 @@ class NodeRuntimeLogQuotaTest {
                 const http = require('node:http');
                 const server = http.createServer((_request, response) => response.end('first'));
                 server.listen(Number(process.env.PORT), '127.0.0.1', () => {
-                    server.close(() => process.exit(0));
+                    server.close();
                 });
                 """.trimIndent()
             )
