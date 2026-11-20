@@ -229,7 +229,14 @@ class NodeProjectService : Service() {
                 NodeStateStore.write(this, NodeState("ERROR", "Node runtime error: ${e.message ?: e.javaClass.simpleName}", url, log.absolutePath))
             } finally {
                 started.set(false)
-                stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                // Node.js Mobile documents that a Node engine cannot be restarted
+                // after node::Start() returns. This service owns the dedicated
+                // :nodejs process, so terminate it after persisting the exit state.
+                // If a newer Start intent arrived while this engine was ending,
+                // START_REDELIVER_INTENT will recreate the service in a fresh process.
+                stopSelfResult(startId)
+                Process.killProcess(Process.myPid())
             }
         }, "NovaRun-Node-Engine").start()
 
