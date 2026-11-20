@@ -224,3 +224,100 @@ class NodeRuntimeLogQuotaTest {
     }
 
 }
+
+    @Test
+    fun nodeServiceCanRestartAfterNaturalExit() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val firstProject = File(context.filesDir, "novarun-node-natural-exit-${UUID.randomUUID()}").apply {
+            check(mkdirs())
+        }
+        val secondProject = File(context.filesDir, "novarun-node-restart-${UUID.randomUUID()}").apply {
+            check(mkdirs())
+        }
+        val firstPort = ServerSocket(0).use { it.localPort }
+        val secondPort = ServerSocket(0).use { it.localPort }
+
+        try {
+            // The first Node instance opens and closes its listener by itself,
+            // causing node::Start() to return without an explicit Stop action.
+            File(firstProject, "server.js").writeText(
+                """
+                const http = require('node:http');
+                const server = http.createServer((_request, response) => response.end('first'));
+                server.listen(Number(process.env.PORT), '127.0.0.1', () => {
+                    server.close(() => process.exit(0));
+                });
+                """.trimIndent()
+            )
+            NodeProjectService.start(context, firstProject, firstPort)
+
+            val firstDeadline = System.currentTimeMillis() + 30_000L
+            var firstState = NodeStateStore.read(context)
+            while (System.currentTimeMillis() < firstDeadline &&
+                !(firstState.status == "STOPPED" && firstState.message.contains("exited with code 0"))
+            ) {
+                Thread.sleep(100)
+                firstState = NodeStateStore.read(context)
+            }
+            assertTrue(
+                "First Node instance must exit naturally: ${firstState.message}",
+                firstState.status == "STOPPED" && firstState.message.contains("exited with code 0")
+            )
+
+            // Give Service.onStartCommand/finally a chance to finish. The second
+            // user Start must work even if Android reuses the :nodejs process.
+            Thread.sleep(1_000L)
+            File(secondProject, "server.js").writeText(
+                """
+                const http = require('node:http');
+                http.createServer((_request, response) => response.end('second'))
+                    .listen(Number(process.env.PORT), '127.0.0.1');
+                """.trimIndent()
+            )
+            NodeProjectService.start(context, secondProject, secondPort)
+
+            val secondDeadline = System.currentTimeMillis() + 30_000L
+            var secondState = NodeStateStore.read(context)
+            while (System.currentTimeMillis() < secondDeadline &&
+                secondState.status !in setOf("RUNNING", "ERROR", "STOPPED")
+            ) {
+                Thread.sleep(100)
+                secondState = NodeStateStore.read(context)
+            }
+            assertEquals(
+                "A second Node session must start after a natural exit: ${secondState.message}",
+                "RUNNING",
+                secondState.status
+            )
+
+            val connection = URL("http://127.0.0.1:$secondPort/").openConnection() as HttpURLConnection
+            connection.connectTimeout = 5_000
+            connection.readTimeout = 5_000
+            try {
+                assertEquals("Restarted Node service must answer HTTP 200", 200, connection.responseCode)
+                assertEquals("second", connection.inputStream.bufferedReader().use { it.readText() })
+            } finally {
+                connection.disconnect()
+            }
+
+            NodeProjectService.stop(context)
+            val stopDeadline = System.currentTimeMillis() + 5_000L
+            secondState = NodeStateStore.read(context)
+            while (System.currentTimeMillis() < stopDeadline && secondState.status != "STOPPED") {
+                Thread.sleep(100)
+                secondState = NodeStateStore.read(context)
+            }
+            assertEquals("Second Node session must stop cleanly", "STOPPED", secondState.status)
+        } finally {
+            if (NodeStateStore.read(context).status in setOf("STARTING", "RUNNING", "ERROR")) {
+                NodeProjectService.stop(context)
+                val stopDeadline = System.currentTimeMillis() + 5_000L
+                while (System.currentTimeMillis() < stopDeadline && NodeStateStore.read(context).status != "STOPPED") {
+                    Thread.sleep(100)
+                }
+            }
+            firstProject.deleteRecursively()
+            secondProject.deleteRecursively()
+        }
+    }
+
