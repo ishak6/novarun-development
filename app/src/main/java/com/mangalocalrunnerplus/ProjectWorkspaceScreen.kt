@@ -1,6 +1,8 @@
 
 package com.mangalocalrunnerplus
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,7 +23,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 
 private val WorkspaceBackground
     get() = NovaRunPalette.Background
@@ -40,71 +46,75 @@ fun ProjectWorkspaceScreen(
     onProjectSelected: (File) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var message by remember { mutableStateOf<String?>(null) }
+
+    var backupTarget by remember { mutableStateOf<File?>(null) }
+    val backupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        val project = backupTarget
+        backupTarget = null
+        if (uri != null && project != null) {
+            scope.launch {
+                val result = runCatching {
+                    withContext(Dispatchers.IO) {
+                        val archive = ProjectBackupManager.createBackup(project, context.cacheDir)
+                        try {
+                            val output = context.contentResolver.openOutputStream(uri, "w")
+                                ?: throw IOException("Could not open the selected backup destination.")
+                            output.use { destination ->
+                                archive.inputStream().use { input -> input.copyTo(destination) }
+                            }
+                        } finally {
+                            archive.delete()
+                        }
+                    }
+                }
+                message = result.fold(
+                    onSuccess = { "Backup saved: ${project.name}.zip. Restore it from Workspace > Restore Backup / Import ZIP; NovaRun creates a separate project without overwriting the current one." },
+                    onFailure = { "Backup failed: ${it.message ?: "Unknown error"}" }
+                )
+            }
+        } else if (uri == null) {
+            message = "Backup cancelled."
+        }
+    }
 
     var projects by remember { mutableStateOf(emptyList<File>()) }
     var searchText by remember { mutableStateOf("") }
     var projectToDelete by remember { mutableStateOf<File?>(null) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var newProjectName by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf<String?>(null) }
 
     fun refreshProjects() {
         projects = ProjectRepository.getProjects(context)
     }
 
+    val launchRestoreBackup = rememberZipImportLauncher { result ->
+        result.fold(
+            onSuccess = { restored ->
+                refreshProjects()
+                message = "Backup restored as a separate project: ${restored.name}. Your existing projects were not overwritten."
+            },
+            onFailure = { error ->
+                message = "Restore failed: ${error.message ?: "Could not import backup ZIP."}"
+            }
+        )
+    }
+
     fun createProject() {
-        val name = newProjectName.trim()
-
-        when {
-            name.isBlank() -> {
-                message = "প্রজেক্টের নাম লিখুন।"
-            }
-
-            name.length > 50 -> {
-                message = "প্রজেক্টের নাম ৫০ অক্ষরের মধ্যে রাখুন।"
-            }
-
-            !name.matches(Regex("[a-zA-Z0-9 _.-]+")) -> {
-                message = "শুধু English letter, number, space, dot, underscore ও hyphen ব্যবহার করুন।"
-            }
-
-            else -> {
-                val root = File(context.filesDir, "projects")
-                if (!root.exists()) root.mkdirs()
-
-                val project = File(root, name)
-
-                if (project.exists()) {
-                    message = "এই নামে একটি Project আগে থেকেই আছে।"
-                } else {
-                    val created = project.mkdirs()
-
-                    if (created) {
-                        File(project, "index.html").writeText(
-                            """<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>$name</title>
-</head>
-<body>
-    <h1>Welcome to $name</h1>
-    <p>Your project is ready.</p>
-</body>
-</html>"""
-                        )
-
-                        showNewProjectDialog = false
-                        newProjectName = ""
-                        refreshProjects()
-                        message = "নতুন Project তৈরি হয়েছে: $name"
-                    } else {
-                        message = "Project তৈরি করা যায়নি। আবার চেষ্টা করুন।"
-                    }
-                }
-            }
+        val project = try {
+            ProjectRepository.createProject(context, newProjectName)
+        } catch (error: Exception) {
+            message = error.message ?: "Project তৈরি করা যায়নি। আবার চেষ্টা করুন।"
+            return
         }
+
+        showNewProjectDialog = false
+        newProjectName = ""
+        refreshProjects()
+        message = "নতুন Project তৈরি হয়েছে: ${project.name}"
     }
 
     LaunchedEffect(Unit) {
@@ -169,6 +179,23 @@ fun ProjectWorkspaceScreen(
             Spacer(Modifier.width(8.dp))
             Text("New Project", fontWeight = FontWeight.Bold)
         }
+
+        OutlinedButton(
+            onClick = launchRestoreBackup,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = WorkspaceBlue)
+        ) {
+            Text("RESTORE BACKUP / IMPORT ZIP", fontWeight = FontWeight.SemiBold)
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Text(
+            "Backup from a project card. Restore creates a separate project; existing files are never overwritten.",
+            color = WorkspaceMuted,
+            fontSize = 11.sp
+        )
 
         Spacer(Modifier.height(14.dp))
 
@@ -248,6 +275,10 @@ fun ProjectWorkspaceScreen(
                     ProjectCard(
                         project = project,
                         onOpen = { onProjectSelected(project) },
+                        onBackup = {
+                            backupTarget = project
+                            backupLauncher.launch(project.name.replace(Regex("[^A-Za-z0-9._-]"), "_") + "_backup.zip")
+                        },
                         onDelete = { projectToDelete = project }
                     )
                 }
@@ -360,6 +391,7 @@ fun ProjectWorkspaceScreen(
 private fun ProjectCard(
     project: File,
     onOpen: () -> Unit,
+    onBackup: () -> Unit,
     onDelete: () -> Unit
 ) {
     val size = ProjectRepository.formatSize(
@@ -490,6 +522,9 @@ private fun ProjectCard(
                     php.warnings.firstOrNull()?.let { warning ->
                         Text(warning, color = NovaRunPalette.Warning, fontSize = 9.sp, maxLines = 2)
                     }
+                }
+                TextButton(onClick = onBackup) {
+                    Text("BACKUP ZIP", color = WorkspaceBlue, fontSize = 11.sp)
                 }
             }
 

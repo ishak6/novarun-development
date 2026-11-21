@@ -40,11 +40,11 @@ This document records only capabilities integrated into the current Android app.
 
 ## LAN server authentication and HTTPS
 
-- LAN binding is opt-in and uses TLS 1.2 or TLS 1.3 with an RSA identity generated and retained by Android Keystore.
+- LAN binding is opt-in and uses TLS 1.2 or TLS 1.3 with a P-256 ECDSA identity generated and retained by Android Keystore. The v3 identity alias migrates from legacy RSA aliases only after the new identity and SSL context are ready.
 - The certificate is self-signed and device-local. Verify the displayed SHA-256 fingerprint before trusting it; HTTPS does not establish public-CA trust or automatic hostname/IP validation.
 - Password protection can be enabled or disabled while the server is stopped. Credentials are encrypted at rest using Android Keystore AES-GCM.
 - Password OFF allows any reachable LAN client to access served project content. Keep LAN sharing disabled on untrusted networks.
-- TLS integration tests passed in CI; physical-device/browser trust and handshake testing remain release gates.
+- Android Keystore P-256 identity persistence and TLS 1.2/1.3 handshake integration passed in the x86_64 Android emulator in [run 44308780215](https://github.com/ishak6/novarun-development/actions/runs/44308780215) (tested SHA `71f882e`). Physical-device/browser trust and handshake testing remain release gates.
 
 ## Remaining integration gates
 
@@ -65,6 +65,7 @@ This document records only capabilities integrated into the current Android app.
 
 - Embedded Node.js Mobile 24.22.1 full build is downloaded during CI, SHA-256 verified and packaged for arm64-v8a and x86_64, together with a JNI bridge.
 - A user-selected Node entry point is started in a dedicated Android service process with an ongoing notification and explicit Stop action.
+- Android service lifecycle recovery uses `START_REDELIVER_INTENT` only for a user-started Start action. The 30-second startup watchdog now marks a failed start, calls `stopSelfResult(startId)`, then terminates the isolated process so the same failed intent is not redelivered in an endless restart loop. Regression test `nodeStartupTimeoutDoesNotRedeliverTheSameFailedStart` passed in [run 376](https://github.com/ishak6/novarun-development/actions/runs/44529593606) (17/17 Android emulator instrumentation tests). Physical-device process-recreation behavior remains unverified.
 - The runner detects nested ZIP wrapper folders containing a package manifest and server entry point, checks the requested Node engine against the bundled 24.22.1 version, validates the port and checks for `node_modules` when dependencies are declared. It reports compatibility warnings and captures stdout/stderr through a bounded native pipe; the combined log is capped at 2 MiB with a visible truncation marker. This does not impose a CPU, memory, or project-filesystem quota on Node code.
 - The two supplied clothing-store ZIPs declare no npm dependencies and use built-in `node:sqlite`; the full Node 24 runtime provides that module. The runner does not yet install npm dependencies or run package lifecycle scripts, child processes or cluster workers. Native addons require Android ABI-compatible binaries.
 - CI downloads the fixtures by pinned commit, verifies ZIP integrity, imports them with the production ZIP importer, validates their HTML entry points, serves static storefront assets through the loopback preview server, then starts the Node backend and checks its health route, SQLite database and storefront assets. The emulator is x86_64; this does not prove physical-device or arm64-v8a behavior.
@@ -91,3 +92,25 @@ This document records only capabilities integrated into the current Android app.
 - Default local settings use `HOST=127.0.0.1`, `PORT=3000`, `data/store.sqlite` and `public/uploads/`. NovaRun sets the host and port and runs with the nested folder as the working directory.
 - The first-run setup token is written to the Node server log; the user must create the first admin account in the in-app website preview. Do not expose the local server on a LAN or public network without a separately configured authenticated/TLS deployment.
 - The Node 24.22.1 mobile binary is from the pinned fogtape/nodejs-mobile v24.22.1-0 release, not the upstream nodejs-mobile project's official release line. CI verifies its published GitHub SHA-256 digest before packaging. Review the fork's source/provenance and keep the version pinned until a trusted upstream release is available.
+
+
+## External technical references used for runtime planning
+
+- Node.js Mobile API differences: https://nodejs-mobile.github.io/docs/api/differences/ — documents that `child_process` and `cluster` are unsupported on mobile.
+- Node.js Mobile FAQ: https://nodejs-mobile.github.io/docs/guide/faq/ — documents that npm modules are normally installed at development time into the app's project source directory; native addons need target-compatible builds.
+- Node.js Mobile source/build recipe: https://github.com/fogtape/nodejs-mobile — source patches, build instructions and binary provenance must be reviewed before changing the pinned runtime.
+- Termux package build system: https://github.com/termux/termux-packages/wiki/Building-packages — Android packages are built for a Termux-specific prefix and architecture.
+- Termux PHP package recipe: https://github.com/termux/termux-packages/blob/master/packages/php/build.sh — demonstrates PHP's native dependencies and extension/build configuration; binaries built for Termux cannot simply be copied into NovaRun's distinct Android app sandbox/prefix.
+
+
+### PHP Android embed prototype research (2026-11-18)
+
+A technically plausible arm64 path was found; PHP must remain marked **not executable** until the native wrapper and Android tests pass.
+
+- Pinned PHP Runtime Layer candidate: `swoole/swoole-cli` release `v6.2.2.2`, PHP `8.4.25`, asset `php-runtime-layer_swoole-cli-v6.2.2.2_php8.4.25_android-arm64-v8a.tar.xz`.
+- Published asset SHA-256: `8c762d98e49445645ada15bb4b594d1a1f33e2033a42c4e08df856123b78e776`.
+- PHPX Android build source pinned for prototype research: `swoole/phpx` commit `90e6d22a9c3f4d5dbd2c75d62e90bf5adfe58c89`; `android/build.sh` builds `libphpx.a` for `arm64-v8a` with Android NDK and API 24, and requires a matching ZTS runtime-layer ABI marker.
+- The selected published runtime layer is arm64-v8a only; x86_64 PHP support is not established. Do not label PHP available on x86_64.
+- The PHP runtime layer contains `libphp.a` and matching headers; it is not itself a ready-to-run PHP CLI executable. NovaRun still needs a tested JNI/Embed SAPI wrapper, process isolation, output capture, timeout/stop handling, and a real Android PHP fixture before PHP can be marked executable.
+- `swoole/phpx` is Apache-2.0; `swoole/swoole-cli` is dual-licensed and distributes bundled third-party notices plus a separate SWOOLE-CLI license. Any integration must preserve required notices and pass license review.
+- This is a prototype candidate, not an approved scope reduction and not evidence that PHP execution currently works.

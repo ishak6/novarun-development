@@ -61,6 +61,10 @@ object LanCredentialsStore {
         return defaults
     }
 
+    /** Returns null when Android Keystore is unavailable; callers can still run localhost-only. */
+    fun getOrNull(context: Context): LanCredentials? =
+        runCatching { get(context) }.getOrNull()
+
     @Synchronized
     fun save(context: Context, username: String, password: String) {
         require(username.isNotBlank() && username.length <= 64 && !username.contains('\n') && !username.contains(':')) { "Username must be 1–64 characters and cannot contain ':'." }
@@ -91,11 +95,16 @@ object LanCredentialsStore {
 @Composable
 fun LanCredentialsSettingsCard() {
     val context = LocalContext.current
-    val initial = remember(context) { LanCredentialsStore.get(context) }
-    var username by remember { mutableStateOf(initial.username) }
-    var password by remember { mutableStateOf(initial.password) }
+    val initial = remember(context) { LanCredentialsStore.getOrNull(context) }
+    var username by remember { mutableStateOf(initial?.username.orEmpty()) }
+    var password by remember { mutableStateOf(initial?.password.orEmpty()) }
     var visible by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf("Credentials are encrypted on this device.") }
+    var message by remember {
+        mutableStateOf(
+            if (initial != null) "Credentials are encrypted on this device."
+            else "Android Keystore is unavailable. Localhost remains available; LAN login cannot be loaded."
+        )
+    }
 
     androidx.compose.material3.Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

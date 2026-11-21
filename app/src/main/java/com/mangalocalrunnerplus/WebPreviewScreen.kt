@@ -6,6 +6,7 @@ import android.net.Uri
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -23,9 +24,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -36,9 +39,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -48,8 +58,15 @@ fun WebPreviewScreen(
     onBack: () -> Unit = {},
     nodeServerUrl: String? = null
 ) {
+    val context = LocalContext.current
     val validation = remember(projectDirectory) {
         ProjectPreviewValidator.validate(projectDirectory)
+    }
+    var javascriptEnabled by remember(projectDirectory.absolutePath) {
+        mutableStateOf(WebPreviewPreferenceStore.isJavaScriptEnabled(context, projectDirectory))
+    }
+    var externalNetworkAllowed by remember(projectDirectory.absolutePath) {
+        mutableStateOf(WebPreviewPreferenceStore.isExternalNetworkAllowed(context, projectDirectory))
     }
     val projectRoot = validation.projectRoot
 
@@ -82,10 +99,18 @@ fun WebPreviewScreen(
     // assets and client-side routes run in a normal same-origin context.
     // The preview listener is bound to loopback only and is not LAN-visible.
     LaunchedEffect(projectRoot, nodeServerUrl) {
+        // Retire any listener from the previous project/backend before starting
+        // a new preview. DisposableEffect closes the previous listener.
+        previewServer = null
+        previewPort = 0
+        serverError = null
+
         if (nodeServerUrl != null) return@LaunchedEffect
         if (projectRoot == null || !validation.isValid) return@LaunchedEffect
 
-        val started = withContext(Dispatchers.IO) {
+        // Server.start() is blocking. Finish the bind attempt even if this
+        // LaunchedEffect is cancelled, then explicitly close an unadopted socket.
+        val started = withContext(NonCancellable + Dispatchers.IO) {
             var active: Pair<LocalWebServer, Int>? = null
             for (port in 18080..18100) {
                 val candidate = LocalWebServer(
@@ -102,10 +127,16 @@ fun WebPreviewScreen(
             active
         }
 
+        if (!currentCoroutineContext().isActive) {
+            started?.first?.let { candidate ->
+                withContext(NonCancellable + Dispatchers.IO) { candidate.stop() }
+            }
+            return@LaunchedEffect
+        }
+
         if (started != null) {
             previewServer = started.first
             previewPort = started.second
-            serverError = null
         } else {
             serverError = "Could not start the private preview server. Ports 18080–18100 may be unavailable."
         }
@@ -130,6 +161,12 @@ fun WebPreviewScreen(
 
     val backendUri = remember(nodeServerUrl) { nodeServerUrl?.let(Uri::parse) }
     val allowedPort = backendUri?.port ?: previewPort
+    val externalNetworkPolicy = remember { AtomicBoolean(externalNetworkAllowed) }
+    val allowedPortPolicy = remember { AtomicInteger(allowedPort) }
+    SideEffect {
+        externalNetworkPolicy.set(externalNetworkAllowed)
+        allowedPortPolicy.set(allowedPort)
+    }
     val previewUrl = nodeServerUrl ?: if (previewServer != null && previewPort > 0) {
         "http://127.0.0.1:$previewPort/"
     } else {
@@ -176,6 +213,52 @@ fun WebPreviewScreen(
             color = Color(0xFF9AA6B5),
             fontSize = 12.sp
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = {
+                    val next = !javascriptEnabled
+                    javascriptEnabled = next
+                    WebPreviewPreferenceStore.setJavaScriptEnabled(context, projectDirectory, next)
+                    webView?.let { view ->
+                        view.settings.javaScriptEnabled = next
+                        view.reload()
+                    }
+                },
+                enabled = previewUrl != null
+            ) {
+                Text("JavaScript: " + if (javascriptEnabled) "ON" else "OFF")
+            }
+            TextButton(
+                onClick = {
+                    val next = !externalNetworkAllowed
+                    externalNetworkPolicy.set(next)
+                    externalNetworkAllowed = next
+                    WebPreviewPreferenceStore.setExternalNetworkAllowed(context, projectDirectory, next)
+                    reloadKey++
+                },
+                enabled = previewUrl != null
+            ) {
+                Text("Network: " + if (externalNetworkAllowed) "HTTPS ON" else "LOCAL ONLY")
+            }
+        }
+        if (javascriptEnabled) {
+            Text(
+                "Run trusted project scripts only.",
+                color = Color(0xFFFF9F0A),
+                fontSize = 10.sp
+            )
+        }
+        if (externalNetworkAllowed) {
+            Text(
+                "External HTTPS resources are allowed and may send project data to remote servers.",
+                color = Color(0xFFFF9F0A),
+                fontSize = 10.sp
+            )
+        }
 
         if (nodeServerUrl != null) {
             Button(
@@ -248,7 +331,7 @@ fun WebPreviewScreen(
                         WebView(context).apply {
                             webView = this
                             settings.apply {
-                                javaScriptEnabled = true
+                                javaScriptEnabled = javascriptEnabled
                                 domStorageEnabled = true
                                 allowFileAccess = false
                                 allowContentAccess = false
@@ -283,7 +366,34 @@ fun WebPreviewScreen(
                                     request: WebResourceRequest?
                                 ): Boolean {
                                     val uri = request?.url ?: return true
-                                    return !isAllowedPreviewUrl(uri, allowedPort)
+                                    return !PreviewUrlPolicy.isAllowed(
+                                        uri,
+                                        allowedPortPolicy.get(),
+                                        externalNetworkPolicy.get()
+                                    )
+                                }
+
+                                override fun shouldInterceptRequest(
+                                    view: WebView?,
+                                    request: WebResourceRequest?
+                                ): WebResourceResponse? {
+                                    val uri = request?.url ?: return null
+                                    if (!PreviewUrlPolicy.isAllowed(
+                                            uri,
+                                            allowedPortPolicy.get(),
+                                            externalNetworkPolicy.get()
+                                        )
+                                    ) {
+                                        return WebResourceResponse(
+                                            "text/plain",
+                                            "UTF-8",
+                                            403,
+                                            "Blocked by NovaRun preview policy",
+                                            mapOf("Cache-Control" to "no-store"),
+                                            ByteArrayInputStream(ByteArray(0))
+                                        )
+                                    }
+                                    return super.shouldInterceptRequest(view, request)
                                 }
 
                                 override fun onReceivedError(
@@ -308,17 +418,31 @@ fun WebPreviewScreen(
                                 }
                             }
 
-                            tag = reloadKey
+                            tag = PreviewLoadIdentity(
+                                projectDirectory.absolutePath,
+                                previewUrl,
+                                reloadKey
+                            )
                             loadUrl(previewUrl)
                         }
                     },
                     update = { view ->
-                        if (view.tag != reloadKey) {
-                            view.tag = reloadKey
+                        externalNetworkPolicy.set(externalNetworkAllowed)
+                        allowedPortPolicy.set(allowedPort)
+                        if (view.settings.javaScriptEnabled != javascriptEnabled) {
+                            view.settings.javaScriptEnabled = javascriptEnabled
+                        }
+                        val targetIdentity = PreviewLoadIdentity(
+                            projectDirectory.absolutePath,
+                            previewUrl,
+                            reloadKey
+                        )
+                        if (view.tag != targetIdentity) {
+                            view.tag = targetIdentity
                             loadError = null
                             isLoading = true
                             progress = 0
-                            view.reload()
+                            view.loadUrl(previewUrl)
                         }
                     }
                 )
@@ -327,8 +451,3 @@ fun WebPreviewScreen(
     }
 }
 
-private fun isAllowedPreviewUrl(uri: Uri, allowedPort: Int): Boolean {
-    if (allowedPort !in 1..65535 || uri.scheme != "http") return false
-    val hostAllowed = uri.host == "127.0.0.1" || uri.host == "localhost"
-    return hostAllowed && uri.port == allowedPort
-}

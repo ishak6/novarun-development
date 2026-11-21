@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material3.*
@@ -49,41 +50,14 @@ fun ProjectFileExplorer(
     var targetFile by remember { mutableStateOf<File?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
 
-    fun isInsideProject(file: File): Boolean {
-        return try {
-            val root = projectRoot.canonicalFile
-            val candidate = file.canonicalFile
-            candidate == root ||
-                candidate.path.startsWith(root.path + File.separator)
-        } catch (_: Exception) {
-            false
-        }
-    }
 
     fun refreshFiles() {
         try {
-            if (!isInsideProject(currentDirectory)) {
-                currentDirectory = projectRoot
-                errorMessage = "Invalid folder location."
-                return
-            }
-
-            if (!currentDirectory.exists() || !currentDirectory.isDirectory) {
-                files = emptyList()
-                errorMessage = "This folder is not available."
-                return
-            }
-
-            files = currentDirectory.listFiles()
-                ?.filter { it.exists() && isInsideProject(it) }
-                ?.sortedWith(
-                    compareBy<File> { !it.isDirectory }
-                        .thenBy { it.name.lowercase() }
-                ) ?: emptyList()
-
+            files = ProjectFileOperations.list(projectRoot, currentDirectory)
             errorMessage = null
         } catch (exception: Exception) {
             files = emptyList()
+            if (currentDirectory != projectRoot) currentDirectory = projectRoot
             errorMessage = exception.message ?: "Could not read this folder."
         }
     }
@@ -125,101 +99,21 @@ fun ProjectFileExplorer(
     }
 
     fun performAction() {
-        val name = inputName.trim()
-
-        if (dialogMode != "delete") {
-            if (name.isBlank()) {
-                errorMessage = "Name cannot be empty."
-                return
-            }
-
-            if (
-                name == "." ||
-                name == ".." ||
-                name.contains("/") ||
-                name.contains("\\") ||
-                name.contains(":")
-            ) {
-                errorMessage = "Enter a valid file or folder name."
-                return
-            }
-        }
-
         try {
             when (dialogMode) {
-                "create_file" -> {
-                    val newFile = File(currentDirectory, name)
-
-                    if (!isInsideProject(newFile)) {
-                        errorMessage = "Invalid file location."
-                        return
-                    }
-
-                    if (newFile.exists()) {
-                        errorMessage = "A file or folder with this name already exists."
-                        return
-                    }
-
-                    if (!newFile.createNewFile()) {
-                        errorMessage = "Could not create the file."
-                        return
-                    }
-                }
-
-                "create_folder" -> {
-                    val newFolder = File(currentDirectory, name)
-
-                    if (!isInsideProject(newFolder)) {
-                        errorMessage = "Invalid folder location."
-                        return
-                    }
-
-                    if (newFolder.exists()) {
-                        errorMessage = "A file or folder with this name already exists."
-                        return
-                    }
-
-                    if (!newFolder.mkdir()) {
-                        errorMessage = "Could not create the folder."
-                        return
-                    }
-                }
-
+                "create_file" -> ProjectFileOperations.createFile(
+                    projectRoot, currentDirectory, inputName
+                )
+                "create_folder" -> ProjectFileOperations.createFolder(
+                    projectRoot, currentDirectory, inputName
+                )
                 "rename" -> {
-                    val oldFile = targetFile ?: return
-                    val renamedFile = File(oldFile.parentFile, name)
-
-                    if (!isInsideProject(oldFile) || !isInsideProject(renamedFile)) {
-                        errorMessage = "Invalid file location."
-                        return
-                    }
-
-                    if (renamedFile.exists()) {
-                        errorMessage = "A file or folder with this name already exists."
-                        return
-                    }
-
-                    if (!oldFile.renameTo(renamedFile)) {
-                        errorMessage = "Could not rename this item."
-                        return
-                    }
+                    val target = targetFile ?: return
+                    ProjectFileOperations.rename(projectRoot, target, inputName)
                 }
-
                 "delete" -> {
-                    val file = targetFile ?: return
-
-                    if (
-                        !isInsideProject(file) ||
-                        file.canonicalFile == projectRoot.canonicalFile
-                    ) {
-                        errorMessage = "This item cannot be deleted."
-                        return
-                    }
-
-                    if (!file.deleteRecursively()) {
-                        errorMessage = "Could not delete this item."
-                        return
-                    }
+                    val target = targetFile ?: return
+                    ProjectFileOperations.delete(projectRoot, target)
                 }
             }
 
@@ -458,13 +352,17 @@ private fun FileExplorerItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (file.isDirectory) {
-                        Icons.Default.Folder
-                    } else {
-                        Icons.Default.InsertDriveFile
+                    imageVector = when {
+                        file.isDirectory -> Icons.Default.Folder
+                        ProjectImageFiles.isPreviewable(file) -> Icons.Default.Image
+                        else -> Icons.Default.InsertDriveFile
                     },
                     contentDescription = null,
-                    tint = if (file.isDirectory) ExplorerBlue else ExplorerMuted,
+                    tint = when {
+                        file.isDirectory -> ExplorerBlue
+                        ProjectImageFiles.isPreviewable(file) -> Color(0xFF9B5CFF)
+                        else -> ExplorerMuted
+                    },
                     modifier = Modifier.size(25.dp)
                 )
 
