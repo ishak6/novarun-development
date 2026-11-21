@@ -223,7 +223,6 @@ class NodeRuntimeLogQuotaTest {
         }
     }
 
-}
 
     @Test
     fun nodeServiceCanRestartAfterNaturalExit() {
