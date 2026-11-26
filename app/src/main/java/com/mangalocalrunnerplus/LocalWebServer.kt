@@ -176,10 +176,6 @@ class LocalWebServer(
         socket.use { client ->
 
             client.soTimeout = 10000
-            if (client is SSLSocket) {
-                client.startHandshake()
-            }
-
             val input = BufferedInputStream(
                 client.getInputStream()
             )
@@ -191,6 +187,12 @@ class LocalWebServer(
             var method = ""
 
             try {
+                // A failed TLS handshake is untrusted network input. Keep it
+                // inside the per-client exception boundary so one bad peer
+                // cannot crash the NovaRun process.
+                if (client is SSLSocket) {
+                    client.startHandshake()
+                }
 
                 val requestLine = readBoundedLine(
                     input,
