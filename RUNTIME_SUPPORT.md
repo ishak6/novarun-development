@@ -12,7 +12,7 @@ This document records only capabilities integrated into the current Android app.
 | .gitkeep | Project metadata | Preserved by ZIP import; hidden from public HTTP serving with other dotfiles |
 | SQL | Executable with limits | Project-isolated SQLite database |
 | Python | Executable with limits; CI bridge verified | CPython 3.11 via Chaquopy; Android-specific package limitations; physical-device verification remains required |
-| Node.js | Embedded runtime integrated; emulator verified | Node.js Mobile 24.22.1 full build is packaged for arm64-v8a and x86_64. The release archive SHA-256 is pinned and verified in CI; the full build retains built-in `node:sqlite`. The x86_64 Android emulator starts both supplied ZIP backends and verifies HTTP, SQLite, logs and Stop behavior. Physical-device ABI and lifecycle validation remain required |
+| Node.js | Embedded runtime integrated; emulator verified | Node.js Mobile 24.22.1 full build is packaged for arm64-v8a and x86_64. The release archive SHA-256 is pinned and verified in CI; the full build retains built-in `node:sqlite`. CI verifies native ELF 16 KB LOAD alignment for both ABIs and runs the x86_64 emulator with 16 KB pages. The main-branch emulator starts both supplied ZIP backends and verifies HTTP, SQLite, logs and Stop behavior. Physical-device ABI and lifecycle validation remain required |
 | npm / npx | Not integrated | package.json and lockfiles are inspected; no npm/npx CLI or dependency installation is bundled. Existing node_modules may be used by the Node server; lifecycle scripts are never auto-run |
 | PHP | Planned | Composer/PHP manifests are inspected; no PHP CLI runtime is bundled or executed |
 | Java | Planned | Requires compiler, DEX conversion, dependency resolution and constrained class loading |
@@ -40,16 +40,25 @@ This document records only capabilities integrated into the current Android app.
 
 ## LAN server authentication and HTTPS
 
-- LAN binding is opt-in and uses TLS 1.2 or TLS 1.3 with an RSA identity generated and retained by Android Keystore.
+- LAN binding is opt-in and uses TLS 1.2 or TLS 1.3 with a 2048-bit RSA identity generated and retained by Android Keystore on the current main branch.
 - The certificate is self-signed and device-local. Verify the displayed SHA-256 fingerprint before trusting it; HTTPS does not establish public-CA trust or automatic hostname/IP validation.
 - Password protection can be enabled or disabled while the server is stopped. Credentials are encrypted at rest using Android Keystore AES-GCM.
 - Password OFF allows any reachable LAN client to access served project content. Keep LAN sharing disabled on untrusted networks.
-- TLS integration tests passed in CI; physical-device/browser trust and handshake testing remain release gates.
+- JVM TLS/authentication tests use a static test certificate; they do not exercise the production Android Keystore key. PR #23 adds an Android instrumentation test for the real Keystore identity and TLS 1.2/1.3 handshakes. Until that test passes and a physical browser is checked, the production Keystore handshake and browser trust remain release gates.
+
+## 16 KB Android page-size compatibility
+
+- The app uses NDK 27.2.12479018 and enables `ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON` for the native CMake build.
+- CI inspects every packaged `.so` for arm64-v8a and x86_64 and requires every ELF `PT_LOAD` segment alignment to be at least `0x4000` (16 KB).
+- CI also verifies the APK ZIP alignment with `zipalign -c -P 16 4` and checks the packaged `DT_NEEDED` dependencies for `libnode.so`, `libnovarun_node_bridge.so` and `libc++_shared.so`.
+- The runtime job uses the `google_apis_ps16k` x86_64 emulator and asserts `getconf PAGE_SIZE` returns 16384.
+- Main commit `84aa4c3` passed Build Debug APK and the 16 KB emulator runtime job in Actions run [#395](https://github.com/ishak6/novarun-development/actions/runs/45821935176). The four instrumentation tests passed, including both supplied ZIP backend/preview tests and the bounded-log test.
+- This verifies the x86_64 16 KB emulator and build-time ELF alignment for both packaged ABIs. A physical arm64 16 KB device test is still required.
 
 ## Remaining integration gates
 
-- **Node.js:** embedded Node.js Mobile 24.22.1 full build is now packaged for arm64-v8a and x86_64, with a JNI bridge and visible foreground service. The pinned release archive is SHA-256 verified in CI. Emulator tests prove the x86_64 runtime starts both supplied projects, opens `node:sqlite`, serves the storefront and stops. Verify arm64-v8a, process lifecycle, logging, networking and core APIs on physical devices. Node.js Mobile has compatibility limitations, including unsupported child_process/cluster APIs.
-- **npm / npx:** still not integrated. Add an explicit-consent package installation workflow with lockfile enforcement, registry TLS, project-scoped cache/storage quotas, cancellation, lifecycle-script approval and native-addon compatibility checks before enabling package installation.
+- **Node.js:** embedded Node.js Mobile 24.22.1 full build is packaged for arm64-v8a and x86_64, with a JNI bridge and visible foreground service. The pinned release archive SHA-256 is verified in CI. The x86_64 16 KB Android emulator starts both supplied ZIP backends, opens `node:sqlite`, serves the storefront and stops. Verify arm64-v8a, process lifecycle, logging, networking and core APIs on physical devices. Node.js Mobile has compatibility limitations, including unsupported child_process/cluster APIs.
+- **npm / npx:** still not integrated. The pinned Node.js Mobile artifact provides `libnode.so` and headers; upstream mobile guidance expects npm modules to be installed at development time. NovaRun has no npm/npx CLI or runtime dependency installer. Before enabling installation, add lockfile enforcement, registry TLS, project-scoped cache/storage quotas, cancellation, lifecycle-script approval and native-addon compatibility checks.
 - **PHP:** build and maintain PHP CLI for each supported Android ABI, select extensions, integrate process I/O and test Composer workflows.
 - **Java:** bundle a compiler, convert class files to DEX, resolve dependencies and execute through a constrained class-loading boundary.
 - **Kotlin:** integrate a compatible Kotlin compiler, convert output to DEX and verify Android API compatibility.
@@ -67,7 +76,7 @@ This document records only capabilities integrated into the current Android app.
 - A user-selected Node entry point is started in a dedicated Android service process with an ongoing notification and explicit Stop action.
 - The runner detects nested ZIP wrapper folders containing a package manifest and server entry point, checks the requested Node engine against the bundled 24.22.1 version, validates the port and checks for `node_modules` when dependencies are declared. It reports compatibility warnings and captures stdout/stderr through a bounded native pipe; the combined log is capped at 2 MiB with a visible truncation marker. This does not impose a CPU, memory, or project-filesystem quota on Node code.
 - The two supplied clothing-store ZIPs declare no npm dependencies and use built-in `node:sqlite`; the full Node 24 runtime provides that module. The runner does not yet install npm dependencies or run package lifecycle scripts, child processes or cluster workers. Native addons require Android ABI-compatible binaries.
-- CI downloads the fixtures by pinned commit, verifies ZIP integrity, imports them with the production ZIP importer, validates their HTML entry points, serves static storefront assets through the loopback preview server, then starts the Node backend and checks its health route, SQLite database and storefront assets. The emulator is x86_64; this does not prove physical-device or arm64-v8a behavior.
+- CI downloads the fixtures by pinned commit, verifies ZIP integrity, imports them with the production ZIP importer, validates their HTML entry points, serves static storefront assets through the loopback preview server, then starts the Node backend and checks its health route, SQLite database and storefront assets. The main-branch emulator is x86_64 with a 16 KB page size; this does not prove physical-device behavior.
 
 ## Node project inspection
 
