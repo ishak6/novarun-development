@@ -4,10 +4,11 @@ This checklist covers device-only release gates that Android Emulator CI cannot 
 
 ## Test build
 
-- Release: [NovaRun Debug APK 383.1](https://github.com/ishak6/novarun-development/releases/tag/novarun-debug-383-1)
-- APK: [app-debug.apk](https://github.com/ishak6/novarun-development/releases/download/novarun-debug-383-1/app-debug.apk)
-- Release asset SHA-256 (GitHub asset digest): `02b8f3d4b6bda0df2bbc07b898cdafc814df7b7989733e92b90f9a09f386a346`
-- CI run: [#383](https://github.com/ishak6/novarun-development/actions/runs/45394800830) — Build, Android Emulator runtime and publish succeeded.
+- Release: [NovaRun Debug APK 384.1](https://github.com/ishak6/novarun-development/releases/tag/novarun-debug-384-1)
+- APK: [app-debug.apk](https://github.com/ishak6/novarun-development/releases/download/novarun-debug-384-1/app-debug.apk)
+- Release asset SHA-256 (GitHub asset digest): `3647b20d76809da5f172d5d2d79db7af3942c8b927ed07cd26067bce987daf70`
+- CI run: [#384](https://github.com/ishak6/novarun-development/actions/runs/45611392853) — Build, Android Emulator runtime and publish succeeded; the emulator reported 18 passing instrumentation tests.
+- This APK was built from the integration branch plus this checklist. It contains the integration code from PR #16; it is not the older main-branch build from the documentation-only PR #19 check.
 
 Before testing, export/backup important projects. This Debug APK is not signed with a stable release key, so Android may reject an in-place update from a differently signed NovaRun build. Do not uninstall an existing app until its project data is backed up.
 
