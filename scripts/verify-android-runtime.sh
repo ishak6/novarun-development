@@ -20,6 +20,12 @@ if [ "$BOOTED" != "1" ]; then
   echo "Emulator is connected but Android has not completed booting (sys.boot_completed=$BOOTED)."
   exit 1
 fi
+PAGE_SIZE="$(adb shell getconf PAGE_SIZE | tr -d '\r')"
+if [ "$PAGE_SIZE" != "16384" ]; then
+  echo "::error::Expected a 16 KB Android emulator page size, got '$PAGE_SIZE'."
+  exit 1
+fi
+echo "Verified Android emulator page size: $PAGE_SIZE bytes."
 adb shell settings put global package_verifier_enable 0 || true
 
 echo "Installing app APK with non-streaming ADB..."
