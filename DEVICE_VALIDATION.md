@@ -4,17 +4,21 @@ This checklist covers device-only release gates that Android Emulator CI cannot 
 
 ## Test build
 
-- Release: [NovaRun Debug APK 384.1](https://github.com/ishak6/novarun-development/releases/tag/novarun-debug-384-1)
+- Integration candidate: [NovaRun Debug APK 384.1](https://github.com/ishak6/novarun-development/releases/tag/novarun-debug-384-1)
 - APK: [app-debug.apk](https://github.com/ishak6/novarun-development/releases/download/novarun-debug-384-1/app-debug.apk)
 - Release asset SHA-256 (GitHub asset digest): `3647b20d76809da5f172d5d2d79db7af3942c8b927ed07cd26067bce987daf70`
 - CI run: [#384](https://github.com/ishak6/novarun-development/actions/runs/45611392853) — Build, Android Emulator runtime and publish succeeded; the emulator reported 18 passing instrumentation tests.
 - This APK was built from the integration branch plus this checklist. It contains the integration code from PR #16; it is not the older main-branch build from the documentation-only PR #19 check.
+- Separate main-branch 16 KB candidate: [Actions run #395 — NovaRun-Debug-APK artifact](https://github.com/ishak6/novarun-development/actions/runs/45821935176/artifacts/15116804703). This build contains the merged 16 KB native alignment changes and passed on a 16 KB x86_64 emulator. It is based on main and does **not** contain the unmerged PR #16 integration changes. Use it to validate the main-branch 16 KB build on a physical arm64 device; do not assume APK 384.1 has the 16 KB changes.
+- The #395 artifact is an Actions artifact, not a permanent GitHub Release. Its Debug signing key may differ from APK 384.1.
+- Post-merge main candidate with both 16 KB alignment and the ECDSA Keystore fix: [Actions run #401](https://github.com/ishak6/novarun-development/actions/runs/45824645651). At the time this checklist was updated, its Build and runtime jobs were still running; download/use its Debug APK only after both jobs succeed. This main build still does **not** contain the unmerged PR #16 integration changes.
+- The LAN certificate fingerprint changes when the app migrates from the old RSA identity to the P-256 ECDSA v3 identity. Verify the new fingerprint shown by NovaRun; do not rely on a previously trusted fingerprint.
 
-Before testing, export/backup important projects. This Debug APK is not signed with a stable release key, so Android may reject an in-place update from a differently signed NovaRun build. Do not uninstall an existing app until its project data is backed up.
+Before testing, export/backup important projects. These Debug APKs are not signed with a stable release key, so Android may reject an in-place update from a differently signed NovaRun build. Do not uninstall an existing app until its project data is backed up.
 
 ## A. Install and record device details
 
-1. Download the APK from the release link above.
+1. Download the APK from the selected test-build link above.
 2. Install it using Android's package installer. If signature mismatch is shown, stop; back up app data before considering uninstall/reinstall.
 3. Record: phone model, Android version, CPU ABI (arm64-v8a expected for most current phones), NovaRun version and install result.
 4. Grant only permissions required for the test. Do not grant unrelated accessibility, device-admin or special access.
