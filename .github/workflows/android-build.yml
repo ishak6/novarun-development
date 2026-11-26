@@ -129,6 +129,19 @@ jobs:
             done
           done
 
+      # A successful Gradle task is not enough to prove that the exported APK
+      # has a valid Android signature. Verify it before publishing any artifact.
+      - name: Verify APK signature
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -s "$APK"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+
       - name: Upload APK
         uses: actions/upload-artifact@v6
         with:
@@ -271,3 +284,41 @@ jobs:
             app/build/reports/novarun-runtime/
           if-no-files-found: ignore
           retention-days: 7
+
+
+  publish-direct-apk:
+    name: Publish direct APK download
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor == 'ishak6')
+    needs: [build, runtime-verification]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download the verified APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: NovaRun-Debug-APK
+          path: dist
+
+      - name: Verify downloaded APK before publishing
+        run: |
+          set -euo pipefail
+          test -s dist/app-debug.apk
+          file dist/app-debug.apk
+          unzip -t dist/app-debug.apk >/dev/null
+          sha256sum dist/app-debug.apk | tee dist/app-debug.apk.sha256
+
+      - name: Publish APK as a direct GitHub Release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: novarun-debug-${{ github.run_number }}-${{ github.run_attempt }}
+          name: NovaRun Debug APK ${{ github.run_number }}.${{ github.run_attempt }}
+          prerelease: true
+          draft: false
+          make_latest: false
+          files: |
+            dist/app-debug.apk
+            dist/app-debug.apk.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

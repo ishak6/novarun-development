@@ -462,7 +462,25 @@ fun LocalServerScreen(
                 Spacer(Modifier.height(12.dp))
 
                 Text(
-                    text = "PORT",
+                    text = "LOCALHOST PORT",
+                    color = Color(0xFF9AA6B5),
+                    fontSize = 11.sp
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    text = serverState.localUrl?.let {
+                        runCatching { java.net.URI(it).port.toString() }.getOrNull()
+                    } ?: "Not available",
+                    color = Color.White,
+                    fontSize = 16.sp
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = "LAN SERVER PORT",
                     color = Color(0xFF9AA6B5),
                     fontSize = 11.sp
                 )

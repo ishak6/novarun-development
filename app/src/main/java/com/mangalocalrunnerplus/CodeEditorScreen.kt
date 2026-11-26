@@ -90,26 +90,20 @@ fun CodeEditorScreen(
         }
     }
 
+    val initialContent = remember(file.absolutePath) {
+        CodeEditorFilePolicy.load(file)
+    }
+
     var code by remember(file.absolutePath) {
-        mutableStateOf(
-            try {
-                if (
-                    file.exists() &&
-                    file.isFile &&
-                    file.length() <= 2_000_000L
-                ) {
-                    file.readText()
-                } else {
-                    ""
-                }
-            } catch (exception: Exception) {
-                ""
-            }
-        )
+        mutableStateOf(initialContent.getOrDefault(""))
     }
 
     var savedCode by remember(file.absolutePath) {
-        mutableStateOf(code)
+        mutableStateOf(initialContent.getOrDefault(""))
+    }
+
+    var loadError by remember(file.absolutePath) {
+        mutableStateOf(initialContent.exceptionOrNull()?.message)
     }
 
     var message by remember {
@@ -155,78 +149,22 @@ fun CodeEditorScreen(
 
     suspend fun saveSnapshot(snapshot: String): Boolean = saveMutex.withLock {
         isSaving = true
-
         try {
             withContext(Dispatchers.IO) {
-                if (!file.exists() || !file.isFile) {
-                    throw IllegalStateException(
-                        "File is unavailable. It may have been deleted or moved."
-                    )
+                if (loadError != null) {
+                    throw IllegalStateException(loadError ?: "File cannot be edited.")
                 }
-
-                if (file.length() > 2_000_000L) {
-                    throw IllegalStateException(
-                        "File is larger than the supported 2 MB limit."
-                    )
-                }
-
-                val parent = file.parentFile
-                    ?: throw IllegalStateException(
-                        "File location is unavailable."
-                    )
-
-                if (!parent.exists() || !parent.isDirectory || !parent.canWrite()) {
-                    throw IllegalStateException(
-                        "Parent directory is unavailable or read-only."
-                    )
-                }
-
-                // Write to a sibling temporary file first so an interrupted save
-                // does not leave the user's source file partially overwritten.
-                val tempFile = File(
-                    parent,
-                    ".${file.name}.${UUID.randomUUID()}.tmp"
-                )
-
-                try {
-                    FileOutputStream(tempFile).use { output ->
-                        output.write(snapshot.toByteArray(Charsets.UTF_8))
-                        output.fd.sync()
-                    }
-
-                    try {
-                        Files.move(
-                            tempFile.toPath(),
-                            file.toPath(),
-                            StandardCopyOption.ATOMIC_MOVE,
-                            StandardCopyOption.REPLACE_EXISTING
-                        )
-                    } catch (exception: AtomicMoveNotSupportedException) {
-                        Files.move(
-                            tempFile.toPath(),
-                            file.toPath(),
-                            StandardCopyOption.REPLACE_EXISTING
-                        )
-                    }
-                } finally {
-                    if (tempFile.exists()) {
-                        tempFile.delete()
-                    }
-                }
+                CodeEditorFilePolicy.save(projectDirectory, file, snapshot)
             }
-
             savedCode = snapshot
             saveError = false
             true
-
         } catch (exception: CancellationException) {
             throw exception
-
         } catch (exception: Exception) {
             saveError = true
             message = exception.message ?: "Could not save file."
             false
-
         } finally {
             isSaving = false
         }
@@ -336,7 +274,7 @@ fun CodeEditorScreen(
                             }
                         }
                     },
-                    enabled = !isSaving && !isRunning,
+                    enabled = !isSaving && !isRunning && loadError == null,
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = NovaRunPalette.Cyan
                     )
@@ -356,7 +294,7 @@ fun CodeEditorScreen(
                         }
                     }
                 },
-                enabled = isModified && !isSaving,
+                enabled = isModified && !isSaving && loadError == null,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = NovaRunPalette.Cyan,
                     contentColor = NovaRunPalette.Background
@@ -370,6 +308,23 @@ fun CodeEditorScreen(
                 Spacer(Modifier.width(6.dp))
                 Text("Save")
             }
+        }
+
+        loadError?.let { warning ->
+            Text(
+                "Read-only: " + warning,
+                color = NovaRunPalette.Error,
+                fontSize = 11.sp
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+
+        if (extension == "py") {
+            Text(
+                "SECURITY: Python scripts run with NovaRun's Android app permissions and are not sandboxed. Run trusted code only.",
+                color = NovaRunPalette.Warning,
+                fontSize = 11.sp
+            )
         }
 
         Spacer(Modifier.height(8.dp))
@@ -435,6 +390,7 @@ fun CodeEditorScreen(
                     extension = extension,
                     fontSizeSp = fontSize,
                     wordWrap = wordWrap,
+                    enabled = loadError == null,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()

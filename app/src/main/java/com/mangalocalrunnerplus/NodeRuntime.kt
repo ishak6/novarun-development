@@ -178,6 +178,11 @@ class NodeProjectService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Promote before parsing any action so an immediate Stop cannot leave
+        // a startForegroundService() request unpromoted.
+        foreground(
+            if (intent?.action == ACTION_STOP) "Stopping Node.js backend…" else "Preparing embedded Node.js…"
+        )
         when (intent?.action) {
             ACTION_STOP -> {
                 NodeStateStore.write(this, NodeState(message = "Stopped by user"))
@@ -185,15 +190,16 @@ class NodeProjectService : Service() {
                 // This service is isolated in :nodejs; only that runtime process is terminated.
                 Process.killProcess(Process.myPid())
             }
-            ACTION_START -> startProject(intent)
+            ACTION_START -> startProject(intent, startId)
             else -> stopSelf()
         }
-        return START_NOT_STICKY
+        // Redeliver only a user-issued Start request if Android recreates the
+        // isolated Node runtime process. Explicit Stop remains non-sticky.
+        return if (intent?.action == ACTION_START) START_REDELIVER_INTENT else START_NOT_STICKY
     }
 
-    private fun startProject(intent: Intent) {
+    private fun startProject(intent: Intent, startId: Int) {
         if (!started.compareAndSet(false, true)) return
-        foreground("Preparing embedded Node.js…")
         val project = intent.getStringExtra(EXTRA_PROJECT)?.let(::File)
         val port = intent.getIntExtra(EXTRA_PORT, 3000)
         val plan = project?.let { NodeLaunchPlan.create(it, port) }
@@ -223,7 +229,14 @@ class NodeProjectService : Service() {
                 NodeStateStore.write(this, NodeState("ERROR", "Node runtime error: ${e.message ?: e.javaClass.simpleName}", url, log.absolutePath))
             } finally {
                 started.set(false)
-                stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                // Node.js Mobile documents that a Node engine cannot be restarted
+                // after node::Start() returns. This service owns the dedicated
+                // :nodejs process, so terminate it after persisting the exit state.
+                // If a newer Start intent arrived while this engine was ending,
+                // START_REDELIVER_INTENT will recreate the service in a fresh process.
+                stopSelfResult(startId)
+                Process.killProcess(Process.myPid())
             }
         }, "NovaRun-Node-Engine").start()
 
@@ -243,6 +256,11 @@ class NodeProjectService : Service() {
             }
             if (NodeStateStore.read(this).status == "STARTING") {
                 NodeStateStore.write(this, NodeState("ERROR", "No server accepted connections on port $port within 30 seconds. Check the log.", url, log.absolutePath))
+                // Mark this start request stopped before terminating the isolated
+                // Node process. Otherwise START_REDELIVER_INTENT can redeliver the
+                // same failed request and create an endless 30-second restart loop.
+                stopSelfResult(startId)
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 Process.killProcess(Process.myPid())
             }
         }, "NovaRun-Node-Health").start()
@@ -307,6 +325,7 @@ fun NodeBackendRunnerCard(project: File?, onOpenPreview: (String) -> Unit = {}) 
             OutlinedTextField(value = portText, onValueChange = { if (it.length <= 5 && it.all(Char::isDigit)) portText = it },
                 label = { Text("Node server port") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Text("Uses Node.js 24.22.1 full runtime with built-in SQLite. Both supplied store ZIPs have no npm dependencies. child_process/cluster are unsupported.", color = NovaRunPalette.TextSecondary, fontSize = 11.sp)
+            Text("SECURITY: Node project code runs with NovaRun's Android app permissions and can access app-private files. It is not sandboxed. Run trusted projects only.", color = NovaRunPalette.Warning, fontSize = 11.sp)
             Text("First admin setup token appears in SERVER LOG on first launch. Keep it private.", color = NovaRunPalette.Warning, fontSize = 11.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = project != null && state.status !in setOf("STARTING", "RUNNING"),

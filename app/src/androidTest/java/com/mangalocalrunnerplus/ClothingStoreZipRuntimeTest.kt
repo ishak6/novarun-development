@@ -15,6 +15,194 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ClothingStoreZipRuntimeTest {
     @Test
+    fun localWebServerServiceStartsLocalhostAndStopsCleanly() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val activity = ActivityScenario.launch(MainActivity::class.java)
+        val assetName = "clothing_store_nokshi_v1.5.3_professional.zip"
+        val projectRoot = instrumentation.context.assets.open(assetName).use { input ->
+            ZipProjectImporter.importZip(context, input, assetName, ZipImportLimits())
+        }
+        val lanPort = ServerSocket(0).use { it.localPort }
+        var startedUrl: String? = null
+
+        try {
+            val preview = ProjectPreviewValidator.validate(projectRoot)
+            assertTrue("ZIP must pass preview validation: ${preview.message}", preview.isValid)
+
+            // Exercise the actual Android foreground service used by the Start button,
+            // not a directly constructed LocalWebServer instance.
+            LocalWebServerService.start(
+                context = context,
+                projectDirectory = projectRoot,
+                durationMillis = 60_000L,
+                port = lanPort,
+                authenticationEnabled = true
+            )
+
+            val startDeadline = System.currentTimeMillis() + 30_000L
+            var state = LocalServerServiceStateStore.state.value
+            while (System.currentTimeMillis() < startDeadline &&
+                state.status !in setOf(LocalServerServiceStatus.RUNNING, LocalServerServiceStatus.ERROR)
+            ) {
+                Thread.sleep(200)
+                state = LocalServerServiceStateStore.state.value
+            }
+
+            assertEquals("Local server service failed to start: ${state.message}",
+                LocalServerServiceStatus.RUNNING, state.status)
+            val localUrl = state.localUrl
+                ?: throw AssertionError("Service reported RUNNING without a localhost URL")
+            startedUrl = localUrl
+            val response = get(localUrl)
+            assertEquals("Service localhost URL must return HTTP 200", 200, response.first)
+            assertTrue("Service must serve the imported storefront HTML",
+                response.second.contains("<html", ignoreCase = true))
+
+            LocalWebServerService.stop(context)
+            val stopDeadline = System.currentTimeMillis() + 15_000L
+            state = LocalServerServiceStateStore.state.value
+            while (System.currentTimeMillis() < stopDeadline &&
+                state.status != LocalServerServiceStatus.STOPPED
+            ) {
+                Thread.sleep(200)
+                state = LocalServerServiceStateStore.state.value
+            }
+            assertEquals("Service did not transition to STOPPED: ${state.message}",
+                LocalServerServiceStatus.STOPPED, state.status)
+
+            val stoppedConnection = runCatching {
+                val connection = URL(localUrl).openConnection() as HttpURLConnection
+                connection.connectTimeout = 1_000
+                connection.readTimeout = 1_000
+                try { connection.responseCode } finally { connection.disconnect() }
+            }
+            assertTrue("Localhost socket must reject requests after Stop", stoppedConnection.isFailure)
+        } finally {
+            LocalWebServerService.stop(context)
+            activity.close()
+            projectRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun invalidLanPortDoesNotPreventLocalhostStartup() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val activity = ActivityScenario.launch(MainActivity::class.java)
+        val assetName = "clothing_store_nokshi_v1.5.3_professional.zip"
+        val projectRoot = instrumentation.context.assets.open(assetName).use { input ->
+            ZipProjectImporter.importZip(context, input, assetName, ZipImportLimits())
+        }
+
+        try {
+            LocalWebServerService.start(
+                context = context,
+                projectDirectory = projectRoot,
+                durationMillis = 60_000L,
+                port = 80,
+                authenticationEnabled = false
+            )
+
+            val deadline = System.currentTimeMillis() + 30_000L
+            var state = LocalServerServiceStateStore.state.value
+            while (System.currentTimeMillis() < deadline &&
+                state.status !in setOf(LocalServerServiceStatus.RUNNING, LocalServerServiceStatus.ERROR)
+            ) {
+                Thread.sleep(150)
+                state = LocalServerServiceStateStore.state.value
+            }
+
+            assertEquals(
+                "Invalid optional LAN port must not fail localhost startup: ${state.message}",
+                LocalServerServiceStatus.RUNNING,
+                state.status
+            )
+            assertTrue("Localhost URL must still be available", !state.localUrl.isNullOrBlank())
+            assertEquals("LAN URL must be absent when its port is invalid", null, state.lanUrl)
+            val response = get(state.localUrl!!)
+            assertEquals("Localhost must serve the project despite invalid LAN port", 200, response.first)
+        } finally {
+            LocalWebServerService.stop(context)
+            val stopDeadline = System.currentTimeMillis() + 10_000L
+            while (System.currentTimeMillis() < stopDeadline &&
+                LocalServerServiceStateStore.state.value.status != LocalServerServiceStatus.STOPPED
+            ) {
+                Thread.sleep(100)
+            }
+            activity.close()
+            projectRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rapidStartStopDoesNotLeaveLocalhostListenerRunning() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val activity = ActivityScenario.launch(MainActivity::class.java)
+        val assetName = "clothing_store_nokshi_v1.5.3_professional.zip"
+        val projectRoot = instrumentation.context.assets.open(assetName).use { input ->
+            ZipProjectImporter.importZip(context, input, assetName, ZipImportLimits())
+        }
+        val observedUrls = linkedSetOf<String>()
+
+        try {
+            repeat(5) {
+                LocalWebServerService.start(
+                    context = context,
+                    projectDirectory = projectRoot,
+                    durationMillis = 60_000L,
+                    port = 0 + 19000 + it,
+                    authenticationEnabled = false
+                )
+                // Immediately issue Stop to exercise cancellation during startup.
+                LocalWebServerService.stop(context)
+
+                val deadline = System.currentTimeMillis() + 15_000L
+                var state = LocalServerServiceStateStore.state.value
+                while (System.currentTimeMillis() < deadline &&
+                    state.status != LocalServerServiceStatus.STOPPED
+                ) {
+                    state.localUrl?.let(observedUrls::add)
+                    Thread.sleep(100)
+                    state = LocalServerServiceStateStore.state.value
+                }
+                state.localUrl?.let(observedUrls::add)
+                assertEquals(
+                    "Service must settle in STOPPED after rapid Start/Stop: ${state.message}",
+                    LocalServerServiceStatus.STOPPED,
+                    state.status
+                )
+
+                // Allow any already-queued Start intent to arrive after Stop.
+                // The final state must remain stopped, not merely be transiently stopped.
+                Thread.sleep(1_000L)
+                state = LocalServerServiceStateStore.state.value
+                state.localUrl?.let(observedUrls::add)
+                assertEquals(
+                    "A delayed Start intent restarted the service after Stop: ${state.message}",
+                    LocalServerServiceStatus.STOPPED,
+                    state.status
+                )
+            }
+
+            observedUrls.forEach { url ->
+                val result = runCatching {
+                    val connection = URL(url).openConnection() as HttpURLConnection
+                    connection.connectTimeout = 1_000
+                    connection.readTimeout = 1_000
+                    try { connection.responseCode } finally { connection.disconnect() }
+                }
+                assertTrue("Listener must be closed after rapid Stop: $url", result.isFailure)
+            }
+        } finally {
+            LocalWebServerService.stop(context)
+            activity.close()
+            projectRoot.deleteRecursively()
+        }
+    }
+
+    @Test
     fun secureFullstackZipStartsAndAnswersHealthCheck() {
         runStoreZip("clothing_store_secure_fullstack.zip")
     }
