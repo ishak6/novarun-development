@@ -341,7 +341,7 @@ jobs:
           emulator-boot-timeout: 600
           disable-linux-hw-accel: false
           working-directory: ${{ github.workspace }}
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none -memory 4096 -cores 4
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none -memory 6144 -cores 4
           disable-animations: true
           # android-emulator-runner parses `script` into separate shell invocations.
           # Keep stateful logic in one checked-in script file.
