@@ -36,6 +36,7 @@ This document records only capabilities integrated into the current Android app.
 - Entry names are checked for absolute paths, parent traversal, drive-qualified paths, NUL characters and excessive length.
 - Duplicate normalized paths and file/directory conflicts are rejected.
 - Files are extracted into a temporary directory and promoted only after extraction completes.
+- ZIP import can be cancelled from the picker progress dialog. Cancellation is checked between archive entries and decompression chunks; incomplete temporary extraction directories are removed before cancellation returns. A document provider blocked inside an individual read may not respond until that read returns.
 - ZIP import is not a malware scanner.
 
 ## LAN server authentication and HTTPS
