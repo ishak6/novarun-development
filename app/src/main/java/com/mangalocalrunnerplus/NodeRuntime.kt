@@ -142,6 +142,24 @@ internal object NodeLogLimits {
     const val TRUNCATION_MARKER = "[NovaRun] log output truncated after 2 MiB."
 }
 
+/**
+ * Conservative V8-managed heap limits for the embedded mobile backend.
+ *
+ * These flags do not cap total process RSS, native allocations, CPU time,
+ * file access, or network access. The Node service is not a security sandbox.
+ */
+internal object NodeRuntimeLimits {
+    const val MAX_OLD_SPACE_SIZE_MB = 256
+    const val MAX_SEMI_SPACE_SIZE_MB = 16
+
+    fun commandArguments(entry: File): Array<String> = arrayOf(
+        "node",
+        "--max-old-space-size=$MAX_OLD_SPACE_SIZE_MB",
+        "--max-semi-space-size=$MAX_SEMI_SPACE_SIZE_MB",
+        entry.absolutePath
+    )
+}
+
 internal data class NodeState(
     val status: String = "STOPPED", val message: String = "Node.js backend stopped",
     val url: String? = null, val logPath: String? = null
@@ -215,7 +233,7 @@ class NodeProjectService : Service() {
         Thread({
             try {
                 val code = NodeNativeBridge().startNodeWithArguments(
-                    arrayOf("node", p.entry.absolutePath), p.root.absolutePath,
+                    NodeRuntimeLimits.commandArguments(p.entry), p.root.absolutePath,
                     File(p.root, "node_modules").absolutePath, cacheDir.absolutePath, log.absolutePath, p.port.toString()
                 )
                 NodeStateStore.write(this, NodeState(if (code == 0) "STOPPED" else "ERROR", "Node.js exited with code $code", url, log.absolutePath))
