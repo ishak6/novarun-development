@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.net.ServerSocket
+import java.net.Socket
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
@@ -67,6 +68,17 @@ class LanTlsIdentityRuntimeTest {
 
         try {
             assertTrue("TLS listener must start with the Android Keystore identity", server.start())
+
+            // A peer that speaks plaintext to the TLS port must be rejected
+            // without allowing its handshake exception to terminate the app.
+            Socket("127.0.0.1", port).use { socket ->
+                socket.getOutputStream().write(
+                    "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray(Charsets.US_ASCII)
+                )
+                socket.getOutputStream().flush()
+            }
+            Thread.sleep(100)
+
             listOf("TLSv1.3", "TLSv1.2").forEach { protocol ->
                 val response = (clientContext.socketFactory
                     .createSocket("127.0.0.1", port) as SSLSocket).use { socket ->
@@ -74,9 +86,10 @@ class LanTlsIdentityRuntimeTest {
                     socket.soTimeout = 5_000
                     socket.startHandshake()
                     socket.getOutputStream().write(
-                        "GET /index.html HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n"
+                        "GET /index.html HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
                             .toByteArray(Charsets.US_ASCII)
                     )
+                    socket.getOutputStream().flush()
                     socket.getInputStream().bufferedReader().readText()
                 }
 
