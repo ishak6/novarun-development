@@ -129,6 +129,49 @@ jobs:
             done
           done
 
+      - name: Verify embedded Node native dependencies
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          READELF="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          test -s "$APK"
+          test -x "$READELF"
+          zip_entries="$(unzip -Z1 "$APK")"
+
+          for abi in arm64-v8a x86_64; do
+            for library in libnode.so libnovarun_node_bridge.so libc++_shared.so; do
+              entry="lib/$abi/$library"
+              if ! grep -Fxq "$entry" <<< "$zip_entries"; then
+                echo "::error::APK is missing native dependency $entry"
+                exit 1
+              fi
+              extracted="/tmp/novarun-deps-$abi-$library"
+              unzip -p "$APK" "$entry" > "$extracted"
+              needed="$("$READELF" -d "$extracted" | sed -n 's/.*Shared library: \[\(.*\)\].*/\1/p')"
+              if [ -z "$needed" ]; then
+                echo "::error::$entry has no readable DT_NEEDED entries"
+                exit 1
+              fi
+
+              while IFS= read -r dependency; do
+                case "$dependency" in
+                  libc.so|libm.so|libdl.so|liblog.so)
+                    ;;
+                  *)
+                    dependency_entry="lib/$abi/$dependency"
+                    if ! grep -Fxq "$dependency_entry" <<< "$zip_entries"; then
+                      echo "::error::$entry needs $dependency but APK is missing $dependency_entry"
+                      exit 1
+                    fi
+                    ;;
+                esac
+              done <<< "$needed"
+              echo "Verified native dependencies: $entry"
+            done
+          done
+
       # Every native library in the final APK must be loadable on 16 KB
       # page-size devices. This catches our own JNI bridge and third-party SDK
       # libraries, not just the embedded Node binary.
