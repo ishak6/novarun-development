@@ -25,6 +25,8 @@ android {
         externalNativeBuild {
             cmake {
                 arguments += "-DANDROID_STL=c++_shared"
+                // NDK r27 defaults to 4 KB ELF LOAD alignment unless this is enabled.
+                arguments += "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
             }
         }
     }

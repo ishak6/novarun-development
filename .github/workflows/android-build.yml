@@ -129,6 +129,93 @@ jobs:
             done
           done
 
+      - name: Verify embedded Node native dependencies
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          READELF="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          test -s "$APK"
+          test -x "$READELF"
+          zip_entries="$(unzip -Z1 "$APK")"
+
+          for abi in arm64-v8a x86_64; do
+            for library in libnode.so libnovarun_node_bridge.so libc++_shared.so; do
+              entry="lib/$abi/$library"
+              if ! grep -Fxq "$entry" <<< "$zip_entries"; then
+                echo "::error::APK is missing native dependency $entry"
+                exit 1
+              fi
+              extracted="/tmp/novarun-deps-$abi-$library"
+              unzip -p "$APK" "$entry" > "$extracted"
+              needed="$("$READELF" -d "$extracted" | sed -n 's/.*Shared library: \[\(.*\)\].*/\1/p')"
+              if [ -z "$needed" ]; then
+                echo "::error::$entry has no readable DT_NEEDED entries"
+                exit 1
+              fi
+
+              while IFS= read -r dependency; do
+                case "$dependency" in
+                  libc.so|libm.so|libdl.so|liblog.so)
+                    ;;
+                  *)
+                    dependency_entry="lib/$abi/$dependency"
+                    if ! grep -Fxq "$dependency_entry" <<< "$zip_entries"; then
+                      echo "::error::$entry needs $dependency but APK is missing $dependency_entry"
+                      exit 1
+                    fi
+                    ;;
+                esac
+              done <<< "$needed"
+              echo "Verified native dependencies: $entry"
+            done
+          done
+
+      # Every native library in the final APK must be loadable on 16 KB
+      # page-size devices. This catches our own JNI bridge and third-party SDK
+      # libraries, not just the embedded Node binary.
+      - name: Verify 16 KB native ELF and APK alignment
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          READELF="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
+          test -s "$APK"
+          test -x "$READELF"
+          test -x "$ZIPALIGN"
+
+          zip_entries="$(unzip -Z1 "$APK")"
+          for abi in arm64-v8a x86_64; do
+            mapfile -t native_entries < <(grep -E "^lib/${abi}/[^/]+\\.so$" <<< "$zip_entries")
+            if [ "${#native_entries[@]}" -eq 0 ]; then
+              echo "::error::APK contains no native libraries for $abi"
+              exit 1
+            fi
+
+            for entry in "${native_entries[@]}"; do
+              extracted="/tmp/novarun-16k-${abi}-$(basename "$entry")"
+              unzip -p "$APK" "$entry" > "$extracted"
+              alignments="$("$READELF" -lW "$extracted" | awk '$1 == "LOAD" {print $NF}')"
+              if [ -z "$alignments" ]; then
+                echo "::error::$entry has no ELF LOAD segments"
+                exit 1
+              fi
+
+              while IFS= read -r alignment; do
+                if (( alignment < 0x4000 )); then
+                  echo "::error::$entry has LOAD alignment $alignment; expected at least 0x4000 (16 KB)"
+                  exit 1
+                fi
+              done <<< "$alignments"
+              echo "Verified 16 KB ELF LOAD alignment: $entry"
+            done
+          done
+
+          "$ZIPALIGN" -c -P 16 4 "$APK"
+
       - name: Upload APK
         uses: actions/upload-artifact@v6
         with:
@@ -248,13 +335,13 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          target: google_apis
+          target: google_apis_ps16k
           arch: x86_64
           profile: pixel_2
           emulator-boot-timeout: 600
           disable-linux-hw-accel: false
           working-directory: ${{ github.workspace }}
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none -memory 4096 -cores 4
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none -memory 6144 -cores 4
           disable-animations: true
           # android-emulator-runner parses `script` into separate shell invocations.
           # Keep stateful logic in one checked-in script file.
