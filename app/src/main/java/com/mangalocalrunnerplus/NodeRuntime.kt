@@ -142,6 +142,35 @@ internal object NodeLogLimits {
     const val TRUNCATION_MARKER = "[NovaRun] log output truncated after 2 MiB."
 }
 
+internal object NodeLogRetention {
+    const val MAX_FILES = 10
+    const val MAX_TOTAL_BYTES = 20L * 1024L * 1024L
+
+    /** Keep the active log and prune the oldest NovaRun logs to a fixed app-wide budget. */
+    fun prune(directory: File, currentLog: File): Boolean {
+        val root = runCatching { directory.canonicalFile }.getOrNull() ?: return false
+        val keep = runCatching { currentLog.canonicalFile }.getOrNull() ?: return false
+        if (!root.isDirectory || !root.canWrite() || keep.parentFile != root || !keep.isFile) return false
+
+        val logs = root.listFiles { file ->
+            file.isFile && file.name.startsWith("node-backend-") && file.name.endsWith(".log")
+        }?.toList() ?: return false
+        if (logs.none { runCatching { it.canonicalFile == keep }.getOrDefault(false) }) return false
+
+        var totalBytes = logs.sumOf { it.length() }
+        var fileCount = logs.size
+        for (log in logs.sortedWith(compareBy<File> { it.lastModified() }.thenBy { it.name })) {
+            if (fileCount <= MAX_FILES && totalBytes <= MAX_TOTAL_BYTES) break
+            if (runCatching { log.canonicalFile == keep }.getOrDefault(false)) continue
+            val size = log.length()
+            if (!log.delete() && log.exists()) continue
+            fileCount -= 1
+            totalBytes = (totalBytes - size).coerceAtLeast(0L)
+        }
+        return fileCount <= MAX_FILES && totalBytes <= MAX_TOTAL_BYTES && keep.isFile
+    }
+}
+
 internal data class NodeState(
     val status: String = "STOPPED", val message: String = "Node.js backend stopped",
     val url: String? = null, val logPath: String? = null
@@ -204,11 +233,21 @@ class NodeProjectService : Service() {
         }
         val p = plan.getOrThrow()
         val log = File(filesDir, "node-backend-${p.root.name.hashCode()}-$port.log")
-        log.writeText("NovaRun embedded Node.js 24.22.1\nProject: ${p.root.name}\nEntry: ${p.entry.relativeTo(p.root).path}\n")
-        // Write all service-owned diagnostics before the native reader snapshots
-        // the initial file length and starts enforcing the combined 2 MiB cap.
-        if (p.warnings.isNotEmpty()) {
-            log.appendText("\nCompatibility notes:\n- " + p.warnings.joinToString("\n- ") + "\n")
+        try {
+            log.writeText("NovaRun embedded Node.js 24.22.1\nProject: ${p.root.name}\nEntry: ${p.entry.relativeTo(p.root).path}\n")
+            // Write service diagnostics before the native reader snapshots the initial length.
+            if (p.warnings.isNotEmpty()) {
+                log.appendText("\nCompatibility notes:\n- " + p.warnings.joinToString("\n- ") + "\n")
+            }
+            check(NodeLogRetention.prune(filesDir, log)) {
+                "Could not enforce the Node log retention limit (10 files / 20 MiB). Free app storage and retry."
+            }
+        } catch (error: Exception) {
+            NodeStateStore.write(this, NodeState("ERROR", error.message ?: "Could not prepare Node log storage."))
+            started.set(false)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return
         }
         val url = "http://127.0.0.1:$port/"
         NodeStateStore.write(this, NodeState("STARTING", "Starting ${p.entry.name}…", url, log.absolutePath))
