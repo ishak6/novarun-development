@@ -52,6 +52,11 @@ fun WebPreviewScreen(
         ProjectPreviewValidator.validate(projectDirectory)
     }
     val projectRoot = validation.projectRoot
+    // Backend projects must run through NodeProjectService. Static preview only
+    // serves files and cannot provide server.js API routes or SQLite operations.
+    val nodeBackendPlan = remember(projectDirectory) {
+        NodeLaunchPlan.create(projectDirectory, 3000).getOrNull()
+    }
 
     var previewServer by remember(projectDirectory) {
         mutableStateOf<LocalWebServer?>(null)
@@ -82,7 +87,7 @@ fun WebPreviewScreen(
     // assets and client-side routes run in a normal same-origin context.
     // The preview listener is bound to loopback only and is not LAN-visible.
     LaunchedEffect(projectRoot, nodeServerUrl) {
-        if (nodeServerUrl != null) return@LaunchedEffect
+        if (nodeServerUrl != null || nodeBackendPlan != null) return@LaunchedEffect
         if (projectRoot == null || !validation.isValid) return@LaunchedEffect
 
         val started = withContext(Dispatchers.IO) {
@@ -212,6 +217,24 @@ fun WebPreviewScreen(
         Spacer(Modifier.height(10.dp))
 
         when {
+            nodeBackendPlan != null && nodeServerUrl == null -> Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Node.js backend required", color = Color(0xFFFF9F0A), fontSize = 16.sp)
+                Text(
+                    "Static Preview only serves files. It cannot run server.js, backend API routes, or the SQLite database.",
+                    color = Color(0xFF9AA6B5), fontSize = 13.sp
+                )
+                Text(
+                    "Open Localhost → Node.js Full-Stack Runner → Start Node → Open Website Preview.",
+                    color = Color.White, fontSize = 13.sp
+                )
+                Text(
+                    "Detected: " + nodeBackendPlan.root.name + "/" + nodeBackendPlan.entry.relativeTo(nodeBackendPlan.root).invariantSeparatorsPath,
+                    color = Color(0xFF30D158), fontSize = 11.sp
+                )
+            }
             !validation.isValid && nodeServerUrl == null -> Text(
                 text = validation.message,
                 color = Color(0xFFFF9F0A),
