@@ -4,13 +4,14 @@ This checklist covers device-only release gates that Android Emulator CI cannot 
 
 ## Test build
 
-- Release: [NovaRun Debug APK 384.1](https://github.com/ishak6/novarun-development/releases/tag/novarun-debug-384-1)
-- APK: [app-debug.apk](https://github.com/ishak6/novarun-development/releases/download/novarun-debug-384-1/app-debug.apk)
-- Release asset SHA-256 (GitHub asset digest): `3647b20d76809da5f172d5d2d79db7af3942c8b927ed07cd26067bce987daf70`
-- CI run: [#384](https://github.com/ishak6/novarun-development/actions/runs/45611392853) — Build, Android Emulator runtime and publish succeeded; the emulator reported 18 passing instrumentation tests.
-- This APK was built from the integration branch plus this checklist. It contains the integration code from PR #16; it is not the older main-branch build from the documentation-only PR #19 check.
+- Main-branch candidate: [Run #401](https://github.com/ishak6/novarun-development/actions/runs/45824645651) — commit `d2ccb0801cc4b71db779dd09b4d87ea670f74d82`.
+- Debug APK artifact: [Download from Actions](https://github.com/ishak6/novarun-development/actions/runs/45824645651/artifacts/15118814232).
+- Run #401 Build Debug APK and Android Emulator runtime jobs both succeeded after merging 16 KB alignment and P-256 ECDSA TLS changes. Use the artifact for physical-device testing; it is an Actions artifact and may expire.
+- Older integration candidate: [Debug APK release 384.1](https://github.com/ishak6/novarun-development/releases/tag/novarun-debug-384-1). It includes PR #16 integration, but it is not the latest main-branch ECDSA + 16 KB candidate.
 
-Before testing, export/backup important projects. This Debug APK is not signed with a stable release key, so Android may reject an in-place update from a differently signed NovaRun build. Do not uninstall an existing app until its project data is backed up.
+The latest main-branch artifact has no permanent release checksum published in this checklist. Download it from the linked Actions artifact and verify the downloaded file locally before installation.
+
+Before testing, export/backup important projects. Debug APKs may not share a stable signing key, so Android may reject an in-place update from a differently signed NovaRun build. Do not uninstall an existing app until its project data is backed up.
 
 ## A. Install and record device details
 
@@ -49,7 +50,7 @@ Expected: no false RUNNING state, no repeated startup-redelivery loop, logs rema
 3. Enable LAN HTTPS only on a trusted private Wi-Fi/hotspot. Keep LAN authentication enabled.
 4. Start the server and record the displayed LAN URL, port and SHA-256 certificate fingerprint.
 5. On a second device connected to the same network, open the LAN URL and complete authentication.
-6. Compare the certificate fingerprint with NovaRun's displayed fingerprint before accepting/trusting the self-signed certificate.
+6. Compare the certificate fingerprint with NovaRun's displayed P-256 ECDSA fingerprint before accepting/trusting the self-signed certificate. It differs from the older RSA identity; verify the new value.
 7. Confirm the selected static project preview is served over HTTPS.
 8. Stop the server and confirm the second device can no longer load the page.
 
